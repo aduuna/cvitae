@@ -1391,10 +1391,557 @@
           }
         }
       }
+    },
+    "/api/v1/uploads": {
+      "get": {
+        "tags": [
+          "uploads"
+        ],
+        "summary": "List Uploads",
+        "operationId": "list_uploads_api_v1_uploads_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UploadSummary"
+                  },
+                  "type": "array",
+                  "title": "Response List Uploads Api V1 Uploads Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/uploads/{upload_id}": {
+      "delete": {
+        "tags": [
+          "uploads"
+        ],
+        "summary": "Delete Upload",
+        "operationId": "delete_upload_api_v1_uploads__upload_id__delete",
+        "parameters": [
+          {
+            "name": "upload_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Upload Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/imports": {
+      "post": {
+        "tags": [
+          "imports"
+        ],
+        "summary": "Create Import",
+        "description": "Extract a profile draft with the chosen AI model (default: the user's choice).",
+        "operationId": "create_import_api_v1_imports_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_import_api_v1_imports_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The AI provider failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The AI provider took too long",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/jobs": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "List Jobs",
+        "operationId": "list_jobs_api_v1_jobs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/JobSummary"
+                  },
+                  "type": "array",
+                  "title": "Response List Jobs Api V1 Jobs Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Create Job",
+        "operationId": "create_job_api_v1_jobs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{job_id}": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Get Job",
+        "operationId": "get_job_api_v1_jobs__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Delete Job",
+        "operationId": "delete_job_api_v1_jobs__job_id__delete",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tailor": {
+      "post": {
+        "tags": [
+          "tailor"
+        ],
+        "summary": "Tailor",
+        "description": "Create a tailored CV. Regenerating from the review screen deletes the draft CV first.",
+        "operationId": "tailor_api_v1_tailor_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TailorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TailorResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The AI provider failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The AI provider took too long",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AiModel": {
+        "type": "string",
+        "enum": [
+          "mimo-flash",
+          "claude-haiku",
+          "gemini-flash-lite",
+          "claude-sonnet",
+          "gemini-flash",
+          "mimo-pro"
+        ],
+        "title": "AiModel"
+      },
+      "AiModelInfo": {
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/AiModel"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ProviderName"
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "free",
+              "pro"
+            ],
+            "title": "Plan"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "provider",
+          "plan"
+        ],
+        "title": "AiModelInfo"
+      },
       "Basics-Input": {
         "properties": {
           "name": {
@@ -1484,6 +2031,61 @@
         ],
         "title": "Basics"
       },
+      "Body_create_import_api_v1_imports_post": {
+        "properties": {
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File",
+            "description": "A PDF or DOCX, up to 10 MB"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text",
+            "description": "The CV pasted as text"
+          },
+          "upload_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upload Id",
+            "description": "Import an earlier upload"
+          },
+          "ai_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AiModel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Default: the user's choice"
+          }
+        },
+        "type": "object",
+        "title": "Body_create_import_api_v1_imports_post"
+      },
       "Bullet-Input": {
         "properties": {
           "id": {
@@ -1544,6 +2146,46 @@
           "source_id"
         ],
         "title": "Bullet"
+      },
+      "BulletDiff": {
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "entry": {
+            "type": "string",
+            "title": "Entry"
+          },
+          "source_text": {
+            "type": "string",
+            "title": "Source Text"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rationale"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_id",
+          "entry",
+          "source_text",
+          "text",
+          "rationale"
+        ],
+        "title": "BulletDiff"
       },
       "CertificationItem-Input": {
         "properties": {
@@ -1623,12 +2265,36 @@
                 "type": "null"
               }
             ]
+          },
+          "ai_models": {
+            "items": {
+              "$ref": "#/components/schemas/AiModelInfo"
+            },
+            "type": "array",
+            "title": "Ai Models"
+          },
+          "default_ai_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AiModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "plans_enforced": {
+            "type": "boolean",
+            "title": "Plans Enforced"
           }
         },
         "type": "object",
         "required": [
           "auth_mode",
-          "firebase"
+          "firebase",
+          "ai_models",
+          "default_ai_model",
+          "plans_enforced"
         ],
         "title": "ClientConfig"
       },
@@ -1997,6 +2663,29 @@
         "type": "object",
         "title": "DocumentUpdate"
       },
+      "DroppedBullet": {
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "entry": {
+            "type": "string",
+            "title": "Entry"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_id",
+          "entry",
+          "text"
+        ],
+        "title": "DroppedBullet"
+      },
       "EducationItem-Input": {
         "properties": {
           "id": {
@@ -2318,6 +3007,52 @@
         ],
         "title": "ExperienceItem"
       },
+      "FactIssue": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "new_claim",
+              "new_number",
+              "changed_fact",
+              "new_skill"
+            ],
+            "title": "Kind"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "bullet_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bullet Id"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "message"
+        ],
+        "title": "FactIssue"
+      },
       "FirebaseConfig": {
         "properties": {
           "api_key": {
@@ -2357,6 +3092,257 @@
         },
         "type": "object",
         "title": "Health"
+      },
+      "ImportResult": {
+        "properties": {
+          "upload_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upload Id"
+          },
+          "draft": {
+            "$ref": "#/components/schemas/CvContent-Output"
+          },
+          "ai_model": {
+            "$ref": "#/components/schemas/AiModel"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ProviderName"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          }
+        },
+        "type": "object",
+        "required": [
+          "upload_id",
+          "draft",
+          "ai_model",
+          "provider",
+          "model"
+        ],
+        "title": "ImportResult"
+      },
+      "Job": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "company": {
+            "type": "string",
+            "title": "Company"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobAnalysis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "company",
+          "url",
+          "created_at",
+          "updated_at",
+          "description",
+          "analysis"
+        ],
+        "title": "Job"
+      },
+      "JobAnalysis": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "The job title as advertised."
+          },
+          "company": {
+            "type": "string",
+            "title": "Company",
+            "description": "The hiring company; empty when the ad does not say."
+          },
+          "seniority": {
+            "type": "string",
+            "title": "Seniority",
+            "description": "For example junior, mid, senior, lead or principal."
+          },
+          "must_have": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Must Have",
+            "description": "Requirements the ad marks as essential."
+          },
+          "nice_to_have": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Nice To Have",
+            "description": "Requirements the ad marks as optional."
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Keywords",
+            "description": "Skills, tools and domain terms an applicant tracking system would match."
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary",
+            "description": "Two or three sentences on what the role is about."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title",
+          "company",
+          "seniority",
+          "must_have",
+          "nice_to_have",
+          "keywords",
+          "summary"
+        ],
+        "title": "JobAnalysis"
+      },
+      "JobCreate": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "maxLength": 30000,
+            "minLength": 1,
+            "title": "Description"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Title",
+            "default": ""
+          },
+          "company": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Company",
+            "default": ""
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "description"
+        ],
+        "title": "JobCreate"
+      },
+      "JobSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "company": {
+            "type": "string",
+            "title": "Company"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "company",
+          "url",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "JobSummary"
       },
       "Link": {
         "properties": {
@@ -2402,13 +3388,15 @@
             ],
             "title": "Display Name"
           },
-          "preferred_provider": {
-            "type": "string",
-            "enum": [
-              "claude",
-              "gemini"
-            ],
-            "title": "Preferred Provider"
+          "preferred_ai_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AiModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "plan": {
             "type": "string",
@@ -2435,7 +3423,7 @@
           "id",
           "email",
           "display_name",
-          "preferred_provider",
+          "preferred_ai_model",
           "plan",
           "default_template_id"
         ],
@@ -2455,20 +3443,15 @@
             ],
             "title": "Display Name"
           },
-          "preferred_provider": {
+          "preferred_ai_model": {
             "anyOf": [
               {
-                "type": "string",
-                "enum": [
-                  "claude",
-                  "gemini"
-                ]
+                "$ref": "#/components/schemas/AiModel"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Preferred Provider"
+            ]
           },
           "default_template_id": {
             "anyOf": [
@@ -2486,6 +3469,30 @@
         },
         "type": "object",
         "title": "MeUpdate"
+      },
+      "PlaceholderRef": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "bullet_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bullet Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "PlaceholderRef"
       },
       "Profile": {
         "properties": {
@@ -2733,6 +3740,15 @@
         ],
         "title": "ProjectItem"
       },
+      "ProviderName": {
+        "type": "string",
+        "enum": [
+          "claude",
+          "gemini",
+          "mimo"
+        ],
+        "title": "ProviderName"
+      },
       "Section-Input": {
         "properties": {
           "id": {
@@ -2949,6 +3965,132 @@
         ],
         "title": "SvgPages"
       },
+      "TailorRequest": {
+        "properties": {
+          "profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Profile Id"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "job": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobCreate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "template_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Id"
+          },
+          "ai_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AiModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile_id"
+        ],
+        "title": "TailorRequest"
+      },
+      "TailorResult": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/Document"
+          },
+          "job": {
+            "$ref": "#/components/schemas/JobSummary"
+          },
+          "ai_model": {
+            "$ref": "#/components/schemas/AiModel"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ProviderName"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/FactIssue"
+            },
+            "type": "array",
+            "title": "Issues"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/BulletDiff"
+            },
+            "type": "array",
+            "title": "Changes"
+          },
+          "dropped": {
+            "items": {
+              "$ref": "#/components/schemas/DroppedBullet"
+            },
+            "type": "array",
+            "title": "Dropped"
+          },
+          "placeholders": {
+            "items": {
+              "$ref": "#/components/schemas/PlaceholderRef"
+            },
+            "type": "array",
+            "title": "Placeholders"
+          },
+          "missing_keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Keywords"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document",
+          "job",
+          "ai_model",
+          "provider",
+          "model",
+          "issues",
+          "changes",
+          "dropped",
+          "placeholders",
+          "missing_keywords"
+        ],
+        "title": "TailorResult"
+      },
       "TemplateMeta": {
         "properties": {
           "id": {
@@ -2988,6 +4130,41 @@
           "target_pages"
         ],
         "title": "TemplateMeta"
+      },
+      "UploadSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "mime_type": {
+            "type": "string",
+            "title": "Mime Type"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "title": "Size Bytes"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "filename",
+          "mime_type",
+          "size_bytes",
+          "created_at"
+        ],
+        "title": "UploadSummary"
       },
       "Version": {
         "properties": {

@@ -5,14 +5,17 @@ import { fakeProvider } from './fake-provider';
 
 const FIREBASE: ClientConfig = {
 	auth_mode: 'firebase',
-	firebase: { api_key: 'k', auth_domain: 'd', project_id: 'p', app_id: 'a' }
+	firebase: { api_key: 'k', auth_domain: 'd', project_id: 'p', app_id: 'a' },
+	ai_models: [{ id: 'mimo-flash', label: 'MiMo Flash', provider: 'mimo', plan: 'free' }],
+	default_ai_model: 'mimo-flash',
+	plans_enforced: false
 };
 
 const ME = {
 	id: '00000000-0000-4000-8000-000000000001',
 	email: 'ada@example.com',
 	display_name: null,
-	preferred_provider: 'claude',
+	preferred_ai_model: null,
 	plan: 'free',
 	default_template_id: null
 };
@@ -151,12 +154,24 @@ describe('Session', () => {
 	});
 
 	it('loads the client config from the api', async () => {
-		vi.stubGlobal('fetch', async () => json({ auth_mode: 'dev', firebase: null }));
+		vi.stubGlobal('fetch', async () =>
+			json({
+				auth_mode: 'dev',
+				firebase: null,
+				ai_models: [
+					{ id: 'claude-haiku', label: 'Claude Haiku', provider: 'claude', plan: 'free' }
+				],
+				default_ai_model: 'claude-haiku',
+				plans_enforced: true
+			})
+		);
 		const session = new Session();
 
 		await session.start();
 
 		expect([session.mode, session.status, session.email]).toEqual(['dev', 'signed-in', DEV_USER]);
+		expect(session.aiModels.map((m) => m.id)).toEqual(['claude-haiku']);
+		expect([session.defaultAiModel, session.plansEnforced]).toEqual(['claude-haiku', true]);
 	});
 
 	it('fails to start when the client config is unavailable', async () => {
@@ -170,7 +185,13 @@ describe('Session', () => {
 	});
 
 	it('uses the dev provider when firebase is not configured', async () => {
-		const provider = await providerFor({ auth_mode: 'dev', firebase: null });
+		const provider = await providerFor({
+			auth_mode: 'dev',
+			firebase: null,
+			ai_models: [],
+			default_ai_model: null,
+			plans_enforced: false
+		});
 
 		expect(await provider.headers()).toEqual({ 'X-Dev-User': DEV_USER });
 	});

@@ -12,12 +12,28 @@ from starlette.exceptions import HTTPException
 from starlette.responses import Response
 from starlette.types import Scope
 
+from api.ai.models import model_options
 from api.db.base import create_engine, session_factory
 from api.errors import install_error_handlers
 from api.ports.auth import AuthVerifier, DevVerifier, FirebaseVerifier
+from api.ports.llm.base import LLMProvider, ProviderName
+from api.ports.llm.claude import ClaudeProvider
+from api.ports.llm.gemini import GeminiProvider
+from api.ports.llm.mimo import MimoProvider
+from api.ports.llm.registry import ProviderRegistry
 from api.ports.renderer import GoogleIdTokenAuth, HttpRendererClient
 from api.ports.storage import GcsStorage, LocalStorage, Storage
-from api.routers import client_config, documents, me, profiles, templates
+from api.routers import (
+    client_config,
+    documents,
+    imports,
+    jobs,
+    me,
+    profiles,
+    tailor,
+    templates,
+    uploads,
+)
 from api.settings import Settings
 
 
@@ -56,6 +72,26 @@ def build_renderer(settings: Settings) -> HttpRendererClient:
     return HttpRendererClient(settings.renderer_url, auth=auth)
 
 
+def build_providers(settings: Settings) -> ProviderRegistry:
+    """Each provider whose key is set, and the AI models they offer."""
+    providers: dict[ProviderName, LLMProvider] = {}
+    if settings.anthropic_api_key:
+        providers[ProviderName.claude] = ClaudeProvider(
+            settings.anthropic_api_key.get_secret_value(),
+            settings.llm_timeout_seconds,
+            fallback_models=frozenset({settings.claude_model_large}),
+        )
+    if settings.gemini_api_key:
+        providers[ProviderName.gemini] = GeminiProvider(
+            settings.gemini_api_key.get_secret_value(), settings.llm_timeout_seconds
+        )
+    if settings.mimo_api_key:
+        providers[ProviderName.mimo] = MimoProvider(
+            settings.mimo_api_key.get_secret_value(), settings.mimo_timeout_seconds
+        )
+    return ProviderRegistry(providers, model_options(settings))
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
     engine = create_engine(settings.database_url)
@@ -79,6 +115,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.auth_verifier = build_auth_verifier(settings)
     app.state.renderer = renderer
     app.state.storage = build_storage(settings)
+    app.state.providers = build_providers(settings)
     install_error_handlers(app)
 
     v1 = APIRouter(prefix="/api/v1")
@@ -87,7 +124,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def healthz() -> Health:
         return Health()
 
-    for module in (client_config, me, profiles, documents, templates):
+    for module in (
+        client_config,
+        me,
+        profiles,
+        documents,
+        templates,
+        uploads,
+        imports,
+        jobs,
+        tailor,
+    ):
         v1.include_router(module.router)
     app.include_router(v1)
 

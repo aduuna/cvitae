@@ -23,16 +23,24 @@ export type Version = Schemas['Version'];
 export type TemplateMeta = Schemas['TemplateMeta'];
 export type SvgPages = Schemas['SvgPages'];
 
+export type ProviderName = Schemas['ProviderName'];
+export type AiModel = Schemas['AiModel'];
+export type AiModelInfo = Schemas['AiModelInfo'];
+export type ImportResult = Schemas['ImportResult'];
+export type UploadSummary = Schemas['UploadSummary'];
+export type JobSummary = Schemas['JobSummary'];
+export type Job = Schemas['Job'];
+export type JobCreate = Schemas['JobCreate'];
+export type TailorResult = Schemas['TailorResult'];
+export type BulletDiff = Schemas['BulletDiff'];
+export type DroppedBullet = Schemas['DroppedBullet'];
+export type FactIssue = Schemas['FactIssue'];
+export type PlaceholderRef = Schemas['PlaceholderRef'];
+
 /** One Typst diagnostic, as the preview endpoint returns it in error details. */
 export interface Diagnostic {
 	message: string;
 	line?: number | null;
 	column?: number | null;
 	file?: string | null;
-}
-
-/** A placeholder left in a CV, as the export endpoint lists it when it refuses. */
-export interface PlaceholderRef {
-	text: string;
-	bullet_id?: string | null;
 }

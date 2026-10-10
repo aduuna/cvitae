@@ -6,12 +6,14 @@ Paste a job description, get a CV tailored to it, typeset properly, without the 
 
 Chameleon vitae turns a person's career history into job-specific CVs. Users import an existing CV
 or enter their experience, paste a job description, and get a tailored CV rendered with Typst. AI runs
-on Claude or Gemini, chosen by the user, and may only select, reorder and reword facts the user gave.
+on MiMo, Claude or Gemini models, chosen by the user, and may only select, reorder and reword facts
+the user gave.
 
-**Status:** milestone M2 (auth, storage and first deploy) is built. Users sign in with Google or an
-email link, build profiles, make CVs from them, edit with a live Typst preview, switch between five
-templates, keep versions and export PDFs. Every push to `main` that passes CI deploys to dev at
-https://cvitae.aduuna.dev. AI comes next. See [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status:** milestone M3 (AI import and tailoring) is built. Users sign in with Google or an
+email link, import a CV (PDF, DOCX or pasted text) into a profile, paste a job description and get a
+tailored CV checked by the fact guard, edit it with a live Typst preview in one of five templates,
+and export PDFs. Every push to `main` that passes CI deploys to dev at https://cvitae.aduuna.dev.
+Plans and payments come next. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Stack
 
@@ -64,6 +66,16 @@ cd apps/web && bun run dev                                                      
 ```
 
 Open http://localhost:5173. The Vite dev server proxies `/api` to the api on port 8000.
+
+### AI providers
+
+Import and Tailor call MiMo, Claude or Gemini. Set any of `MIMO_API_KEY`, `ANTHROPIC_API_KEY` and
+`GEMINI_API_KEY` in `.env` to use them locally; a provider without a key is not offered. Tests never call them: the default run uses
+a deterministic fake. The real calls have their own tests, run by hand because they cost money:
+
+```sh
+uv run pytest -m live apps/api/tests/test_llm_live.py -s   # prints tokens and cost per run
+```
 
 ## Checks
 

@@ -9,7 +9,7 @@ async def test_me_is_created_on_first_request(client: AsyncClient) -> None:
     me = (await client.get("/api/v1/me")).json()
 
     assert me["email"] == "ada@example.com"
-    assert (me["plan"], me["preferred_provider"]) == ("free", "claude")
+    assert (me["plan"], me["preferred_ai_model"]) == ("free", None)
     assert (me["display_name"], me["default_template_id"]) == (None, None)
 
 
@@ -18,7 +18,7 @@ async def test_update_me(client: AsyncClient) -> None:
         "/api/v1/me",
         json={
             "display_name": "  Ada Lovelace ",
-            "preferred_provider": "gemini",
+            "preferred_ai_model": "claude-sonnet",
             "default_template_id": "compact",
         },
     )
@@ -26,13 +26,13 @@ async def test_update_me(client: AsyncClient) -> None:
     assert response.status_code == 200
     me = (await client.get("/api/v1/me")).json()
     assert me["display_name"] == "Ada Lovelace"
-    assert me["preferred_provider"] == "gemini"
+    assert me["preferred_ai_model"] == "claude-sonnet"
     assert me["default_template_id"] == "compact"
 
 
 async def test_partial_updates_keep_other_fields(client: AsyncClient) -> None:
     await client.patch("/api/v1/me", json={"display_name": "Ada"})
-    await client.patch("/api/v1/me", json={"preferred_provider": "gemini"})
+    await client.patch("/api/v1/me", json={"preferred_ai_model": "gemini-flash"})
 
     assert (await client.get("/api/v1/me")).json()["display_name"] == "Ada"
 
@@ -52,7 +52,7 @@ async def test_unknown_default_template_is_refused(client: AsyncClient) -> None:
 
 
 async def test_unknown_provider_is_refused(client: AsyncClient) -> None:
-    response = await client.patch("/api/v1/me", json={"preferred_provider": "gpt"})
+    response = await client.patch("/api/v1/me", json={"preferred_ai_model": "gpt"})
 
     assert response.status_code == 422
 

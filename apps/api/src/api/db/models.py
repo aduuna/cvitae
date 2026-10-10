@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
@@ -9,7 +10,9 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Numeric,
     String,
+    Text,
     UniqueConstraint,
     false,
     text,
@@ -22,17 +25,13 @@ from api.db.base import Entity
 
 class User(Entity):
     __tablename__ = "users"
-    __table_args__ = (
-        CheckConstraint("preferred_provider IN ('claude', 'gemini')", name="preferred_provider"),
-        CheckConstraint("plan IN ('free', 'pro')", name="plan"),
-    )
+    __table_args__ = (CheckConstraint("plan IN ('free', 'pro')", name="plan"),)
 
     firebase_uid: Mapped[str] = mapped_column(String(128), unique=True)
     email: Mapped[str] = mapped_column(String(320))
     display_name: Mapped[str | None] = mapped_column(String(200))
-    preferred_provider: Mapped[str] = mapped_column(
-        String(16), default="claude", server_default="claude"
-    )
+    preferred_ai_model: Mapped[str | None] = mapped_column(String(32))
+    """An api.ai.models.AiModel; None means the server's default."""
     plan: Mapped[str] = mapped_column(String(16), default="free", server_default="free")
     default_template_id: Mapped[str | None] = mapped_column(String(64))
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -61,6 +60,20 @@ class Profile(UserOwned):
     content: Mapped[dict[str, Any]] = mapped_column(JSONB)
 
 
+class Job(UserOwned):
+    """A saved job description. The description is user content: never logged."""
+
+    __tablename__ = "jobs"
+    __table_args__ = (Index("ix_jobs_user_id_updated_at", "user_id", text("updated_at DESC")),)
+
+    title: Mapped[str] = mapped_column(String(200))
+    company: Mapped[str] = mapped_column(String(200))
+    url: Mapped[str | None] = mapped_column(String(2048))
+    description: Mapped[str] = mapped_column(Text)
+    analysis: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    """JobAnalysis, once the job has been analysed."""
+
+
 class Document(UserOwned):
     __tablename__ = "documents"
     __table_args__ = (
@@ -72,8 +85,8 @@ class Document(UserOwned):
     profile_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("profiles.id", ondelete="SET NULL")
     )
-    # The foreign key to jobs arrives with the jobs table (M3).
-    job_id: Mapped[uuid.UUID | None] = mapped_column()
+    # The job a tailored CV was made for. Deleting the job keeps the CV.
+    job_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
     name: Mapped[str] = mapped_column(String(200))
     template_id: Mapped[str] = mapped_column(String(64))
     mode: Mapped[str] = mapped_column(String(16), default="structured", server_default="structured")
@@ -106,3 +119,26 @@ class Upload(UserOwned):
     filename: Mapped[str] = mapped_column(String(255))
     mime_type: Mapped[str] = mapped_column(String(128))
     size_bytes: Mapped[int] = mapped_column()
+
+
+class AiRun(UserOwned):
+    """One AI call, successful or not. No prompt or output content: it drives quotas and cost."""
+
+    __tablename__ = "ai_runs"
+    __table_args__ = (
+        Index("ix_ai_runs_user_id_created_at", "user_id", text("created_at DESC")),
+        CheckConstraint("task IN ('import', 'analyze_job', 'tailor')", name="task"),
+        CheckConstraint("provider IN ('claude', 'gemini', 'mimo')", name="provider"),
+        CheckConstraint("status IN ('succeeded', 'failed')", name="status"),
+    )
+
+    task: Mapped[str] = mapped_column(String(16))
+    provider: Mapped[str] = mapped_column(String(16))
+    model: Mapped[str] = mapped_column(String(64))
+    prompt_version: Mapped[str] = mapped_column(String(32))
+    status: Mapped[str] = mapped_column(String(16))
+    error_code: Mapped[str | None] = mapped_column(String(64))
+    input_tokens: Mapped[int] = mapped_column(default=0, server_default="0")
+    output_tokens: Mapped[int] = mapped_column(default=0, server_default="0")
+    cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(10, 6))
+    duration_ms: Mapped[int] = mapped_column(default=0, server_default="0")

@@ -111,7 +111,7 @@ async def test_get_or_create_user_is_idempotent_and_tracks_email(db_session: Asy
 
     assert again.id == first.id
     assert again.email == "new@example.com"
-    assert (first.plan, first.preferred_provider) == ("free", "claude")
+    assert (first.plan, first.preferred_ai_model) == ("free", None)
 
 
 @pytest.mark.parametrize(

@@ -183,7 +183,7 @@ not by passing class strings from pages.
 | `IconButton` | `ghost`, `secondary`; square 28/32px | Requires `label` prop for aria-label and tooltip. |
 | `Input`, `Textarea` | One style; sizes `md` 32px | `bg-surface`, `border-line-strong`, radius `md`, focus ring accent. Error state: danger border and message below. |
 | `Select`, `Combobox` | Same as Input | Menu uses `shadow-pop`. |
-| `SegmentedControl` | 2 to 4 options | Used for the provider switch (Claude, Gemini) and form/Typst mode. Selected: `bg-surface` with `shadow-page` on a `bg-muted` track. |
+| `SegmentedControl` | 2 to 4 options | Used for form/Typst mode and similar two-way switches (the AI model is a `Select`: there are more than four). Selected: `bg-surface` with `shadow-page` on a `bg-muted` track. |
 | `Checkbox`, `Switch` | One style | Accent when on. |
 | `Tabs` | Underline style | Active tab: fg text and 2px accent underline. |
 | `Dialog` | `sm` 400px, `md` 560px | Title, body, footer with actions right-aligned; primary action last. Escape closes; focus trapped. |
@@ -238,7 +238,8 @@ not by passing class strings from pages.
   protected. Remove the password and try again."
 - Buttons are verbs: "Tailor CV", "Export PDF", "Delete CV". Never "OK" or "Submit".
 - No emojis, no exclamation marks, no hype words (magic, supercharge, effortless, AI-powered).
-- Name the provider plainly where it matters: "Generated with Claude", "Generated with Gemini".
+- Name the model plainly where it matters: "Generated with MiMo Flash", "Extracted with Claude Haiku".
+  Pro models carry "(Pro)" in model lists.
 - Placeholders read as instructions: "[[number of users]]", "[[latency before and after]]".
 - Numbers: use digits, thousands separators, and units ("150 AI runs", "10 MB").
 

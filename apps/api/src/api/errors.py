@@ -39,6 +39,13 @@ class QuotaExceeded(AppError):
     code = "quota_exceeded"
 
 
+class PlanRequired(AppError):
+    """The chosen AI model needs the Pro plan."""
+
+    status = 402
+    code = "plan_required"
+
+
 class Forbidden(AppError):
     status = 403
     code = "forbidden"
@@ -86,6 +93,13 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     401: {"model": ErrorEnvelope, "description": "Not signed in"},
     404: {"model": ErrorEnvelope, "description": "Not found"},
     422: {"model": ErrorEnvelope, "description": "Invalid request"},
+}
+
+# Routes that call an AI provider can also fail upstream.
+AI_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    **ERROR_RESPONSES,
+    502: {"model": ErrorEnvelope, "description": "The AI provider failed"},
+    504: {"model": ErrorEnvelope, "description": "The AI provider took too long"},
 }
 
 _HTTP_CODES = {404: "not_found", 405: "method_not_allowed"}

@@ -1,6 +1,7 @@
 """The M1 flow end to end through the real renderer service and Typst (no fakes for rendering)."""
 
 from collections.abc import AsyncIterator
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -11,6 +12,8 @@ from httpx import AsyncClient
 from api.deps import get_renderer
 from api.ports.renderer import HttpRendererClient
 from renderer.main import app as renderer_app
+
+FIXTURES = Path(__file__).resolve().parents[3] / "templates" / "fixtures"
 
 
 @pytest.fixture
@@ -97,3 +100,22 @@ async def test_render_errors_reach_the_client(
     assert {t["id"] for t in templates.json()} >= {"classic", "compact"}
     preview = await client.post(f"/api/v1/documents/{doc.json()['id']}/preview")
     assert preview.status_code == 200
+
+
+async def test_tailored_fixture_cv_fits_one_page(
+    client: AsyncClient, real_renderer: HttpRendererClient, sample_content: dict[str, Any]
+) -> None:
+    profile = await client.post(
+        "/api/v1/profiles", json={"name": "Data", "content": sample_content}
+    )
+    job_ad = (FIXTURES / "job-data-engineer.txt").read_text()
+
+    tailored = await client.post(
+        "/api/v1/tailor",
+        json={"profile_id": profile.json()["id"], "job": {"description": job_ad}},
+    )
+    document_id = tailored.json()["document"]["id"]
+    preview = await client.post(f"/api/v1/documents/{document_id}/preview")
+
+    assert tailored.status_code == 201
+    assert preview.json()["page_count"] == 1

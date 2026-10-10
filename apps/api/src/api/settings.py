@@ -3,8 +3,10 @@
 from pathlib import Path
 from typing import Literal, Self
 
-from pydantic import model_validator
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from api.ai.models import AiModel
 
 _REPO = Path(__file__).resolve().parents[4]
 
@@ -44,6 +46,25 @@ class Settings(DatabaseSettings):
     renderer_url: str = "http://localhost:8001"
     renderer_auth: Literal["oidc", "none"] = "none"
     """`oidc`: call the renderer with a Google ID token for its URL (Cloud Run IAM)."""
+
+    # AI providers (docs/BACKEND.md, AI pipeline). A provider without a key is not offered.
+    anthropic_api_key: SecretStr | None = None
+    gemini_api_key: SecretStr | None = None
+    mimo_api_key: SecretStr | None = None
+    # Each provider's small and large model (api.ai.models maps them to what users choose).
+    claude_model_small: str = "claude-haiku-5-5"
+    claude_model_large: str = "claude-sonnet-5-5"
+    gemini_model_small: str = "gemini-3.5-flash-lite"
+    gemini_model_large: str = "gemini-3.8-flash"
+    mimo_model_small: str = "mimo-v2.6-flash"
+    mimo_model_large: str = "mimo-v2.6-pro"
+    default_ai_model: AiModel = AiModel.mimo_flash
+    """For users who have not chosen one."""
+    enforce_ai_plans: bool = False
+    """Pro models need the Pro plan. Off until billing exists (M4)."""
+    llm_timeout_seconds: float = 90
+    mimo_timeout_seconds: float = 180
+    """MiMo thinks before answering; an import takes 50 to 80 seconds."""
 
     sample_profile_path: Path = _REPO / "templates" / "fixtures" / "profile-sample.json"
     """Shown in template previews when the user has no profile yet."""

@@ -10,7 +10,13 @@ from httpx import ASGITransport, AsyncClient
 from pydantic import ValidationError
 
 from api.export_openapi import main as export_openapi
-from api.main import build_auth_verifier, build_renderer, build_storage, create_app
+from api.main import (
+    build_auth_verifier,
+    build_providers,
+    build_renderer,
+    build_storage,
+    create_app,
+)
 from api.ports.auth import FirebaseVerifier
 from api.ports.renderer import GoogleIdTokenAuth
 from api.ports.storage import GcsStorage, LocalStorage
@@ -28,6 +34,10 @@ def firebase_settings(env: Literal["dev", "prod"] = "dev") -> Settings:
         firebase_api_key="key",
         firebase_auth_domain="cvitae-test.firebaseapp.com",
         firebase_app_id="1:2:web:3",
+        # Explicit values win over a developer's .env, which may hold real keys.
+        anthropic_api_key=None,
+        gemini_api_key=None,
+        mimo_api_key=None,
     )
 
 
@@ -85,7 +95,23 @@ async def test_renderer_auth_follows_the_mode() -> None:
 async def test_client_config_in_dev_mode(client: AsyncClient) -> None:
     response = await client.get("/api/v1/client-config", headers={"X-Dev-User": ""})
 
-    assert response.json() == {"auth_mode": "dev", "firebase": None}
+    config = response.json()
+    assert (config["auth_mode"], config["firebase"]) == ("dev", None)
+    assert [m["id"] for m in config["ai_models"]] == [
+        "mimo-flash",
+        "claude-haiku",
+        "gemini-flash-lite",
+        "mimo-pro",
+        "gemini-flash",
+        "claude-sonnet",
+    ]
+    assert config["ai_models"][0] == {
+        "id": "mimo-flash",
+        "label": "MiMo Flash",
+        "provider": "mimo",
+        "plan": "free",
+    }
+    assert (config["default_ai_model"], config["plans_enforced"]) == ("mimo-flash", False)
 
 
 async def test_client_config_with_firebase_needs_no_sign_in() -> None:
@@ -102,6 +128,9 @@ async def test_client_config_with_firebase_needs_no_sign_in() -> None:
             "project_id": "cvitae-test",
             "app_id": "1:2:web:3",
         },
+        "ai_models": [],
+        "default_ai_model": None,
+        "plans_enforced": False,
     }
 
 
@@ -170,6 +199,12 @@ async def test_openapi_lists_the_routes(client: AsyncClient) -> None:
         "/api/v1/client-config",
         "/api/v1/me",
         "/api/v1/templates/{template_id}/preview",
+        "/api/v1/imports",
+        "/api/v1/uploads",
+        "/api/v1/uploads/{upload_id}",
+        "/api/v1/jobs",
+        "/api/v1/jobs/{job_id}",
+        "/api/v1/tailor",
         "/api/v1/profiles",
         "/api/v1/profiles/{profile_id}",
         "/api/v1/profiles/{profile_id}/duplicate",
@@ -219,3 +254,38 @@ async def test_serves_the_spa_with_a_client_route_fallback(tmp_path: Path) -> No
     assert "<title>app</title>" in deep.text
     assert api.status_code == 404
     assert api.json()["error"]["code"] == "not_found"
+
+
+def test_providers_need_their_keys() -> None:
+    def registry(**keys: str | None) -> list[str]:
+        settings = Settings(
+            env="test",
+            auth_mode="dev",
+            database_url=DB,
+            anthropic_api_key=keys.get("anthropic"),  # type: ignore[arg-type]
+            gemini_api_key=keys.get("gemini"),  # type: ignore[arg-type]
+            mimo_api_key=keys.get("mimo"),  # type: ignore[arg-type]
+        )
+        return [option.id for option in build_providers(settings).options]
+
+    assert registry() == []
+    assert registry(anthropic="sk-ant") == ["claude-haiku", "claude-sonnet"]
+    assert registry(gemini="g", mimo="m") == [
+        "mimo-flash",
+        "gemini-flash-lite",
+        "mimo-pro",
+        "gemini-flash",
+    ]
+
+
+def test_the_default_model_falls_back_to_one_that_is_offered() -> None:
+    settings = Settings(
+        env="test",
+        auth_mode="dev",
+        database_url=DB,
+        anthropic_api_key="sk-ant",  # type: ignore[arg-type]
+        gemini_api_key=None,
+        mimo_api_key=None,
+    )
+
+    assert build_providers(settings).option(settings.default_ai_model) is None

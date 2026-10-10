@@ -28,7 +28,7 @@ Domain: `cvitae.aduuna.dev` (a CNAME to `ghs.googlehosted.com` at the DNS host) 
 | Cloud Run service | `renderer` | Ingress `all`, but IAM invoker granted only to `api-sa`, so Google rejects any request without a valid OIDC token for that account before it reaches the container. Min 0, max 3, 1 vCPU, 1 GiB, concurrency 4, timeout 30 s. Service account `renderer-sa` with no roles. Direct VPC egress with `ALL_TRAFFIC` into a subnet that has no Cloud NAT, so it has no internet access. (Internal-only ingress would force the api's traffic through the VPC and require Cloud NAT for its calls to Neon, the AI providers and Paystack; not worth it at this stage.) |
 | VPC (M5) | `cvitae-vpc` with subnet `renderer-egress` (`10.10.0.0/26`) | No Cloud NAT, no routes to the internet. Exists only to cut the renderer off. |
 | GCS bucket | `<project>-uploads` | Uniform access, public access prevention enforced, versioning off, lifecycle: none (user deletes remove objects). `api-sa` has `roles/storage.objectAdmin` on this bucket only. |
-| Secret Manager | `anthropic-api-key`, `gemini-api-key`, `paystack-secret-key`, `database-url`, `database-url-direct` | `api-sa` can access all except `database-url-direct`; the CI deployer can access `database-url-direct` for migrations. |
+| Secret Manager | `anthropic-api-key`, `gemini-api-key`, `mimo-api-key`, `paystack-secret-key`, `database-url`, `database-url-direct` | `api-sa` can access all except `database-url-direct`; the CI deployer can access `database-url-direct` for migrations. |
 | Cloud Scheduler | `prune-versions` (daily 03:00 UTC) | Calls `POST /api/v1/internal/prune-versions` on `api` with an OIDC token from `scheduler-sa`. |
 | Firebase Auth | project-level | Firebase was added and the Google provider enabled in the console (its OAuth client secret stays out of OpenTofu state). OpenTofu owns the web app (`google_firebase_web_app`, whose config the api serves to the SPA) and the Auth config, adopted with an `import` block: email sign-in without a password (email link), and authorized domains `localhost`, the Firebase domains, the Cloud Run URL and the custom domain. |
 | Domain mapping | `app.<domain>` -> `api` | Cloud Run domain mapping (free). Move to a load balancer only if needed later. |
@@ -121,6 +121,9 @@ infra/
   full service definition and there is no drift from `gcloud run deploy`.
 - Secret values are never in OpenTofu. Tofu creates the secrets; values are added once with
   `gcloud secrets versions add`.
+- The AI keys reach the api only for the secrets listed in `ai_keys` in `envs/dev/terraform.tfvars`.
+  Add a key with `printf '%s' "$KEY" | gcloud secrets versions add anthropic-api-key --data-file=-`,
+  then list `anthropic-api-key` there and push: Cloud Run refuses a secret that has no version.
 - Neon is managed in the Neon console (project, branches, roles). Its connection strings go into Secret
   Manager. Managing Neon from OpenTofu is optional later.
 

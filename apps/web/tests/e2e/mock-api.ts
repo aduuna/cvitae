@@ -1,10 +1,15 @@
 import { test as base, type Page, type Route } from '@playwright/test';
 import type { Schemas } from '../../src/lib/api/client.ts';
 import type {
+	BulletDiff,
 	CvContent,
 	CvDocument,
+	Job,
 	Profile,
+	AiModel,
+	TailorResult,
 	TemplateMeta,
+	UploadSummary,
 	Version
 } from '../../src/lib/cv/types.ts';
 
@@ -14,6 +19,10 @@ import type {
  */
 export interface MockApi {
 	me: Me;
+	uploads: UploadSummary[];
+	jobs: Job[];
+	/** Provider of every AI call, in order. */
+	aiCalls: { task: 'import' | 'tailor'; model: AiModel }[];
 	profiles: Profile[];
 	documents: CvDocument[];
 	versions: Map<string, (Version & { content: CvContent })[]>;
@@ -21,6 +30,19 @@ export interface MockApi {
 }
 
 type Me = Schemas['Me'];
+
+const AI_MODELS: Schemas['AiModelInfo'][] = [
+	{ id: 'mimo-flash', label: 'MiMo Flash', provider: 'mimo', plan: 'free' },
+	{ id: 'claude-haiku', label: 'Claude Haiku', provider: 'claude', plan: 'free' },
+	{ id: 'gemini-flash-lite', label: 'Gemini Flash-Lite', provider: 'gemini', plan: 'free' },
+	{ id: 'mimo-pro', label: 'MiMo Pro', provider: 'mimo', plan: 'pro' },
+	{ id: 'gemini-flash', label: 'Gemini Flash', provider: 'gemini', plan: 'pro' },
+	{ id: 'claude-sonnet', label: 'Claude Sonnet', provider: 'claude', plan: 'pro' }
+];
+
+function modelInfo(id: AiModel) {
+	return AI_MODELS.find((model) => model.id === id) ?? AI_MODELS[0]!;
+}
 
 const TEMPLATES: TemplateMeta[] = [
 	{
@@ -103,6 +125,44 @@ function page(content: CvContent, template: string): string {
 	);
 }
 
+function jobSummary(job: Job) {
+	const rest: Partial<Job> = { ...job };
+	delete rest.description;
+	delete rest.analysis;
+	return rest as Omit<Job, 'description' | 'analysis'>;
+}
+
+/** What the fake import extracts: one role with one bullet. */
+function importedDraft(): CvContent {
+	const content = starterContent();
+	content.basics.name = 'Ama Owusu-Mensah';
+	content.sections[0]?.experience.push({
+		id: uuid().slice(-12),
+		org: 'Northwind Consulting',
+		role: 'Lead data engineer',
+		location: 'London, UK',
+		dates: { start: '2021-03', end: null },
+		stack: ['Python', 'Spark'],
+		bullets: [{ id: uuid().slice(-12), text: 'Lead a team of **5 engineers**.', source_id: null }],
+		engagements: []
+	});
+	return content;
+}
+
+function bulletDiffs(content: CvContent): BulletDiff[] {
+	return content.sections.flatMap((section) =>
+		section.experience.flatMap((item) =>
+			item.bullets.map((bullet) => ({
+				source_id: bullet.id,
+				entry: `${item.role}, ${item.org}`,
+				source_text: bullet.text,
+				text: bullet.text,
+				rationale: null
+			}))
+		)
+	);
+}
+
 function summary<T extends { content: CvContent }>(row: T): Omit<T, 'content'> {
 	const rest: Partial<T> = { ...row };
 	delete rest.content;
@@ -129,10 +189,13 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 			id: uuid(),
 			email: 'dev@localhost',
 			display_name: null,
-			preferred_provider: 'claude',
+			preferred_ai_model: null,
 			plan: 'free',
 			default_template_id: null
 		},
+		uploads: [],
+		jobs: [],
+		aiCalls: [],
 		profiles: [],
 		documents: [],
 		versions: new Map(),
@@ -144,11 +207,23 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 		const url = new URL(request.url());
 		const method = request.method();
 		const parts = url.pathname.replace(/^\/api\/v1\//, '').split('/');
-		const body = request.postData() ? JSON.parse(request.postData() ?? '{}') : {};
+		const raw = request.postData() ?? '';
+		const multipart = (request.headers()['content-type'] ?? '').startsWith('multipart/');
+		const body = raw && !multipart ? JSON.parse(raw) : {};
+		const field = (name: string) =>
+			new RegExp(`name="${name}"(?:; filename="([^"]*)")?\r\n(?:[^\r]*\r\n)*?\r\n([^\r]*)`).exec(
+				raw
+			);
 		const [resource, id, action, number, subaction] = parts;
 
 		if (resource === 'client-config')
-			return reply(route, 200, { auth_mode: 'dev', firebase: null });
+			return reply(route, 200, {
+				auth_mode: 'dev',
+				firebase: null,
+				ai_models: AI_MODELS,
+				default_ai_model: 'mimo-flash',
+				plans_enforced: false
+			});
 
 		if (resource === 'me') {
 			if (method === 'PATCH') Object.assign(state.me, body);
@@ -163,6 +238,98 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 			return reply(route, 200, { pages: [page(content, id)], page_count: 1 });
 		}
 		if (resource === 'templates') return reply(route, 200, TEMPLATES);
+
+		if (resource === 'uploads') {
+			if (method === 'GET') return reply(route, 200, state.uploads);
+			const before = state.uploads.length;
+			state.uploads = state.uploads.filter((row) => row.id !== id);
+			return state.uploads.length < before ? reply(route, 204) : notFound(route);
+		}
+
+		if (resource === 'imports' && method === 'POST') {
+			const model = (field('ai_model')?.[2] ??
+				state.me.preferred_ai_model ??
+				'mimo-flash') as AiModel;
+			const file = field('file');
+			const uploadId = field('upload_id')?.[2];
+			state.aiCalls.push({ task: 'import', model });
+			let upload: UploadSummary | undefined = state.uploads.find((row) => row.id === uploadId);
+			if (file) {
+				upload = {
+					id: uuid(),
+					filename: file[1] ?? 'cv.pdf',
+					mime_type: 'application/pdf',
+					size_bytes: 2048,
+					created_at: now()
+				};
+				state.uploads.unshift(upload);
+			}
+			return reply(route, 200, {
+				upload_id: upload?.id ?? null,
+				draft: importedDraft(),
+				ai_model: model,
+				provider: modelInfo(model).provider,
+				model: `fake-${model}`
+			});
+		}
+
+		if (resource === 'jobs') {
+			if (method === 'GET' && !id) return reply(route, 200, state.jobs.map(jobSummary));
+			const job = state.jobs.find((row) => row.id === id);
+			if (!job) return notFound(route);
+			if (method === 'DELETE') {
+				state.jobs = state.jobs.filter((row) => row !== job);
+				return reply(route, 204);
+			}
+			return reply(route, 200, job);
+		}
+
+		if (resource === 'tailor' && method === 'POST') {
+			const profile = state.profiles.find((row) => row.id === body.profile_id);
+			if (!profile) return notFound(route);
+			const model = (body.ai_model ?? state.me.preferred_ai_model ?? 'mimo-flash') as AiModel;
+			state.aiCalls.push({ task: 'tailor', model });
+			let job = state.jobs.find((row) => row.id === body.job_id);
+			if (!job) {
+				job = {
+					id: uuid(),
+					title: body.job.title || 'Senior Data Engineer',
+					company: body.job.company || 'Lumen Payments',
+					url: body.job.url ?? null,
+					description: body.job.description,
+					analysis: null,
+					created_at: now(),
+					updated_at: now()
+				};
+				state.jobs.unshift(job);
+			}
+			const doc: CvDocument = {
+				id: uuid(),
+				name: `${job.title} at ${job.company}`,
+				template_id: body.template_id ?? 'classic',
+				mode: 'structured',
+				page_count: 1,
+				profile_id: profile.id,
+				job_id: job.id,
+				created_at: now(),
+				updated_at: now(),
+				content: structuredClone(profile.content)
+			};
+			state.documents.push(doc);
+			const result: TailorResult = {
+				document: doc,
+				job: jobSummary(job),
+				ai_model: model,
+				provider: modelInfo(model).provider,
+				model: `fake-${model}`,
+				issues: [],
+				changes: bulletDiffs(profile.content),
+				dropped: [],
+				placeholders: [{ text: 'number of analysts', bullet_id: null }],
+				missing_keywords: ['Snowflake']
+			};
+			return reply(route, 201, result);
+		}
 
 		if (resource === 'profiles') {
 			if (!id && method === 'GET') {

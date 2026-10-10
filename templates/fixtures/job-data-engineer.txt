@@ -1,0 +1,35 @@
+Senior Data Engineer, Payments Platform
+Lumen Payments (fictional company, test fixture)
+London, UK (hybrid, 2 days a week in the office)
+
+About the role
+Lumen Payments moves money for small businesses across the UK and West Africa. Our data platform
+team builds the pipelines that feed fraud detection, finance reporting and the analytics our product
+teams use every day. We are looking for a senior data engineer to own core batch and streaming
+pipelines end to end.
+
+What you will do
+- Design, build and run batch pipelines in Spark and streaming pipelines on Kafka.
+- Own our dbt project and help analysts write models they can maintain themselves.
+- Orchestrate workflows with Airflow and keep them observable and reliable.
+- Work with the fraud team on low-latency features for real-time scoring.
+- Reduce cloud spend on AWS without slowing anyone down.
+- Mentor engineers and review designs across the team.
+
+What we are looking for
+Must have:
+- 5 or more years building data pipelines in production.
+- Strong Python and SQL.
+- Hands-on experience with Spark, Kafka and Airflow.
+- Experience with a cloud data warehouse.
+- Experience in financial services or payments.
+
+Nice to have:
+- dbt.
+- Snowflake.
+- Kubernetes.
+- Data contracts or schema registries.
+- Experience leading a small team.
+
+What we offer
+Competitive salary, share options, 30 days of holiday and a learning budget.

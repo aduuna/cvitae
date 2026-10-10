@@ -1,6 +1,9 @@
-"""Regenerate templates/<id>/preview.png from the sample fixture.
+"""Regenerate templates/<id>/preview.png and templates/fixtures/sample-cv.pdf from the sample.
 
 uv run --package renderer python -m renderer.previews
+
+sample-cv.pdf is the input of the import tests: profile-sample rendered with classic, so the
+expected extraction is exactly profile-sample.json.
 
 Runs trusted templates and fixtures in-process, without the sandbox. The golden render tests call
 this when UPDATE_GOLDENS=1.
@@ -10,7 +13,7 @@ import json
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import typst
 
@@ -29,9 +32,13 @@ def fixture_data(settings: Settings, name: str) -> dict[str, Any]:
 
 
 def compile_template(
-    settings: Settings, template_id: str, data: dict[str, Any], ppi: float = PREVIEW_PPI
+    settings: Settings,
+    template_id: str,
+    data: dict[str, Any],
+    ppi: float = PREVIEW_PPI,
+    format: Literal["png", "pdf"] = "png",
 ) -> tuple[list[bytes], list[str]]:
-    """PNG pages and Typst warning messages for a template rendered with `data`."""
+    """Pages (PNG) or the document (PDF) and Typst warning messages for a template with `data`."""
     with tempfile.TemporaryDirectory(prefix="preview-") as tmp:
         root = Path(tmp)
         shutil.copytree(settings.templates_dir / LIB_DIR, root / LIB_DIR)
@@ -47,7 +54,7 @@ def compile_template(
             sys_inputs={"paper": "a4"},
         )
         pages, warnings = compiler.compile_with_warnings(
-            input=str(root / "main.typ"), format="png", ppi=ppi
+            input=str(root / "main.typ"), format=format, ppi=ppi
         )
     pages = pages if isinstance(pages, list) else [pages]
     return [page for page in pages if isinstance(page, bytes)], [w.message for w in warnings]
@@ -61,6 +68,10 @@ def write_previews(settings: Settings) -> list[Path]:
         path = settings.templates_dir / template_id / "preview.png"
         path.write_bytes(pages[0])
         written.append(path)
+    pdf, _ = compile_template(settings, "classic", data, format="pdf")
+    sample = settings.templates_dir / "fixtures" / "sample-cv.pdf"
+    sample.write_bytes(pdf[0])
+    written.append(sample)
     return written
 
 

@@ -273,10 +273,137 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Uploads */
+        get: operations["list_uploads_api_v1_uploads_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/uploads/{upload_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Upload */
+        delete: operations["delete_upload_api_v1_uploads__upload_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Import
+         * @description Extract a profile draft with the chosen AI model (default: the user's choice).
+         */
+        post: operations["create_import_api_v1_imports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Jobs */
+        get: operations["list_jobs_api_v1_jobs_get"];
+        put?: never;
+        /** Create Job */
+        post: operations["create_job_api_v1_jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Job */
+        get: operations["get_job_api_v1_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Job */
+        delete: operations["delete_job_api_v1_jobs__job_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tailor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tailor
+         * @description Create a tailored CV. Regenerating from the review screen deletes the draft CV first.
+         */
+        post: operations["tailor_api_v1_tailor_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AiModel
+         * @enum {string}
+         */
+        AiModel: "mimo-flash" | "claude-haiku" | "gemini-flash-lite" | "claude-sonnet" | "gemini-flash" | "mimo-pro";
+        /** AiModelInfo */
+        AiModelInfo: {
+            id: components["schemas"]["AiModel"];
+            /** Label */
+            label: string;
+            provider: components["schemas"]["ProviderName"];
+            /**
+             * Plan
+             * @enum {string}
+             */
+            plan: "free" | "pro";
+        };
         /** Basics */
         "Basics-Input": {
             /** Name */
@@ -337,6 +464,26 @@ export interface components {
              */
             links: components["schemas"]["Link"][];
         };
+        /** Body_create_import_api_v1_imports_post */
+        Body_create_import_api_v1_imports_post: {
+            /**
+             * File
+             * @description A PDF or DOCX, up to 10 MB
+             */
+            file?: string | null;
+            /**
+             * Text
+             * @description The CV pasted as text
+             */
+            text?: string | null;
+            /**
+             * Upload Id
+             * @description Import an earlier upload
+             */
+            upload_id?: string | null;
+            /** @description Default: the user's choice */
+            ai_model?: components["schemas"]["AiModel"] | null;
+        };
         /** Bullet */
         "Bullet-Input": {
             /** Id */
@@ -354,6 +501,19 @@ export interface components {
             text: string;
             /** Source Id */
             source_id: string | null;
+        };
+        /** BulletDiff */
+        BulletDiff: {
+            /** Source Id */
+            source_id: string;
+            /** Entry */
+            entry: string;
+            /** Source Text */
+            source_text: string;
+            /** Text */
+            text: string;
+            /** Rationale */
+            rationale: string | null;
         };
         /** CertificationItem */
         "CertificationItem-Input": {
@@ -391,6 +551,11 @@ export interface components {
              */
             auth_mode: "firebase" | "dev";
             firebase: components["schemas"]["FirebaseConfig"] | null;
+            /** Ai Models */
+            ai_models: components["schemas"]["AiModelInfo"][];
+            default_ai_model: components["schemas"]["AiModel"] | null;
+            /** Plans Enforced */
+            plans_enforced: boolean;
         };
         /** CvContent */
         "CvContent-Input": {
@@ -526,6 +691,15 @@ export interface components {
             /** Template Id */
             template_id?: string | null;
             content?: components["schemas"]["CvContent-Input"] | null;
+        };
+        /** DroppedBullet */
+        DroppedBullet: {
+            /** Source Id */
+            source_id: string;
+            /** Entry */
+            entry: string;
+            /** Text */
+            text: string;
         };
         /** EducationItem */
         "EducationItem-Input": {
@@ -687,6 +861,20 @@ export interface components {
              */
             engagements: components["schemas"]["Engagement-Output"][];
         };
+        /** FactIssue */
+        FactIssue: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "new_claim" | "new_number" | "changed_fact" | "new_skill";
+            /** Message */
+            message: string;
+            /** Bullet Id */
+            bullet_id?: string | null;
+            /** Value */
+            value?: string | null;
+        };
         /** FirebaseConfig */
         FirebaseConfig: {
             /** Api Key */
@@ -706,6 +894,122 @@ export interface components {
              * @constant
              */
             status?: "ok";
+        };
+        /** ImportResult */
+        ImportResult: {
+            /** Upload Id */
+            upload_id: string | null;
+            draft: components["schemas"]["CvContent-Output"];
+            ai_model: components["schemas"]["AiModel"];
+            provider: components["schemas"]["ProviderName"];
+            /** Model */
+            model: string;
+        };
+        /** Job */
+        Job: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Company */
+            company: string;
+            /** Url */
+            url: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Description */
+            description: string;
+            analysis: components["schemas"]["JobAnalysis"] | null;
+        };
+        /** JobAnalysis */
+        JobAnalysis: {
+            /**
+             * Title
+             * @description The job title as advertised.
+             */
+            title: string;
+            /**
+             * Company
+             * @description The hiring company; empty when the ad does not say.
+             */
+            company: string;
+            /**
+             * Seniority
+             * @description For example junior, mid, senior, lead or principal.
+             */
+            seniority: string;
+            /**
+             * Must Have
+             * @description Requirements the ad marks as essential.
+             */
+            must_have: string[];
+            /**
+             * Nice To Have
+             * @description Requirements the ad marks as optional.
+             */
+            nice_to_have: string[];
+            /**
+             * Keywords
+             * @description Skills, tools and domain terms an applicant tracking system would match.
+             */
+            keywords: string[];
+            /**
+             * Summary
+             * @description Two or three sentences on what the role is about.
+             */
+            summary: string;
+        };
+        /** JobCreate */
+        JobCreate: {
+            /** Description */
+            description: string;
+            /**
+             * Title
+             * @default
+             */
+            title?: string;
+            /**
+             * Company
+             * @default
+             */
+            company?: string;
+            /** Url */
+            url?: string | null;
+        };
+        /** JobSummary */
+        JobSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Company */
+            company: string;
+            /** Url */
+            url: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** Link */
         Link: {
@@ -728,11 +1032,7 @@ export interface components {
             email: string;
             /** Display Name */
             display_name: string | null;
-            /**
-             * Preferred Provider
-             * @enum {string}
-             */
-            preferred_provider: "claude" | "gemini";
+            preferred_ai_model: components["schemas"]["AiModel"] | null;
             /**
              * Plan
              * @enum {string}
@@ -745,10 +1045,16 @@ export interface components {
         MeUpdate: {
             /** Display Name */
             display_name?: string | null;
-            /** Preferred Provider */
-            preferred_provider?: ("claude" | "gemini") | null;
+            preferred_ai_model?: components["schemas"]["AiModel"] | null;
             /** Default Template Id */
             default_template_id?: string | null;
+        };
+        /** PlaceholderRef */
+        PlaceholderRef: {
+            /** Text */
+            text: string;
+            /** Bullet Id */
+            bullet_id?: string | null;
         };
         /** Profile */
         Profile: {
@@ -861,6 +1167,11 @@ export interface components {
             bullets: components["schemas"]["Bullet-Output"][];
         };
         /**
+         * ProviderName
+         * @enum {string}
+         */
+        ProviderName: "claude" | "gemini" | "mimo";
+        /**
          * Section
          * @description One list per kind; only the list matching `kind` is filled.
          */
@@ -966,6 +1277,39 @@ export interface components {
             /** Page Count */
             page_count: number;
         };
+        /** TailorRequest */
+        TailorRequest: {
+            /**
+             * Profile Id
+             * Format: uuid
+             */
+            profile_id: string;
+            /** Job Id */
+            job_id?: string | null;
+            job?: components["schemas"]["JobCreate"] | null;
+            /** Template Id */
+            template_id?: string | null;
+            ai_model?: components["schemas"]["AiModel"] | null;
+        };
+        /** TailorResult */
+        TailorResult: {
+            document: components["schemas"]["Document"];
+            job: components["schemas"]["JobSummary"];
+            ai_model: components["schemas"]["AiModel"];
+            provider: components["schemas"]["ProviderName"];
+            /** Model */
+            model: string;
+            /** Issues */
+            issues: components["schemas"]["FactIssue"][];
+            /** Changes */
+            changes: components["schemas"]["BulletDiff"][];
+            /** Dropped */
+            dropped: components["schemas"]["DroppedBullet"][];
+            /** Placeholders */
+            placeholders: components["schemas"]["PlaceholderRef"][];
+            /** Missing Keywords */
+            missing_keywords: string[];
+        };
         /** TemplateMeta */
         TemplateMeta: {
             /** Id */
@@ -978,6 +1322,25 @@ export interface components {
             paper_sizes: ("a4" | "us-letter")[];
             /** Target Pages */
             target_pages: number;
+        };
+        /** UploadSummary */
+        UploadSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Filename */
+            filename: string;
+            /** Mime Type */
+            mime_type: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** Version */
         Version: {
@@ -2106,6 +2469,432 @@ export interface operations {
             };
             /** @description Invalid request */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_uploads_api_v1_uploads_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadSummary"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    delete_upload_api_v1_uploads__upload_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    create_import_api_v1_imports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_create_import_api_v1_imports_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportResult"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description The AI provider failed */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description The AI provider took too long */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_jobs_api_v1_jobs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobSummary"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    create_job_api_v1_jobs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_job_api_v1_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    delete_job_api_v1_jobs__job_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    tailor_api_v1_tailor_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TailorRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TailorResult"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description The AI provider failed */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description The AI provider took too long */
+            504: {
                 headers: {
                     [name: string]: unknown;
                 };

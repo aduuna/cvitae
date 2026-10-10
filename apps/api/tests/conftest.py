@@ -27,9 +27,16 @@ from sqlalchemy import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from api.deps import get_renderer, get_session
+from api.ai.models import model_options
+from api.deps import get_providers, get_renderer, get_session, get_storage
 from api.main import create_app
+from api.ports.llm.base import ProviderName
+from api.ports.llm.fake import FakeLLMProvider, default_responders
+from api.ports.llm.registry import ProviderRegistry
 from api.ports.renderer import FakeRendererClient
+from api.ports.storage import LocalStorage
+from api.settings import Settings
+from cvcore.models import CvContent
 
 REPO = Path(__file__).resolve().parents[3]
 FIXTURES = REPO / "templates" / "fixtures"
@@ -86,8 +93,60 @@ def renderer() -> FakeRendererClient:
 
 
 @pytest.fixture
-def app(db_session: AsyncSession, renderer: FakeRendererClient) -> FastAPI:
-    app = create_app()
+def sample_profile() -> CvContent:
+    return CvContent.model_validate_json((FIXTURES / "profile-sample.json").read_text())
+
+
+@pytest.fixture
+def claude(sample_profile: CvContent) -> FakeLLMProvider:
+    return FakeLLMProvider(ProviderName.claude, default_responders(sample_profile))
+
+
+@pytest.fixture
+def gemini(sample_profile: CvContent) -> FakeLLMProvider:
+    return FakeLLMProvider(ProviderName.gemini, default_responders(sample_profile))
+
+
+@pytest.fixture
+def mimo(sample_profile: CvContent) -> FakeLLMProvider:
+    return FakeLLMProvider(ProviderName.mimo, default_responders(sample_profile))
+
+
+@pytest.fixture
+def settings() -> Settings:
+    """The app's defaults, without a developer's .env keys."""
+    return Settings(
+        env="test",
+        auth_mode="dev",
+        database_url=TEST_DATABASE_URL,
+        anthropic_api_key=None,
+        gemini_api_key=None,
+        mimo_api_key=None,
+    )
+
+
+@pytest.fixture
+def providers(
+    claude: FakeLLMProvider, gemini: FakeLLMProvider, mimo: FakeLLMProvider, settings: Settings
+) -> ProviderRegistry:
+    fakes = {ProviderName.claude: claude, ProviderName.gemini: gemini, ProviderName.mimo: mimo}
+    return ProviderRegistry(fakes, model_options(settings))
+
+
+@pytest.fixture
+def storage(tmp_path: Path) -> LocalStorage:
+    return LocalStorage(tmp_path / "storage")
+
+
+@pytest.fixture
+def app(
+    db_session: AsyncSession,
+    renderer: FakeRendererClient,
+    providers: ProviderRegistry,
+    storage: LocalStorage,
+    settings: Settings,
+) -> FastAPI:
+    app = create_app(settings)
 
     async def session_override() -> AsyncIterator[AsyncSession]:
         try:
@@ -99,6 +158,8 @@ def app(db_session: AsyncSession, renderer: FakeRendererClient) -> FastAPI:
 
     app.dependency_overrides[get_session] = session_override
     app.dependency_overrides[get_renderer] = lambda: renderer
+    app.dependency_overrides[get_providers] = lambda: providers
+    app.dependency_overrides[get_storage] = lambda: storage
     return app
 
 

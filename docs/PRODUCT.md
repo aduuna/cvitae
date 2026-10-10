@@ -30,7 +30,7 @@ and Europe, which is why payments go through Paystack.
 | Placeholder | Highlighted text in a CV that the user must replace, for example "[[number of users]]". |
 | Tailoring | Creating a CV from a profile plus a job, using AI under the no-new-facts rule. |
 | Ejected CV | A CV whose Typst source and data file the user edits directly. AI tailoring no longer applies to it. |
-| Provider | The AI backend for a run: Claude or Gemini. |
+| AI model | What runs an AI task: MiMo Flash, Claude Haiku or Gemini Flash-Lite on every plan; MiMo Pro, Gemini Flash or Claude Sonnet on Pro. |
 
 ## Navigation
 
@@ -44,7 +44,7 @@ Icons are Lucide, listed in `docs/DESIGN.md`.
 | 3 | Import | `/app/import` | Upload an existing CV (PDF, DOCX) or paste text to create a profile. |
 | 4 | Tailor | `/app/tailor` | Paste a job description and generate a tailored CV. Lists saved jobs. |
 | 5 | Templates | `/app/templates` | Browse the 5 templates with previews; set a default. |
-| 6 | Settings | `/app/settings` | Account, AI provider, billing, data export and deletion. |
+| 6 | Settings | `/app/settings` | Account, AI model, billing, data export and deletion. |
 
 The editor for a single CV lives at `/app/documents/[id]` and keeps the side nav visible (collapsible).
 
@@ -76,7 +76,7 @@ and create a second profile from scratch or by duplicating the first.
 ### 3. Import
 
 - Inputs: PDF or DOCX up to 10 MB, or pasted text.
-- The selected provider (Claude or Gemini) extracts a structured profile.
+- The selected AI model extracts a structured profile.
 - The user reviews the result in the profile editor before it is saved, with a banner:
   "Imported from <filename>. Check every entry before using it."
 - Extraction must not invent content; empty fields stay empty.
@@ -88,7 +88,7 @@ bullets match the source, and the user can accept or discard it.
 ### 4. Tailor
 
 - Form: job description (required, pasted text), job title, company, URL (optional), base profile,
-  template, provider (Claude or Gemini segmented control, defaulting to the user's setting).
+  template, AI model (a select, defaulting to the user's setting).
 - Jobs are saved and listed on the Tailor page so the user can tailor again or see what was sent.
 - Generation produces a new CV and opens a review screen with three panels:
   1. **Preview** of the tailored CV.
@@ -97,13 +97,13 @@ bullets match the source, and the user can accept or discard it.
      "Only add these if they are true."
 - The fact guard flags any rewritten bullet that contains a number not present in its source; flagged
   numbers are turned into placeholders automatically.
-- The user can accept (opens the editor), regenerate (optionally with the other provider) or discard.
+- The user can accept (opens the editor), regenerate with another model, or discard.
 - Generation shows progress text ("Reading the job description", "Selecting your strongest experience",
   "Writing the CV") and can take up to about a minute.
 
 Done when: tailoring the fixture profile against the fixture job description yields a one-page CV in the
 chosen template, every bullet traces to a source bullet, no unflagged new numbers exist, and switching
-the provider and regenerating works.
+the model and regenerating works.
 
 ### 5. Documents and the editor
 
@@ -154,13 +154,13 @@ the fixture CV fits one page in `classic` and `compact`.
 ### 7. Settings
 
 - Account: name, email (read-only), sign out.
-- AI: default provider (Claude or Gemini). Short explanation that both are used under the no-new-facts rule.
+- AI: default model. Short explanation that every model works under the no-new-facts rule.
 - Billing: current plan, usage this period, upgrade (Paystack checkout), manage subscription (Paystack
   hosted management link).
 - Data: export everything as JSON; delete account (deletes all rows and stored files after typed
   confirmation of the email address).
 
-Done when: changing the default provider changes the preselected provider on Import and Tailor, and
+Done when: changing the default model changes the preselected model on Import and Tailor, and
 account deletion removes all user data from Postgres and GCS (verified by a test).
 
 ## Plans and limits
@@ -173,7 +173,10 @@ changes elsewhere.
 | Free | 0 | 3 | 1 | 5 |
 | Pro | Set in Paystack dashboard (monthly) | 100 | 10 | 150 |
 
-- An AI run is one import, one job analysis or one tailoring, regardless of provider.
+- An AI run is one import, one job analysis or one tailoring, regardless of model.
+- Free plans use the free models (MiMo Flash, Claude Haiku, Gemini Flash-Lite); Pro adds MiMo Pro,
+  Gemini Flash and Claude Sonnet. Each model's plan is in `apps/api/src/api/ai/models.py`; it is
+  enforced once `ENFORCE_AI_PLANS` is on (M4). New users start on MiMo Flash, the cheapest.
 - At the limit, the action is disabled with the message "You have used all 5 AI runs this month. Upgrade
   to Pro for 150." (numbers from config).
 - Downgrade keeps existing CVs readable and exportable but blocks creating new ones above the limit.

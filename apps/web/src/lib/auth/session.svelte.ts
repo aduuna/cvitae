@@ -41,6 +41,11 @@ export class Session {
 	status = $state<'loading' | 'signed-out' | 'signed-in'>('loading');
 	email = $state<string | null>(null);
 	mode = $state<ClientConfig['auth_mode'] | null>(null);
+	/** The AI models the server offers, free first. */
+	aiModels = $state<ClientConfig['ai_models']>([]);
+	defaultAiModel = $state<ClientConfig['default_ai_model']>(null);
+	/** Pro models need the Pro plan (switched on with billing). */
+	plansEnforced = $state(false);
 	me = $state<Me | null>(null);
 
 	#provider: AuthProvider | null = null;
@@ -64,6 +69,9 @@ export class Session {
 			const provider = await this.#makeProvider(config);
 			this.#provider = provider;
 			this.mode = config.auth_mode;
+			this.aiModels = config.ai_models;
+			this.defaultAiModel = config.default_ai_model;
+			this.plansEnforced = config.plans_enforced;
 			setAuthHeaders(() => provider.headers());
 			await new Promise<void>((resolve) => {
 				provider.watch((email) => {

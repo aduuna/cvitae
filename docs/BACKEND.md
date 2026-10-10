@@ -91,6 +91,8 @@ apps/api/src/api/
   ports/             Protocols (interfaces) + implementations for external systems
     llm/
       base.py        LLMProvider Protocol, LLMRequest, LLMResult, ProviderName enum
+      mimo.py        MiMo implementation (OpenAI-compatible endpoint, httpx)
+      pages.py       PDF pages as PNG images, for providers that read images only
       anthropic.py   Claude implementation
       gemini.py      Gemini implementation
       fake.py        deterministic fake for tests
@@ -155,12 +157,14 @@ A single exception handler maps them. Pydantic validation errors are converted t
 | `AUTH_MODE` | `firebase` or `dev` (startup fails if `dev` and `ENV` is `dev` or `prod`) |
 | `FIREBASE_PROJECT_ID` | Token audience check |
 | `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_APP_ID` | The SPA's Firebase web config, served by `GET /client-config` (not secret; set by OpenTofu) |
-| `ANTHROPIC_API_KEY`, `GEMINI_API_KEY` | Provider keys |
-| `CLAUDE_MODEL_DEFAULT` | default `claude-sonnet-5-5` |
-| `CLAUDE_MODEL_FAST` | default `claude-haiku-5-5` (job analysis) |
-| `GEMINI_MODEL_DEFAULT` | default `gemini-3.8-flash` |
-| `GEMINI_MODEL_FAST` | default `gemini-3.5-flash-lite` |
-| `DEFAULT_PROVIDER` | `claude` |
+| `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MIMO_API_KEY` | Provider keys; a provider without one is not offered |
+| `CLAUDE_MODEL_SMALL`, `CLAUDE_MODEL_LARGE` | defaults `claude-haiku-5-5`, `claude-sonnet-5-5` |
+| `GEMINI_MODEL_SMALL`, `GEMINI_MODEL_LARGE` | defaults `gemini-3.5-flash-lite`, `gemini-3.8-flash` |
+| `MIMO_MODEL_SMALL`, `MIMO_MODEL_LARGE` | defaults `mimo-v2.6-flash`, `mimo-v2.6-pro` |
+| `DEFAULT_AI_MODEL` | default `mimo-flash`, for users who have not chosen one |
+| `ENFORCE_AI_PLANS` | default `false`; when true, Pro models need the Pro plan (M4 turns it on) |
+| `LLM_TIMEOUT_SECONDS` | default `90`, per Claude or Gemini call |
+| `MIMO_TIMEOUT_SECONDS` | default `180`: MiMo thinks first, and an import takes 50 to 80 seconds |
 | `GCS_BUCKET` | uploads bucket |
 | `STORAGE_MODE` | `gcs` or `local` |
 | `LOCAL_STORAGE_DIR` | Where `local` storage writes (default `.data/uploads` in the repository) |
@@ -185,7 +189,7 @@ in Python.
 
 | Table | Columns (besides `id`, `created_at`, `updated_at`) | Notes |
 |---|---|---|
-| `users` | `firebase_uid` unique, `email`, `display_name`, `preferred_provider` (`claude`/`gemini`), `plan` (`free`/`pro`), `default_template_id`, `deleted_at` | Created on first authenticated request. |
+| `users` | `firebase_uid` unique, `email`, `display_name`, `preferred_ai_model` (null: the server's default), `plan` (`free`/`pro`), `default_template_id`, `deleted_at` | Created on first authenticated request. |
 | `profiles` | `user_id`, `name`, `is_default`, `content` jsonb (CvContent) | One default per user (partial unique index). |
 | `jobs` | `user_id`, `title`, `company`, `url`, `description` text, `analysis` jsonb null | Description is user content: never logged. |
 | `documents` | `user_id`, `profile_id` null, `job_id` null, `name`, `template_id`, `mode` (`structured`/`ejected`), `content` jsonb, `source_files` jsonb null, `page_count` | `source_files` holds `{"main.typ": "...", "data.json": "..."}` once ejected. |
@@ -201,7 +205,11 @@ plus GCS cleanup.
 
 ## The CV data model (cvcore/models.py)
 
-The same model is used for profiles, CVs, the LLM output schema and the renderer's `data.json`.
+The same model is used for profiles, CVs and the renderer's `data.json`. The AI providers read and
+write a flatter wire shape instead (`cvcore/wire.py`): one generic entry per section item, no nullable
+fields and every field required, converted with `to_wire` and `from_wire`. Claude's structured output
+rejects the full model (too many optional fields, then a grammar too large to compile), and Gemini
+leaves optional lists out.
 
 ```python
 class Span(BaseModel):          # rendered text run
@@ -315,12 +323,36 @@ evaluates user text as markup or code. The summary goes through the same convers
 3. Organisations, roles, dates, institutions and degrees in tailored items must match the source exactly;
    mismatches are reverted to the source value and reported as `changed_fact`.
 4. Skills and stack entries must exist in the source (case-insensitive); others are removed and reported
-   as `new_skill`.
+   as `new_skill`. A skill exists when it is a source skill or stack entry or is mentioned in any source
+   text; a stack entry must belong to the same role in the source.
+
+Also: a bullet may move between a role and its own client engagements, but a bullet moved to another
+employer or project is a `new_claim`. Entries are matched by id, then by name (organisation and role,
+client, project, institution and degree, certification); entries that match nothing are removed as
+`new_claim`. The summary may use any number from the profile. A headline is plain text and cannot hold
+a placeholder, so a headline with a new number reverts to the profile's headline. Contact details always
+revert.
 
 The guard is deterministic and has thorough unit tests, including cases taken from real CVs. The review
 screen shows its report.
 
 ## AI pipeline
+
+### AI models
+
+Users choose an AI model, not a provider (`api/ai/models.py`):
+
+| Model | Provider | Model id (import, tailoring) | Job analysis | Plan |
+|---|---|---|---|---|
+| MiMo Flash | MiMo | `mimo-v2.6-flash` | `mimo-v2.6-flash` | Free |
+| Claude Haiku | Claude | `claude-haiku-5-5` | `claude-haiku-5-5` | Free |
+| Gemini Flash-Lite | Gemini | `gemini-3.5-flash-lite` | `gemini-3.5-flash-lite` | Free |
+| MiMo Pro | MiMo | `mimo-v2.6-pro` | `mimo-v2.6-flash` | Pro |
+| Gemini Flash | Gemini | `gemini-3.8-flash` | `gemini-3.5-flash-lite` | Pro |
+| Claude Sonnet | Claude | `claude-sonnet-5-5` | `claude-haiku-5-5` | Pro |
+
+A request names the model; else the user's choice runs, else `DEFAULT_AI_MODEL`, else the first model
+the server offers. Plans are checked in `services/ai_models.py` once `ENFORCE_AI_PLANS` is on.
 
 ### Provider abstraction
 
@@ -360,16 +392,26 @@ Prompts, schemas, validation and the fact guard are shared. Adapters only transl
   with a base64 source (`media_type: application/pdf`) placed before the text block. Read token counts
   from `response.usage`.
 - **Gemini adapter** (`google-genai` SDK): use the Interactions API (`interactions.create`), which Google
-  recommends for new projects. Pass `response_format=[{"type": "text", "mime_type": "application/json",
+  recommends for new projects, with `store=False` so Google keeps no copy of the interaction. Thinking
+  tokens are billed as output and recorded as such. Pass `response_format=[{"type": "text", "mime_type": "application/json",
   "schema": llm_schema(request.output_model)}]`, then validate with
   `output_model.model_validate_json(interaction.output_text)`. For PDFs, add an input item
   `{"type": "document", "data": <base64>, "mime_type": "application/pdf"}`. Use the SDK's async client.
 - `cvcore.llm_schema.llm_schema(model)` produces a JSON schema both providers accept: inline `$defs`,
   `additionalProperties: false`, no recursion, only object, array, string, number, integer, boolean and
   enum. Unit-tested against every output model.
+- Claude calls send `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`): if the model declines on
+  safety grounds, the API re-runs the request on a fallback model in the same call. The `ai_runs` row
+  records the model that actually answered (`response.model`), so cost tracking stays correct.
 - Both adapters retry once on rate-limit and 5xx errors with jittered backoff, then raise `ProviderError`.
-  Timeout: 90 seconds per call. No automatic fallback to the other provider; the UI offers "Try with
-  Gemini" or "Try with Claude" on failure.
+- **MiMo adapter** (httpx, no SDK): the OpenAI-compatible Chat Completions endpoint
+  (`https://api.xiaomimimo.com/v1`) with `response_format` `json_schema` (strict, the shared
+  `llm_schema`). MiMo reads images but not PDFs, so PDF pages are rendered to PNG in memory
+  (`pypdfium2`, at most 6 pages) and sent as image parts. Its Anthropic-compatible endpoint is not used:
+  it ignores structured output and drops PDF documents. Thinking stays on; without it, extraction drops
+  bullets. Retries once on 429, 5xx and dropped connections. No web search is ever enabled.
+  Timeout: 90 seconds per call (180 for MiMo). No automatic fallback to another model; on failure the
+  UI lets the user choose another model.
 - Verify current SDK method names against the official docs when implementing; pin SDK versions in
   `uv.lock`.
 
@@ -379,7 +421,7 @@ Prompts, schemas, validation and the fact guard are shared. Adapters only transl
 |---|---|---|---|
 | `extract_profile` | PDF bytes, or text extracted from DOCX (python-docx) or pasted text | `CvContent` | default |
 | `analyze_job` | job description text | `JobAnalysis` (title, company, seniority, must_have[], nice_to_have[], keywords[], summary) | fast |
-| `tailor_cv` | profile `CvContent`, `JobAnalysis`, job text, template constraints (target pages) | `TailoredCv` (content: CvContent, changes: list of {bullet_id, rationale}, missing_keywords[]) | default |
+| `tailor_cv` | profile `CvContent`, `JobAnalysis`, job text, template constraints (target pages) | `TailoredCv` (content: CvContent, changes: list of {source_id, rationale} keyed by the profile bullet, missing_keywords[]) | default |
 
 Each task: check quota, build the request from the prompt module, call the provider via the registry,
 validate, run the fact guard (tailor only), record an `ai_runs` row (success or failure), return.
@@ -485,16 +527,16 @@ Base path `/api/v1`. JSON in and out, snake_case. All routes except webhooks, in
 
 | Method and path | Purpose |
 |---|---|
-| `GET /client-config` | No auth. How the SPA signs in: `auth_mode` and, for Firebase, the web config |
-| `GET /me`, `PATCH /me` | Current user; update display name, preferred provider, default template |
+| `GET /client-config` | No auth. How the SPA signs in (`auth_mode` and, for Firebase, the web config), the AI models the server offers (`ai_models`, with each one's plan), `default_ai_model` and `plans_enforced` |
+| `GET /me`, `PATCH /me` | Current user; update display name, preferred AI model, default template |
 | `DELETE /me` | Delete account and all data (typed email confirmation in body) |
 | `GET /me/export` | All user data as JSON |
 | `GET /usage` | Plan, limits, AI runs used this period |
 | `GET/POST /profiles`, `GET/PATCH/DELETE /profiles/{id}`, `POST /profiles/{id}/duplicate` | Profiles |
-| `POST /imports` (multipart file or text, provider) | Extract a profile draft; returns `{upload_id, draft: CvContent}` |
-| `POST /imports/{upload_id}/accept` | Save the draft as a profile |
+| `POST /imports` (multipart: a file, pasted text, or the `upload_id` of an earlier upload; `ai_model`) | Extract a profile draft; returns `{upload_id, draft: CvContent}`. Nothing is saved as a profile: after review the SPA saves the draft with `POST /profiles`. |
+| `GET /uploads`, `DELETE /uploads/{id}` | Files the user uploaded for import; deleting removes the object from storage |
 | `GET/POST /jobs`, `GET/DELETE /jobs/{id}` | Saved job descriptions |
-| `POST /tailor` (profile_id, job_id or job text, template_id, provider) | Create a tailored CV; returns document, fact report, changes, missing keywords |
+| `POST /tailor` (profile_id, job_id or job text, template_id, ai_model) | Create a tailored CV; returns document, fact report, changes, missing keywords. Regenerating from the review screen deletes the draft CV and calls this again. |
 | `GET/POST /documents`, `GET/PATCH/DELETE /documents/{id}` | CVs |
 | `POST /documents/{id}/duplicate` | Copy a CV |
 | `POST /documents/{id}/eject` | Switch to Typst mode (one-way) |

@@ -8,10 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import User
 from api.ports.auth import AuthVerifier
+from api.ports.llm.registry import ProviderRegistry
 from api.ports.renderer import RendererClient
 from api.ports.storage import Storage
+from api.repositories.ai_runs import AiRunRepository
 from api.repositories.documents import DocumentRepository, DocumentVersionRepository
+from api.repositories.jobs import JobRepository
 from api.repositories.profiles import ProfileRepository
+from api.repositories.uploads import UploadRepository
 from api.repositories.users import UserRepository
 from api.services.users import ensure_user
 from api.settings import Settings
@@ -48,6 +52,13 @@ def get_storage(request: Request) -> Storage:
 
 
 FileStorage = Annotated[Storage, Depends(get_storage)]
+
+
+def get_providers(request: Request) -> ProviderRegistry:
+    return request.app.state.providers
+
+
+Providers = Annotated[ProviderRegistry, Depends(get_providers)]
 
 
 def get_settings(request: Request) -> Settings:
@@ -88,6 +99,21 @@ def get_versions(session: Session, user: CurrentUser) -> DocumentVersionReposito
     return DocumentVersionRepository(session, user.id)
 
 
+def get_jobs(session: Session, user: CurrentUser) -> JobRepository:
+    return JobRepository(session, user.id)
+
+
+def get_uploads(session: Session, user: CurrentUser) -> UploadRepository:
+    return UploadRepository(session, user.id)
+
+
+def get_ai_runs(session: Session, user: CurrentUser) -> AiRunRepository:
+    return AiRunRepository(session, user.id)
+
+
 Profiles = Annotated[ProfileRepository, Depends(get_profiles)]
 Documents = Annotated[DocumentRepository, Depends(get_documents)]
 Versions = Annotated[DocumentVersionRepository, Depends(get_versions)]
+Jobs = Annotated[JobRepository, Depends(get_jobs)]
+Uploads = Annotated[UploadRepository, Depends(get_uploads)]
+AiRuns = Annotated[AiRunRepository, Depends(get_ai_runs)]

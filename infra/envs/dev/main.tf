@@ -1,6 +1,13 @@
 # The dev environment: composes modules. Image digests come from CI (deploy.yml).
 
 locals {
+  # AI provider keys the api can receive, by secret id.
+  ai_key_env = {
+    "anthropic-api-key" = "ANTHROPIC_API_KEY"
+    "gemini-api-key"    = "GEMINI_API_KEY"
+    "mimo-api-key"      = "MIMO_API_KEY"
+  }
+
   api_sa      = "serviceAccount:${google_service_account.api.email}"
   renderer_sa = "serviceAccount:${google_service_account.renderer.email}"
   deployer_sa = "serviceAccount:deployer@${var.project_id}.iam.gserviceaccount.com"
@@ -30,6 +37,7 @@ module "secrets" {
   for_each = {
     "anthropic-api-key"   = [local.api_sa]
     "gemini-api-key"      = [local.api_sa]
+    "mimo-api-key"        = [local.api_sa]
     "paystack-secret-key" = [local.api_sa]
     "database-url"        = [local.api_sa]
     # Migrations run in CI with the direct (unpooled) endpoint.
@@ -80,9 +88,10 @@ module "api" {
     RENDERER_URL         = module.renderer.uri
     RENDERER_AUTH        = "oidc"
   }
-  secret_env = {
-    DATABASE_URL = module.secrets["database-url"].id
-  }
+  secret_env = merge(
+    { DATABASE_URL = module.secrets["database-url"].id },
+    { for id in var.ai_keys : local.ai_key_env[id] => module.secrets[id].id },
+  )
 
   depends_on = [module.secrets]
 }

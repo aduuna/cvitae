@@ -5,14 +5,19 @@ description = "Chameleon vitae REST API; also serves the built SPA"
 requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.20",
+    "anthropic>=1.13.0",
     "cvcore",
     "fastapi[standard]",
     "firebase-admin>=7.7.0",
     "google-auth>=2.61.0",
     "google-cloud-storage>=3.17.0",
+    "google-genai>=2.29.0",
     "httpx>=0.28",
+    "pillow>=12.3.0",
     "psycopg[binary]>=3.3",
     "pydantic-settings>=2.15",
+    "pypdfium2>=5.14.0",
+    "python-docx>=1.2.0",
     "sqlalchemy[asyncio]>=2.1",
 ]
 
