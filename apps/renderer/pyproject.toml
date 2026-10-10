@@ -3,7 +3,12 @@ name = "renderer"
 version = "0.0.0"
 description = "Sandboxed Typst compile service"
 requires-python = ">=3.13"
-dependencies = ["cvcore", "fastapi[standard]"]
+dependencies = [
+    "cvcore",
+    "fastapi[standard]",
+    "pydantic-settings>=2.15",
+    "typst>=0.15",
+]
 
 [tool.uv.sources]
 cvcore = { workspace = true }

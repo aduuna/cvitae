@@ -4,3 +4,5 @@ node_modules
 test-results
 playwright-report
 bun.lock
+src/lib/api/openapi.json
+src/lib/api/schema.d.ts

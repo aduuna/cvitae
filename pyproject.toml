@@ -14,6 +14,7 @@ dev = [
     "respx",
     "ruff",
     "ty>=0.0.86",
+    "hypothesis>=6.168.5",
 ]
 
 [tool.uv]
@@ -38,6 +39,8 @@ select = ["E", "F", "I", "B", "UP", "SIM", "RUF", "ASYNC", "S"]
 
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["S101"]
+# Sets the environment before importing the app, which reads it at import time.
+"apps/api/tests/conftest.py" = ["E402"]
 
 [tool.ty.environment]
 root = ["apps/api/src", "apps/renderer/src", "packages/cvcore/src"]
@@ -64,6 +67,8 @@ testpaths = ["apps", "packages"]
 [tool.coverage.run]
 source_pkgs = ["api", "cvcore"]
 branch = true
+# SQLAlchemy's async layer runs code in greenlets.
+concurrency = ["thread", "greenlet"]
 
 [tool.coverage.report]
 fail_under = 85

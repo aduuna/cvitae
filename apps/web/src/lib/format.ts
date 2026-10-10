@@ -14,3 +14,41 @@ export function formatBytes(bytes: number): string {
 	);
 	return `${number} ${UNITS[unit]}`;
 }
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
+/** For "Edited ...": "just now", "5 min ago", "3 h ago", "yesterday", "3 Oct" or "3 Oct 2025". */
+export function formatRelative(iso: string, now: Date = new Date()): string {
+	const date = new Date(iso);
+	const elapsed = now.getTime() - date.getTime();
+	if (elapsed < MINUTE) return 'just now';
+	if (elapsed < HOUR) return `${Math.floor(elapsed / MINUTE)} min ago`;
+	if (elapsed < DAY && date.getDate() === now.getDate())
+		return `${Math.floor(elapsed / HOUR)} h ago`;
+	const yesterday = new Date(now);
+	yesterday.setDate(now.getDate() - 1);
+	if (date.toDateString() === yesterday.toDateString()) return 'yesterday';
+	const sameYear = date.getFullYear() === now.getFullYear();
+	return new Intl.DateTimeFormat('en-GB', {
+		day: 'numeric',
+		month: 'short',
+		...(sameYear ? {} : { year: 'numeric' })
+	}).format(date);
+}
+
+/** "10 Oct, 14:05" for version history. */
+export function formatDateTime(iso: string): string {
+	return new Intl.DateTimeFormat('en-GB', {
+		day: 'numeric',
+		month: 'short',
+		hour: '2-digit',
+		minute: '2-digit'
+	}).format(new Date(iso));
+}
+
+/** "1 page", "2 pages". */
+export function formatPages(count: number): string {
+	return `${count} ${count === 1 ? 'page' : 'pages'}`;
+}

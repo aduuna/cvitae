@@ -3,7 +3,15 @@ name = "api"
 version = "0.0.0"
 description = "Chameleon vitae REST API; also serves the built SPA"
 requires-python = ">=3.13"
-dependencies = ["cvcore", "fastapi[standard]"]
+dependencies = [
+    "alembic>=1.20",
+    "cvcore",
+    "fastapi[standard]",
+    "httpx>=0.28",
+    "psycopg[binary]>=3.3",
+    "pydantic-settings>=2.15",
+    "sqlalchemy[asyncio]>=2.1",
+]
 
 [tool.uv.sources]
 cvcore = { workspace = true }

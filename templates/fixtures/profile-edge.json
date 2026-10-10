@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "basics": {
+    "name": "Zoë O'Brien-Nkrumah",
+    "headline": "",
+    "email": "",
+    "phone": "",
+    "location": "",
+    "links": []
+  },
+  "summary": "Text that looks like Typst stays text: #eval(\"1 + 1\"), $x^2$, <label>, @preview/cetz, \\ backslash, *star*, _underscore_, `code` and = heading.",
+  "sections": [
+    {
+      "id": "sec-exp",
+      "kind": "experience",
+      "title": "Experience",
+      "experience": [
+        {
+          "id": "exp-acme",
+          "org": "Acme #1 <Ltd> & \"Sons\"",
+          "role": "Engineer $$ // not a comment",
+          "location": "",
+          "dates": { "start": "sometime in 2020", "end": "" },
+          "stack": [],
+          "bullets": [
+            { "id": "b-1", "text": "**[[check this number: 40%]]** faster builds" },
+            { "id": "b-2", "text": "#import \"@preview/cetz:0.3.4\": * is just text here" },
+            { "id": "b-3", "text": "" }
+          ],
+          "engagements": [
+            {
+              "id": "eng-1",
+              "name": "Unlabelled client",
+              "label": "",
+              "location": "",
+              "dates": null,
+              "bullets": []
+            }
+          ]
+        }
+      ]
+    },
+    { "id": "sec-empty", "kind": "projects", "title": "Projects", "projects": [] },
+    {
+      "id": "sec-skills",
+      "kind": "skills",
+      "title": "Skills",
+      "skills": [{ "id": "sk-1", "label": "Nothing yet", "items": [] }]
+    },
+    {
+      "id": "sec-edu",
+      "kind": "education",
+      "title": "Education",
+      "education": [
+        {
+          "id": "edu-1",
+          "institution": "",
+          "degree": "",
+          "location": "",
+          "dates": { "start": "", "end": null }
+        }
+      ]
+    }
+  ]
+}

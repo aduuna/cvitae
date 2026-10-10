@@ -1,0 +1,4 @@
+name = "Classic"
+description = "Serif type, a centred header and navy section rules. Engagements appear as sub-headings."
+paper_sizes = ["a4", "us-letter"]
+target_pages = 1

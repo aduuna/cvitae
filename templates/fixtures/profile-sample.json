@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "basics": {
+    "name": "Ama Owusu-Mensah",
+    "headline": "Senior data engineer",
+    "email": "ama@example.com",
+    "phone": "+44 20 7946 0958",
+    "location": "London, UK",
+    "links": [
+      { "label": "github.com/example", "url": "https://github.com/example" },
+      { "label": "linkedin.com/in/example", "url": "https://www.linkedin.com/in/example" }
+    ]
+  },
+  "summary": "Data engineer with **9 years** of experience building batch and streaming platforms for banks and retailers. Comfortable owning pipelines end to end, from ingestion to the dashboards people use every day.",
+  "sections": [
+    {
+      "id": "sec-exp",
+      "kind": "experience",
+      "title": "Experience",
+      "experience": [
+        {
+          "id": "exp-northwind",
+          "org": "Northwind Consulting",
+          "role": "Lead data engineer",
+          "location": "London, UK",
+          "dates": { "start": "2021-03", "end": null },
+          "stack": ["Python", "Spark", "Airflow", "dbt", "AWS"],
+          "bullets": [
+            { "id": "b-nw-1", "text": "Lead a team of **5 engineers** delivering data platforms for financial-services clients." }
+          ],
+          "engagements": [
+            {
+              "id": "eng-harbour",
+              "name": "Harbour Bank",
+              "label": "Client",
+              "location": "London, UK",
+              "dates": { "start": "2022-06", "end": null },
+              "bullets": [
+                { "id": "b-hb-1", "text": "Migrated **140** nightly batch jobs from on-premise Hadoop to Spark on EMR, cutting runtime by **62%**." },
+                { "id": "b-hb-2", "text": "Built a streaming fraud-signal pipeline on Kafka that serves [[number of analysts]] analysts." }
+              ]
+            },
+            {
+              "id": "eng-meridian",
+              "name": "Meridian Retail",
+              "label": "Client",
+              "location": "Manchester, UK",
+              "dates": { "start": "2021-03", "end": "2022-05" },
+              "bullets": [
+                { "id": "b-mr-1", "text": "Designed a dbt project of **300+ models** with tests and documentation that analysts now extend themselves." }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "exp-brightline",
+          "org": "Brightline Analytics",
+          "role": "Data engineer",
+          "location": "Accra, Ghana",
+          "dates": { "start": "2017-09", "end": "2021-02" },
+          "stack": ["Python", "PostgreSQL", "Airflow", "GCP"],
+          "bullets": [
+            { "id": "b-bl-1", "text": "Built the company's first warehouse on BigQuery, consolidating **12** source systems." },
+            { "id": "b-bl-2", "text": "Reduced monthly cloud spend by **$4,800** by partitioning and clustering the largest tables." },
+            { "id": "b-bl-3", "text": "Mentored 3 graduate engineers through their first year." }
+          ],
+          "engagements": []
+        },
+        {
+          "id": "exp-kente",
+          "org": "Kente Labs",
+          "role": "Software engineer",
+          "location": "Kumasi, Ghana",
+          "dates": { "start": "2015-06", "end": "2017-08" },
+          "stack": ["Java", "MySQL"],
+          "bullets": [
+            { "id": "b-kl-1", "text": "Shipped payment reconciliation services processing **1.2M** mobile-money transactions a month." }
+          ],
+          "engagements": []
+        }
+      ]
+    },
+    {
+      "id": "sec-proj",
+      "kind": "projects",
+      "title": "Projects",
+      "projects": [
+        {
+          "id": "proj-ledgerline",
+          "name": "Ledgerline",
+          "url": "https://github.com/example/ledgerline",
+          "status": "open source",
+          "year": "2024",
+          "bullets": [
+            { "id": "b-ll-1", "text": "A small library for validating double-entry ledgers in C# and Python." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sec-edu",
+      "kind": "education",
+      "title": "Education",
+      "education": [
+        {
+          "id": "edu-ug",
+          "institution": "University of Ghana",
+          "degree": "BSc Computer Science",
+          "location": "Legon, Ghana",
+          "dates": { "start": "2011-09", "end": "2015-06" }
+        }
+      ]
+    },
+    {
+      "id": "sec-skills",
+      "kind": "skills",
+      "title": "Skills",
+      "skills": [
+        { "id": "sk-lang", "label": "Languages", "items": ["Python", "SQL", "Scala", "C#"] },
+        { "id": "sk-data", "label": "Data", "items": ["Spark", "Kafka", "dbt", "Airflow", "BigQuery"] },
+        { "id": "sk-cloud", "label": "Cloud", "items": ["AWS", "GCP", "Terraform"] }
+      ]
+    },
+    {
+      "id": "sec-cert",
+      "kind": "certifications",
+      "title": "Certifications",
+      "certifications": [
+        { "id": "cert-gcp", "name": "Professional Data Engineer", "issuer": "Google Cloud", "date": "2023-04" },
+        { "id": "cert-aws", "name": "Solutions Architect Associate", "issuer": "Amazon Web Services", "date": "2022" }
+      ]
+    },
+    {
+      "id": "sec-lang",
+      "kind": "custom",
+      "title": "Languages",
+      "custom": [
+        { "id": "b-lang-1", "text": "English (fluent), Twi (native), French (conversational)" }
+      ]
+    }
+  ]
+}

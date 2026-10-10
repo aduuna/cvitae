@@ -93,3 +93,24 @@ describe('Menu', () => {
 		expect(screen.queryByRole('menu')).toBeNull();
 	});
 });
+
+describe('Menu with a text trigger', () => {
+	it('opens from a labelled button', async () => {
+		const add = vi.fn();
+		const user = userEvent.setup();
+		render(Menu, {
+			items: [{ label: 'Projects', onselect: add }],
+			text: 'Add section',
+			icon: 'new'
+		});
+
+		const trigger = screen.getByRole('button', { name: 'Add section' });
+		expect(trigger).toHaveAttribute('aria-haspopup', 'menu');
+		expect(trigger.querySelector('[data-icon="new"]')).not.toBeNull();
+		await user.click(trigger);
+		await user.click(screen.getByRole('menuitem', { name: 'Projects' }));
+
+		expect(add).toHaveBeenCalledOnce();
+		expect(trigger).toHaveFocus();
+	});
+});

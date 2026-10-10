@@ -1,0 +1,4 @@
+name = "Compact"
+description = "Denser spacing and smaller type for long careers that must fit one page."
+paper_sizes = ["a4", "us-letter"]
+target_pages = 1

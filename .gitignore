@@ -17,4 +17,5 @@ htmlcov/
 # Local env and OS files
 .env
 .env.*
+!.env.example
 .DS_Store

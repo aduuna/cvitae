@@ -14,19 +14,30 @@
 
 <script lang="ts">
 	import { tick } from 'svelte';
+	import Button from './Button.svelte';
 	import Icon from './Icon.svelte';
 	import IconButton from './IconButton.svelte';
 	import { nextIndex } from './roving';
 
-	interface Props {
+	type Props = {
 		items: MenuItem[];
-		/** Accessible name and tooltip of the trigger, for example "Actions for Backend CV". */
-		label: string;
+		/** Trigger icon: defaults to "more" for icon triggers, none for text triggers. */
 		icon?: IconName;
 		align?: 'start' | 'end';
-	}
+	} & (
+		| {
+				/** Accessible name and tooltip of the icon trigger, e.g. "Actions for Backend CV". */
+				label: string;
+				text?: undefined;
+		  }
+		| {
+				/** Visible trigger text, for example "Add section". */
+				text: string;
+				label?: undefined;
+		  }
+	);
 
-	let { items, label, icon = 'more', align = 'end' }: Props = $props();
+	let { items, label, text, icon, align = 'end' }: Props = $props();
 
 	const id = $props.id();
 	let open = $state(false);
@@ -94,17 +105,32 @@
 <svelte:window onpointerdown={onWindowPointerDown} />
 
 <div bind:this={root} class="relative inline-flex">
-	<IconButton
-		bind:ref={trigger}
-		id="{id}-trigger"
-		{label}
-		{icon}
-		aria-haspopup="menu"
-		aria-expanded={open}
-		aria-controls={open ? `${id}-menu` : undefined}
-		onclick={() => (open ? hide(false) : show('first'))}
-		onkeydown={onTriggerKeydown}
-	/>
+	{#if text !== undefined}
+		<Button
+			bind:ref={trigger}
+			id="{id}-trigger"
+			{icon}
+			aria-haspopup="menu"
+			aria-expanded={open}
+			aria-controls={open ? `${id}-menu` : undefined}
+			onclick={() => (open ? hide(false) : show('first'))}
+			onkeydown={onTriggerKeydown}
+		>
+			{text}
+		</Button>
+	{:else}
+		<IconButton
+			bind:ref={trigger}
+			id="{id}-trigger"
+			label={label ?? ''}
+			icon={icon ?? 'more'}
+			aria-haspopup="menu"
+			aria-expanded={open}
+			aria-controls={open ? `${id}-menu` : undefined}
+			onclick={() => (open ? hide(false) : show('first'))}
+			onkeydown={onTriggerKeydown}
+		/>
+	{/if}
 	{#if open}
 		<div
 			bind:this={menu}

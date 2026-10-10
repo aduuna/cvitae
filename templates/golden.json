@@ -1,0 +1,43 @@
+{
+  "classic": {
+    "profile-edge": {
+      "page_count": 1,
+      "svg_sha256": [
+        "74a484b8a8df8914448779b5bf0a228dc968bdc8fcd3b22efba5d325eb9efedc"
+      ]
+    },
+    "profile-long": {
+      "page_count": 2,
+      "svg_sha256": [
+        "09c346e76ff18c63f2a48554c658af8bd1d106d2b88b4a0341ef2e1a01802f8a",
+        "77773039ac2670f706a2769d97e69dd1f3798cfaae9e2ee67e84c502742a590c"
+      ]
+    },
+    "profile-sample": {
+      "page_count": 1,
+      "svg_sha256": [
+        "c7ea74ca2d24ce6eb4465efed7f2bdde61293b1c7b19d11d41ddad1f0d03b1f3"
+      ]
+    }
+  },
+  "compact": {
+    "profile-edge": {
+      "page_count": 1,
+      "svg_sha256": [
+        "2e099785164651940e1d81f92cba1c0ec9e4c2827cf64cc2da7d9fd5d17dbe4e"
+      ]
+    },
+    "profile-long": {
+      "page_count": 1,
+      "svg_sha256": [
+        "57d168d976835473f8c6b224c0920fd8591d5cc505492f245044eae17264c571"
+      ]
+    },
+    "profile-sample": {
+      "page_count": 1,
+      "svg_sha256": [
+        "0c7a3b2b00f502c965c17b1f14ff67e54fec89ec631381b404b80123f445dbd6"
+      ]
+    }
+  }
+}
