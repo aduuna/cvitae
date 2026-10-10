@@ -1,0 +1,13 @@
+[project]
+name = "renderer"
+version = "0.0.0"
+description = "Sandboxed Typst compile service"
+requires-python = ">=3.13"
+dependencies = ["cvcore", "fastapi[standard]"]
+
+[tool.uv.sources]
+cvcore = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

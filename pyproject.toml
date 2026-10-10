@@ -1,0 +1,71 @@
+[project]
+name = "vitae"
+version = "0.0.0"
+description = "uv workspace root for Vitae"
+requires-python = ">=3.13"
+dependencies = ["api", "renderer", "cvcore"]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "httpx",
+    "respx",
+    "ruff",
+    "ty>=0.0.86",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+api = { workspace = true }
+renderer = { workspace = true }
+cvcore = { workspace = true }
+
+[tool.uv.workspace]
+members = ["apps/api", "apps/renderer", "packages/cvcore"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["apps/api/src", "apps/renderer/src", "packages/cvcore/src"]
+extend-exclude = ["apps/web", "docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF", "ASYNC", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S101"]
+
+[tool.ty.environment]
+root = ["apps/api/src", "apps/renderer/src", "packages/cvcore/src"]
+
+[tool.ty.src]
+include = ["apps", "packages"]
+exclude = ["apps/web"]
+
+[tool.ty.rules]
+missing-type-argument = "error"
+possibly-missing-attribute = "error"
+possibly-missing-import = "error"
+possibly-unresolved-reference = "error"
+
+[tool.ty.terminal]
+error-on-warning = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = ["live: calls real external APIs; never runs in CI"]
+addopts = "-m 'not live' --import-mode=importlib"
+testpaths = ["apps", "packages"]
+
+[tool.coverage.run]
+source_pkgs = ["api", "cvcore"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+skip_covered = true

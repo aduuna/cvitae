@@ -1,0 +1,5 @@
+services:
+  db:
+    image: postgres:17
+    environment: { POSTGRES_USER: vitae, POSTGRES_PASSWORD: vitae, POSTGRES_DB: vitae }
+    ports: ["5432:5432"]

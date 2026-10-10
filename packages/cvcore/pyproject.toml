@@ -1,0 +1,10 @@
+[project]
+name = "cvcore"
+version = "0.0.0"
+description = "Shared CV models, rich-text parser and fact guard"
+requires-python = ">=3.13"
+dependencies = ["pydantic"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

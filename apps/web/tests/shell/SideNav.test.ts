@@ -1,0 +1,114 @@
+import { act, render, screen, within } from '@testing-library/svelte';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import SideNav from '#lib/components/shell/SideNav.svelte';
+import { setViewportWidth } from '../media';
+
+const location = vi.hoisted(() => ({ pathname: '/app/profiles' }));
+
+vi.mock('$app/state', () => ({
+	page: {
+		get url() {
+			return new URL(`http://localhost${location.pathname}`);
+		}
+	}
+}));
+vi.mock('$app/paths', () => ({ resolve: (path: string) => path }));
+
+function nav() {
+	return screen.getByRole('navigation', { name: 'Main' });
+}
+
+describe('SideNav', () => {
+	beforeEach(() => {
+		localStorage.clear();
+		setViewportWidth(1280);
+		location.pathname = '/app/profiles';
+	});
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it('lists the six sections in order with their routes', () => {
+		render(SideNav);
+		const links = within(nav()).getAllByRole('link');
+		expect(links.map((link) => [link.textContent?.trim(), link.getAttribute('href')])).toEqual([
+			['Documents', '/app/documents'],
+			['Profiles', '/app/profiles'],
+			['Import', '/app/import'],
+			['Tailor', '/app/tailor'],
+			['Templates', '/app/templates'],
+			['Settings', '/app/settings']
+		]);
+	});
+
+	it('marks the current section, including nested routes', () => {
+		location.pathname = '/app/documents/123';
+		render(SideNav);
+		const active = screen.getByRole('link', { name: 'Documents' });
+		expect(active).toHaveAttribute('aria-current', 'page');
+		expect(active).toHaveClass('bg-muted', 'font-medium', 'text-fg');
+		expect(active.querySelector('.bg-accent')).not.toBeNull();
+		expect(screen.getByRole('link', { name: 'Profiles' })).not.toHaveAttribute('aria-current');
+	});
+
+	it('collapses to a 56px icon rail and back, remembering the choice', async () => {
+		const user = userEvent.setup();
+		render(SideNav);
+		expect(nav()).toHaveClass('w-60');
+		await user.click(screen.getByRole('button', { name: 'Collapse side nav' }));
+		expect(nav()).toHaveClass('w-14');
+		expect(nav()).toHaveAttribute('data-collapsed', 'true');
+		expect(localStorage.getItem('vitae.sidenav.collapsed')).toBe('true');
+		// Labels stay available to assistive tech in the rail.
+		expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: 'Expand side nav' }));
+		expect(nav()).toHaveClass('w-60');
+		expect(localStorage.getItem('vitae.sidenav.collapsed')).toBe('false');
+	});
+
+	it('starts collapsed when the user collapsed it before', () => {
+		localStorage.setItem('vitae.sidenav.collapsed', 'true');
+		render(SideNav);
+		expect(nav()).toHaveClass('w-14');
+	});
+
+	it('shows labels as tooltips in the rail', async () => {
+		vi.useFakeTimers();
+		try {
+			const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+			localStorage.setItem('vitae.sidenav.collapsed', 'true');
+			render(SideNav);
+			await user.hover(screen.getByRole('link', { name: 'Tailor' }));
+			await act(() => vi.advanceTimersByTime(400));
+			expect(
+				screen.getAllByText('Tailor').some((el) => el.getAttribute('data-state') === 'open')
+			).toBe(true);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('is always the icon rail under 1024px, without a toggle', async () => {
+		render(SideNav);
+		expect(nav()).toHaveClass('w-60');
+		await act(() => setViewportWidth(768));
+		expect(nav()).toHaveClass('w-14');
+		expect(screen.queryByRole('button', { name: /side nav/ })).toBeNull();
+		await act(() => setViewportWidth(1280));
+		expect(nav()).toHaveClass('w-60');
+	});
+
+	it('still works when local storage is unavailable', async () => {
+		vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+			throw new Error('blocked');
+		});
+		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+			throw new Error('blocked');
+		});
+		render(SideNav);
+		expect(nav()).toHaveClass('w-60');
+		await userEvent.click(screen.getByRole('button', { name: 'Collapse side nav' }));
+		expect(nav()).toHaveClass('w-14');
+	});
+});

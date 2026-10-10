@@ -1,0 +1,104 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+
+@theme {
+	/* Reset defaults: only the colors below exist. */
+	--color-*: initial;
+
+	/* Raw scale. Do not use these names in components; use the semantic tokens. */
+	--color-white: #ffffff;
+	--color-black: #0a0a0a;
+	--color-gray-50: #fafafa;
+	--color-gray-100: #f4f4f5;
+	--color-gray-200: #e4e4e7;
+	--color-gray-300: #d4d4d8;
+	--color-gray-400: #a1a1aa;
+	--color-gray-500: #71717a;
+	--color-gray-600: #52525b;
+	--color-gray-700: #3f3f46;
+	--color-gray-900: #18181b;
+	--color-red-700: #b91c1c;
+	--color-yellow-200: #ffe58a;
+
+	/* Semantic tokens: the only color names components may use. */
+	--color-canvas: var(--color-gray-100); /* app background behind pages and panels */
+	--color-surface: var(--color-white); /* panels, inputs, menus, pages */
+	--color-subtle: var(--color-gray-50); /* hover rows, secondary panels */
+	--color-muted: var(--color-gray-100); /* pressed, selected backgrounds */
+	--color-line: var(--color-gray-200); /* default borders and dividers */
+	--color-line-strong: var(--color-gray-300); /* input borders, splitters */
+	--color-fg: var(--color-gray-900); /* primary text */
+	--color-fg-muted: var(--color-gray-500); /* secondary text, captions (4.8:1 on white) */
+	--color-fg-faint: var(--color-gray-400); /* placeholders in inputs, disabled text */
+	--color-accent: var(--color-black); /* primary buttons, focus rings, active nav */
+	--color-accent-fg: var(--color-white); /* text on accent */
+	--color-danger: var(--color-red-700);
+	--color-placeholder: var(--color-yellow-200);
+
+	/* Type */
+	--font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+	--font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+
+	--text-xs: 12px;
+	--text-xs--line-height: 16px;
+	--text-sm: 13px;
+	--text-sm--line-height: 18px;
+	--text-base: 14px;
+	--text-base--line-height: 20px;
+	--text-lg: 16px;
+	--text-lg--line-height: 24px;
+	--text-xl: 20px;
+	--text-xl--line-height: 28px;
+	--text-2xl: 24px;
+	--text-2xl--line-height: 32px;
+
+	/* Spacing: a fixed 4px step (p-1 = 4px). Tailwind's default is 0.25rem, which the 14px root
+	   font size above would shrink to 3.5px. */
+	--spacing: 4px;
+
+	/* Shape */
+	--radius-sm: 4px;
+	--radius-md: 6px;
+	--radius-lg: 8px;
+
+	/* Elevation: used only for menus, dialogs and preview pages */
+	--shadow-page: 0 1px 2px rgb(0 0 0 / 0.06), 0 4px 16px rgb(0 0 0 / 0.06);
+	--shadow-pop: 0 4px 24px rgb(0 0 0 / 0.12);
+
+	/* Motion */
+	--ease-out: cubic-bezier(0.2, 0, 0, 1);
+
+	/* Menus and dialogs fade and move 4px (DESIGN.md, Motion). */
+	--animate-pop-in: pop-in 180ms var(--ease-out);
+
+	@keyframes pop-in {
+		from {
+			opacity: 0;
+			transform: translateY(4px);
+		}
+	}
+}
+
+@layer base {
+	html {
+		font-family: var(--font-sans);
+		font-size: var(--text-base);
+		color: var(--color-fg);
+		background: var(--color-canvas);
+	}
+	:focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
+	}
+	::selection {
+		background: var(--color-fg);
+		color: var(--color-surface);
+	}
+	@media (prefers-reduced-motion: reduce) {
+		* {
+			transition: none !important;
+			animation: none !important;
+		}
+	}
+}
