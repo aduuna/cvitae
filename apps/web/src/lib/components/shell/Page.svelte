@@ -15,7 +15,7 @@
 </script>
 
 <svelte:head>
-	<title>{title} - Vitae</title>
+	<title>{title} - Chameleon vitae</title>
 </svelte:head>
 
 <header

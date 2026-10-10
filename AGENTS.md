@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Vitae (working name) is a web app that turns a person's career history into polished, job-specific CVs.
+Chameleon vitae is a web app that turns a person's career history into polished, job-specific CVs.
 Users import an existing CV or enter their experience, paste a job description, and get a tailored CV
 rendered with Typst. They can keep many CVs, switch between 5 templates, edit in a form or in raw Typst,
 and export PDF. AI runs on Claude or Gemini, chosen by the user.

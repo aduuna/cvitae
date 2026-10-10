@@ -18,7 +18,7 @@ test.describe('app shell at 1280px', () => {
 		await page.goto('/');
 		await expect(page).toHaveURL(/\/app\/documents$/);
 		await expect(page.getByRole('heading', { level: 1, name: 'Documents' })).toBeVisible();
-		await expect(page).toHaveTitle('Documents - Vitae');
+		await expect(page).toHaveTitle('Documents - Chameleon vitae');
 
 		const nav = page.getByRole('navigation', { name: 'Main' });
 		await expect(nav.getByRole('link')).toHaveText(sections);

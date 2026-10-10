@@ -12,7 +12,7 @@ class Health(BaseModel):
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="Vitae API",
+        title="Chameleon vitae API",
         openapi_url="/api/openapi.json",
         docs_url="/api/docs",
         redoc_url=None,

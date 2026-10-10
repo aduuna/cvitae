@@ -9,7 +9,7 @@ describe('Page', () => {
 		const heading = screen.getByRole('heading', { level: 1, name: 'Templates' });
 		expect(heading).toHaveClass('text-xl', 'font-semibold');
 		expect(heading.parentElement).toHaveClass('h-12', 'border-b', 'border-line', 'bg-surface');
-		expect(document.title).toBe('Templates - Vitae');
+		expect(document.title).toBe('Templates - Chameleon vitae');
 	});
 
 	it('puts content in a centred 960px column with a skip-link target', () => {

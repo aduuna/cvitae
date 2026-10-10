@@ -1,7 +1,7 @@
 [project]
 name = "vitae"
 version = "0.0.0"
-description = "uv workspace root for Vitae"
+description = "uv workspace root for Chameleon vitae"
 requires-python = ">=3.13"
 dependencies = ["api", "renderer", "cvcore"]
 

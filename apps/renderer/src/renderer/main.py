@@ -10,7 +10,7 @@ class Health(BaseModel):
     status: Literal["ok"] = "ok"
 
 
-app = FastAPI(title="Vitae renderer", docs_url=None, redoc_url=None)
+app = FastAPI(title="Chameleon vitae renderer", docs_url=None, redoc_url=None)
 
 
 @app.get("/healthz")

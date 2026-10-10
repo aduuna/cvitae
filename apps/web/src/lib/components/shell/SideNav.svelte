@@ -35,7 +35,7 @@
 		]}
 	>
 		{#if !collapsed}
-			<span class="text-base font-semibold text-fg">Vitae</span>
+			<span class="text-base font-semibold text-fg">Chameleon vitae</span>
 		{/if}
 		{#if wide.current}
 			<IconButton
@@ -46,7 +46,7 @@
 				onclick={toggle}
 			/>
 		{:else}
-			<span class="text-base font-semibold text-fg" aria-hidden="true">V</span>
+			<span class="text-base font-semibold text-fg" aria-hidden="true">CV</span>
 		{/if}
 	</div>
 
