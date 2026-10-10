@@ -1,11 +1,13 @@
+import base64
 import json
+import time
 from collections.abc import Callable
 
 import httpx
 import pytest
 
 from api.errors import RenderFailed, ServiceUnavailable
-from api.ports.renderer import HttpRendererClient
+from api.ports.renderer import GoogleIdTokenAuth, HttpRendererClient
 
 DATA = {"basics": {"name": "Ada"}, "summary": [], "sections": []}
 TEMPLATES = [
@@ -116,3 +118,67 @@ async def test_templates_are_cached() -> None:
     assert second == first
     assert calls == ["/templates"]
     await client.aclose()
+
+
+def fake_id_token(exp: float) -> str:
+    def part(value: dict[str, object]) -> str:
+        raw = json.dumps(value).encode()
+        return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+    return f"{part({'alg': 'RS256', 'typ': 'JWT'})}.{part({'exp': exp, 'aud': 'x'})}.c2ln"
+
+
+async def test_oidc_auth_adds_and_caches_the_token() -> None:
+    fetched: list[str] = []
+    token = fake_id_token(time.time() + 3600)
+
+    def fetch(audience: str) -> str:
+        fetched.append(audience)
+        return token
+
+    seen: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers.get("Authorization"))
+        return httpx.Response(200, json=TEMPLATES)
+
+    auth = GoogleIdTokenAuth("https://renderer.run.app", fetch=fetch)
+    transport = httpx.MockTransport(handler)
+    client = HttpRendererClient(
+        "https://renderer.run.app",
+        client=httpx.AsyncClient(transport=transport, base_url="https://r", auth=auth),
+    )
+
+    await client.render_pdf("classic", DATA, "a4")
+    await client.render_pdf("classic", DATA, "a4")
+
+    assert fetched == ["https://renderer.run.app"]
+    assert seen == [f"Bearer {token}", f"Bearer {token}"]
+
+
+async def test_oidc_auth_refreshes_tokens_near_expiry() -> None:
+    tokens = [fake_id_token(time.time() + 60), fake_id_token(time.time() + 3600)]
+    auth = GoogleIdTokenAuth("aud", fetch=lambda _: tokens.pop(0))
+    transport = httpx.MockTransport(lambda _: httpx.Response(200, content=b"%PDF"))
+    client = HttpRendererClient(
+        "aud", client=httpx.AsyncClient(transport=transport, base_url="https://r", auth=auth)
+    )
+
+    await client.render_pdf("classic", DATA, "a4")
+    await client.render_pdf("classic", DATA, "a4")
+
+    assert tokens == []
+
+
+async def test_oidc_failures_are_service_errors() -> None:
+    def fetch(_: str) -> str:
+        raise RuntimeError("no metadata server")
+
+    auth = GoogleIdTokenAuth("aud", fetch=fetch)
+    transport = httpx.MockTransport(lambda _: httpx.Response(200, content=b"%PDF"))
+    client = HttpRendererClient(
+        "aud", client=httpx.AsyncClient(transport=transport, base_url="https://r", auth=auth)
+    )
+
+    with pytest.raises(ServiceUnavailable, match="could not be authorised"):
+        await client.render_pdf("classic", DATA, "a4")

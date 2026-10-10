@@ -8,24 +8,29 @@ OpenTofu and deployed by GitHub Actions.
 | Env | GCP project | Neon | Deploys |
 |---|---|---|---|
 | `local` | none | Postgres in `compose.yaml` (or a personal Neon branch) | `fastapi dev`, `bun run dev` |
-| `dev` | `vitae-dev` | Neon project `vitae`, branch `dev` | every push to `main` |
-| `prod` | `vitae-prod` | Neon project `vitae`, branch `main` | tags `v*`, behind a GitHub environment approval |
+| `dev` | `cvitae-511214` | Neon database `neondb` (pooled and direct endpoints) | every push to `main` that passes CI |
+| `prod` | a second project, created in M5 | Neon, separate branch or project | tags `v*`, behind a GitHub environment approval |
 
 Region: `europe-west1` for Cloud Run, Artifact Registry and GCS (supports Cloud Run domain mappings and
-is close to both Europe and Africa). Neon region: AWS `eu-central-1` (Frankfurt), the closest Neon region.
+is close to both Europe and Africa). Neon region: AWS `eu-central-1` (Frankfurt) is the closest to
+Cloud Run. The dev database was created in `us-east-2`; every query crosses the Atlantic until it
+moves (create a Frankfurt project, then replace the two `database-url*` secret versions).
+
+Domain: `cvitae.aduuna.dev` (a CNAME to `ghs.googlehosted.com` at the DNS host) is mapped to the dev
+`api` service. `aduuna.dev` is verified in Google Search Console by the project owner.
 
 ## GCP resources (per project)
 
 | Resource | Name | Settings |
 |---|---|---|
-| Artifact Registry (Docker) | `vitae` | Cleanup policy: keep the 10 most recent images per package |
+| Artifact Registry (Docker) | `cvitae` | Cleanup policy: keep the 10 most recent images per package. Created by `bootstrap/`, because images are pushed before the services exist. |
 | Cloud Run service | `api` | Public (`allUsers` invoker; auth is Firebase at app level). Min 0, max 3 instances, 1 vCPU, 512 MiB, concurrency 40, request timeout 300 s, CPU only during requests. Service account `api-sa`. |
 | Cloud Run service | `renderer` | Ingress `all`, but IAM invoker granted only to `api-sa`, so Google rejects any request without a valid OIDC token for that account before it reaches the container. Min 0, max 3, 1 vCPU, 1 GiB, concurrency 4, timeout 30 s. Service account `renderer-sa` with no roles. Direct VPC egress with `ALL_TRAFFIC` into a subnet that has no Cloud NAT, so it has no internet access. (Internal-only ingress would force the api's traffic through the VPC and require Cloud NAT for its calls to Neon, the AI providers and Paystack; not worth it at this stage.) |
-| VPC | `vitae-vpc` with subnet `renderer-egress` (`10.10.0.0/26`) | No Cloud NAT, no routes to the internet. Exists only to cut the renderer off. |
+| VPC (M5) | `cvitae-vpc` with subnet `renderer-egress` (`10.10.0.0/26`) | No Cloud NAT, no routes to the internet. Exists only to cut the renderer off. |
 | GCS bucket | `<project>-uploads` | Uniform access, public access prevention enforced, versioning off, lifecycle: none (user deletes remove objects). `api-sa` has `roles/storage.objectAdmin` on this bucket only. |
 | Secret Manager | `anthropic-api-key`, `gemini-api-key`, `paystack-secret-key`, `database-url`, `database-url-direct` | `api-sa` can access all except `database-url-direct`; the CI deployer can access `database-url-direct` for migrations. |
 | Cloud Scheduler | `prune-versions` (daily 03:00 UTC) | Calls `POST /api/v1/internal/prune-versions` on `api` with an OIDC token from `scheduler-sa`. |
-| Firebase / Identity Platform | project-level | Providers: Google, Email link. Authorized domains: the Cloud Run URL and the custom domain. |
+| Firebase Auth | project-level | Firebase was added and the Google provider enabled in the console (its OAuth client secret stays out of OpenTofu state). OpenTofu owns the web app (`google_firebase_web_app`, whose config the api serves to the SPA) and the Auth config, adopted with an `import` block: email sign-in without a password (email link), and authorized domains `localhost`, the Firebase domains, the Cloud Run URL and the custom domain. |
 | Domain mapping | `app.<domain>` -> `api` | Cloud Run domain mapping (free). Move to a load balancer only if needed later. |
 | Budget alert | billing account | Alerts at $10, $25, $50 per month. |
 
@@ -42,8 +47,11 @@ Both images build from the repository root so the uv workspace and `cvcore` are 
 `apps/api/Dockerfile` (multi-stage):
 
 ```dockerfile
-# 1. Build the SPA with bun
-FROM oven/bun:1 AS web
+# 1. Build the SPA with bun. Vite runs under Node, as in CI: SvelteKit's build does not finish
+# under the Bun runtime that the oven/bun image would use.
+FROM oven/bun:1.3.9 AS bun
+FROM node:24-bookworm-slim AS web
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /src/apps/web
 COPY apps/web/package.json apps/web/bun.lock ./
 RUN bun install --frozen-lockfile
@@ -67,7 +75,8 @@ WORKDIR /srv
 COPY --from=py /srv/.venv /srv/.venv
 COPY --from=py /srv/apps/api/alembic.ini /srv/apps/api/alembic.ini
 COPY --from=web /src/apps/web/build /srv/static
-ENV PATH="/srv/.venv/bin:$PATH" STATIC_DIR=/srv/static
+COPY templates/fixtures/profile-sample.json /srv/sample-profile.json
+ENV PATH="/srv/.venv/bin:$PATH" STATIC_DIR=/srv/static SAMPLE_PROFILE_PATH=/srv/sample-profile.json
 USER app
 CMD ["python", "-m", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8080", "--proxy-headers"]
 ```
@@ -86,17 +95,26 @@ Images are tagged with the git SHA and deployed by digest.
 ```
 infra/
   bootstrap/                 applied once by hand per project, with local credentials
-    main.tf                  state bucket, Workload Identity pool + GitHub provider, deployer SA
+    main.tf                  APIs, state bucket, registry, Workload Identity pool + GitHub provider, deployer SA
   modules/
     cloud_run_service/       one module used for both api and renderer (image, sa, scaling, env, secrets, ingress, vpc egress)
     secret/                  secret + IAM accessor bindings
     bucket/
   envs/
-    dev/  main.tf  variables.tf  terraform.tfvars  backend.tf
-    prod/ main.tf  variables.tf  terraform.tfvars  backend.tf
+    dev/  main.tf  auth.tf  versions.tf  variables.tf  outputs.tf  terraform.tfvars  backend.tf
+    prod/ (M5)
+  github/                    repository environments and their branch policies
 ```
 
-- State: GCS backend bucket `<project>-tofu-state` with versioning, created by `bootstrap/`.
+- `bootstrap/` also enables the project's APIs, creates the Artifact Registry repository and the
+  deployer service account with the roles `envs/*` need. Its own state started local and was moved to
+  the state bucket (`tofu init -migrate-state`). People who may impersonate the deployer come from
+  `TF_VAR_admin_members` (for example `'["user:you@example.com"]'`), never from a committed file, because
+  the repository is public.
+- `github/` holds repository settings that deploys rely on: the `dev` environment may only be used
+  from `main`. Apply it by hand with `GITHUB_TOKEN=$(gh auth token) tofu apply`.
+- State: GCS backend bucket `<project>-tofu-state` with versioning, created by `bootstrap/`, one prefix
+  per stack (`bootstrap`, `envs/dev`, `github`).
 - Providers: `google` and `google-beta` (Firebase and Identity Platform resources), versions pinned.
 - `envs/*/main.tf` only composes modules; no inline resources except one-offs (VPC, scheduler).
 - Image digests are input variables (`api_image`, `renderer_image`) set by CI, so OpenTofu owns the
@@ -109,7 +127,9 @@ infra/
 ## CI/CD (GitHub Actions)
 
 Authentication to GCP uses Workload Identity Federation (`google-github-actions/auth` with the pool and
-deployer service account from `bootstrap/`). No service-account JSON keys anywhere.
+deployer service account from `bootstrap/`). No service-account JSON keys anywhere. The pool accepts
+only this repository (by numeric repository and owner id), and the deployer trusts only jobs that run
+in a listed GitHub environment (OIDC subject `repo:aduuna/cvitae:environment:dev`).
 
 ### `ci.yml` (pull requests and pushes)
 
@@ -122,12 +142,16 @@ Jobs run in parallel:
    job fails if the committed API types are stale.
 3. **templates**: renderer golden tests (every template x every fixture), uploads preview PNGs as artifacts.
 4. **e2e**: Playwright against the built SPA and a mocked API.
-5. **infra**: `opentofu/setup-opentofu`, `tofu fmt -check -recursive`, `tofu validate`, and `tofu plan` for
-   `dev` (read-only WIF role), posted as a PR comment.
+5. **infra**: `opentofu/setup-opentofu`, `tofu fmt -check -recursive`, and `tofu validate` for every
+   stack. (A `tofu plan` for `dev` posted on pull requests, with a read-only WIF role, is still to come.)
 
 ### `deploy.yml`
 
-- Trigger: push to `main` deploys `dev`; tag `v*` deploys `prod` (GitHub environment `prod` requires approval).
+- Trigger: CI completing successfully for a push to `main` deploys `dev` (`workflow_run`), so a failing
+  build never deploys; it can also be started by hand. Tag `v*` deploys `prod` (GitHub environment
+  `prod` requires approval; M5).
+- The project id, registry, WIF provider and deployer email are written in the workflow: they are ids,
+  not secrets, and keeping them there means no repository variables to set by hand.
 - Steps:
   1. Authenticate with WIF.
   2. Build and push `api` and `renderer` images to Artifact Registry (Docker Buildx with GitHub cache).
@@ -135,8 +159,10 @@ Jobs run in parallel:
      Secret Manager. Migrations must be backward compatible with the previous release (expand, then
      contract in a later release).
   4. `tofu apply -auto-approve -var api_image=<digest> -var renderer_image=<digest>` in `infra/envs/<env>`.
-  5. Smoke test: `GET /healthz` on the api URL and one authenticated preview call with a test user
-     (dev only).
+  5. Smoke test (`apps/api/scripts/smoke.py`): `GET /healthz`; `GET /me` without a token is refused;
+     a test user (`smoke-test`, created with the Firebase Admin SDK) signs in with a custom token
+     signed by the deployer, then `GET /me` and a template preview succeed, which proves Firebase
+     verification and the api's OIDC call to the renderer; a direct call to the renderer is refused.
 
 ## Local development
 

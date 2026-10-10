@@ -64,7 +64,7 @@ def golden() -> Golden:
 
 
 def test_there_are_templates_and_fixtures() -> None:
-    assert {"classic", "compact"} <= set(TEMPLATE_IDS)
+    assert TEMPLATE_IDS == ["classic", "compact", "minimal", "modern", "technical"]
     assert {"profile-sample", "profile-long", "profile-edge"} <= set(FIXTURE_NAMES)
 
 
@@ -95,7 +95,7 @@ def test_template_has_no_warnings(template_id: str, fixture: str) -> None:
     assert warnings == []
 
 
-@pytest.mark.parametrize("template_id", ["classic", "compact"])
+@pytest.mark.parametrize("template_id", TEMPLATE_IDS)
 async def test_sample_fits_one_page(template_id: str) -> None:
     assert len(await svg_pages(template_id, "profile-sample")) == 1
 

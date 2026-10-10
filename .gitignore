@@ -19,3 +19,6 @@ htmlcov/
 .env.*
 !.env.example
 .DS_Store
+
+# Local file storage (STORAGE_MODE=local)
+.data/

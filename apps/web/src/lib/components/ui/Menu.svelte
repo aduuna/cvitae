@@ -24,6 +24,8 @@
 		/** Trigger icon: defaults to "more" for icon triggers, none for text triggers. */
 		icon?: IconName;
 		align?: 'start' | 'end';
+		/** Open below the trigger (default) or above it, for triggers near the bottom edge. */
+		placement?: 'bottom' | 'top';
 	} & (
 		| {
 				/** Accessible name and tooltip of the icon trigger, e.g. "Actions for Backend CV". */
@@ -37,7 +39,7 @@
 		  }
 	);
 
-	let { items, label, text, icon, align = 'end' }: Props = $props();
+	let { items, label, text, icon, align = 'end', placement = 'bottom' }: Props = $props();
 
 	const id = $props.id();
 	let open = $state(false);
@@ -140,7 +142,8 @@
 			tabindex="-1"
 			onkeydown={onMenuKeydown}
 			class={[
-				'absolute top-full z-40 mt-1 flex min-w-48 animate-pop-in flex-col rounded-md border border-line bg-surface p-1 shadow-pop',
+				'absolute z-40 flex min-w-48 animate-pop-in flex-col rounded-md border border-line bg-surface p-1 shadow-pop',
+				placement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1',
 				align === 'end' ? 'right-0' : 'left-0'
 			]}
 		>

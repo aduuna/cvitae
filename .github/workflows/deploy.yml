@@ -1,0 +1,120 @@
+name: Deploy
+
+# Deploys dev after CI passes on main (docs/INFRA.md, CI/CD). Prod (tags v*, with approval) comes
+# with infra/envs/prod in M5.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+jobs:
+  dev:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    # The environment name is part of the OIDC subject the deployer trusts (infra/bootstrap).
+    environment:
+      name: dev
+      url: https://cvitae.aduuna.dev
+    env:
+      # Not secrets: ids from `tofu output` in infra/bootstrap.
+      PROJECT_ID: cvitae-511214
+      REGION: europe-west1
+      REGISTRY: europe-west1-docker.pkg.dev/cvitae-511214/cvitae
+      WIF_PROVIDER: projects/820354216246/locations/global/workloadIdentityPools/github/providers/github
+      DEPLOYER: deployer@cvitae-511214.iam.gserviceaccount.com
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.SHA }}
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOYER }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - run: gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+
+      - uses: docker/setup-buildx-action@v3
+
+      - id: api
+        name: Build and push the api image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          provenance: false
+          tags: ${{ env.REGISTRY }}/api:${{ env.SHA }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - id: renderer
+        name: Build and push the renderer image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/renderer/Dockerfile
+          push: true
+          provenance: false
+          tags: ${{ env.REGISTRY }}/renderer:${{ env.SHA }}
+          cache-from: type=gha,scope=renderer
+          cache-to: type=gha,mode=max,scope=renderer
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - run: uv sync --frozen --no-dev --package api
+
+      # Migrations must work with the release still running (expand now, contract later).
+      - name: Run migrations
+        working-directory: apps/api
+        run: |
+          url="$(gcloud secrets versions access latest --secret=database-url-direct --project="$PROJECT_ID")"
+          echo "::add-mask::$url"
+          DATABASE_URL="$url" DATABASE_URL_DIRECT="$url" uv run --package api alembic upgrade head
+
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.9.0
+          tofu_wrapper: false
+
+      # OpenTofu owns the whole service definition, including the image digests.
+      - name: Apply infrastructure
+        working-directory: infra/envs/dev
+        run: |
+          tofu init -input=false
+          tofu apply -input=false -auto-approve \
+            -var "api_image=$REGISTRY/api@${{ steps.api.outputs.digest }}" \
+            -var "renderer_image=$REGISTRY/renderer@${{ steps.renderer.outputs.digest }}"
+          {
+            echo "API_URL=$(tofu output -raw api_url)"
+            echo "RENDERER_URL=$(tofu output -raw renderer_url)"
+            echo "FIREBASE_API_KEY=$(tofu output -raw firebase_api_key)"
+          } >> "$GITHUB_ENV"
+
+      - name: Smoke test
+        run: |
+          uv run --package api python apps/api/scripts/smoke.py \
+            --api-url "$API_URL" \
+            --renderer-url "$RENDERER_URL" \
+            --firebase-api-key "$FIREBASE_API_KEY" \
+            --project-id "$PROJECT_ID" \
+            --service-account "$DEPLOYER"

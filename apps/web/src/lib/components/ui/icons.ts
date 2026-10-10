@@ -3,6 +3,7 @@ import Check from '@lucide/svelte/icons/check';
 import ChevronDown from '@lucide/svelte/icons/chevron-down';
 import CircleAlert from '@lucide/svelte/icons/circle-alert';
 import Code from '@lucide/svelte/icons/code';
+import CircleUserRound from '@lucide/svelte/icons/circle-user-round';
 import Copy from '@lucide/svelte/icons/copy';
 import Download from '@lucide/svelte/icons/download';
 import Ellipsis from '@lucide/svelte/icons/ellipsis';
@@ -12,6 +13,7 @@ import GripVertical from '@lucide/svelte/icons/grip-vertical';
 import LayoutTemplate from '@lucide/svelte/icons/layout-template';
 import ListTree from '@lucide/svelte/icons/list-tree';
 import LoaderCircle from '@lucide/svelte/icons/loader-circle';
+import LogOut from '@lucide/svelte/icons/log-out';
 import PanelLeftClose from '@lucide/svelte/icons/panel-left-close';
 import PanelLeftOpen from '@lucide/svelte/icons/panel-left-open';
 import Plus from '@lucide/svelte/icons/plus';
@@ -50,7 +52,9 @@ export const icons = {
 	check: Check,
 	loading: LoaderCircle,
 	more: Ellipsis,
-	file: File
+	file: File,
+	account: CircleUserRound,
+	'sign-out': LogOut
 } as const;
 
 export type IconName = keyof typeof icons;

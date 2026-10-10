@@ -8,10 +8,10 @@ Chameleon vitae turns a person's career history into job-specific CVs. Users imp
 or enter their experience, paste a job description, and get a tailored CV rendered with Typst. AI runs
 on Claude or Gemini, chosen by the user, and may only select, reorder and reword facts the user gave.
 
-**Status:** milestone M1 (profiles, CVs and rendering) is done. With dev sign-in, you can build
-profiles by hand, make CVs from them, edit with a live Typst preview, switch between the `classic`
-and `compact` templates, keep versions and export PDFs. AI, Firebase sign-in and deployment come
-next. See [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status:** milestone M2 (auth, storage and first deploy) is built. Users sign in with Google or an
+email link, build profiles, make CVs from them, edit with a live Typst preview, switch between five
+templates, keep versions and export PDFs. Every push to `main` that passes CI deploys to dev at
+https://cvitae.aduuna.dev. AI comes next. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Stack
 
@@ -46,9 +46,11 @@ bun install
 bunx playwright install chromium         # once, for the end-to-end tests
 ```
 
-Until Firebase sign-in arrives (M2), the api runs with `AUTH_MODE=dev` and trusts an
-`X-Dev-User: <email>` header, which the web app sends for you (`VITE_DEV_USER`, default
-`dev@localhost`). The api refuses to start in dev auth mode when `ENV` is `dev` or `prod`.
+Locally the api runs with `AUTH_MODE=dev` and trusts an `X-Dev-User: <email>` header instead of a
+Firebase token. The web app asks the api how to sign in (`GET /api/v1/client-config`) and, in dev
+mode, sends that header for you (`VITE_DEV_USER`, default `dev@localhost`). The api refuses to start
+in dev auth mode when `ENV` is `dev` or `prod`. Uploaded files go to `.data/uploads/`
+(`STORAGE_MODE=local`).
 
 ## Run locally
 
@@ -92,9 +94,16 @@ render every template with every fixture in `templates/fixtures/` and compare th
 UPDATE_GOLDENS=1 uv run pytest apps/renderer/tests/test_templates.py
 ```
 
-The renderer bundles its fonts in `apps/renderer/fonts/` (Libertinus Serif, SIL Open Font License,
-see `apps/renderer/fonts/libertinus/OFL.txt`) and uses no system fonts, so output is the same on
-every machine.
+The renderer bundles its fonts in `apps/renderer/fonts/` (Libertinus Serif, Geist and Geist Mono,
+all under the SIL Open Font License; see the `OFL.txt` in each folder) and uses no system fonts, so
+output is the same on every machine.
+
+## Deployment
+
+Infrastructure is OpenTofu in `infra/` (see [docs/INFRA.md](docs/INFRA.md)). `infra/bootstrap` was
+applied once by hand; after that, `.github/workflows/deploy.yml` builds both images, runs migrations,
+applies `infra/envs/dev` with the new image digests and runs a smoke test, every time CI passes on
+`main`. Nothing is deployed with `gcloud run deploy`.
 
 ## Repository layout
 
@@ -106,11 +115,10 @@ apps/
 packages/
   cvcore/         code shared by api and renderer
 templates/        Typst templates, shared helpers, fixtures and goldens
+infra/            OpenTofu: bootstrap, modules, envs/dev, github
 docs/             product, design, backend, infrastructure and roadmap specs
 compose.yaml      local Postgres
 ```
-
-`infra/` arrives in M2.
 
 ## Documentation
 

@@ -94,3 +94,15 @@ class DocumentVersion(Entity):
     reason: Mapped[str] = mapped_column(String(16))
     content: Mapped[dict[str, Any]] = mapped_column(JSONB)
     source_files: Mapped[dict[str, str] | None] = mapped_column(JSONB)
+
+
+class Upload(UserOwned):
+    """A file the user uploaded (a CV to import). The bytes live in storage under storage_key."""
+
+    __tablename__ = "uploads"
+    __table_args__ = (Index("ix_uploads_user_id_created_at", "user_id", text("created_at DESC")),)
+
+    storage_key: Mapped[str] = mapped_column(String(512), unique=True)
+    filename: Mapped[str] = mapped_column(String(255))
+    mime_type: Mapped[str] = mapped_column(String(128))
+    size_bytes: Mapped[int] = mapped_column()

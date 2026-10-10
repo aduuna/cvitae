@@ -3,8 +3,17 @@ import type { components, paths } from './schema';
 
 export type Schemas = components['schemas'];
 
-/** Until Firebase sign-in (M2), the api runs with AUTH_MODE=dev and trusts this header. */
+/** With AUTH_MODE=dev (local development) the api trusts this header instead of a token. */
 export const DEV_USER: string = import.meta.env.VITE_DEV_USER ?? 'dev@localhost';
+
+type AuthHeaders = () => Promise<Record<string, string>>;
+
+let authHeaders: AuthHeaders = async () => ({ 'X-Dev-User': DEV_USER });
+
+/** How requests are signed: the session sets this once it knows the auth mode. */
+export function setAuthHeaders(headers: AuthHeaders): void {
+	authHeaders = headers;
+}
 
 /** An error response in the api's envelope, or a request that never got an answer. */
 export class ApiError extends Error {
@@ -19,9 +28,11 @@ export class ApiError extends Error {
 	}
 }
 
-const devAuth: Middleware = {
-	onRequest({ request }) {
-		request.headers.set('X-Dev-User', DEV_USER);
+const auth: Middleware = {
+	async onRequest({ request }) {
+		for (const [name, value] of Object.entries(await authHeaders())) {
+			request.headers.set(name, value);
+		}
 		return request;
 	}
 };
@@ -31,11 +42,19 @@ export function createApi(fetchImpl: (request: Request) => Promise<Response> = (
 		baseUrl: globalThis.location?.origin ?? '',
 		fetch: fetchImpl
 	});
-	client.use(devAuth);
+	client.use(auth);
 	return client;
 }
 
 export const api = createApi();
+
+/** Sign-in failed in a way the user can act on; the message says how. */
+export class AuthError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'AuthError';
+	}
+}
 
 function isEnvelope(value: unknown): value is Schemas['ErrorEnvelope'] {
 	const error = (value as { error?: { code?: unknown } } | null)?.error;
@@ -80,6 +99,7 @@ export async function unwrap<T>(request: Promise<FetchResult<T>>): Promise<T> {
 /** A user-facing message for any error thrown by an api call. */
 export function errorMessage(error: unknown): string {
 	if (error instanceof ApiError) return error.message;
+	if (error instanceof AuthError) return error.message;
 	return 'Something went wrong. Try again.';
 }
 

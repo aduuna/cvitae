@@ -86,9 +86,17 @@ jobs:
           path: apps/web/test-results/
           if-no-files-found: ignore
 
-  infra-format:
+  infra:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.9.0
       - run: tofu fmt -check -recursive
+      - name: Validate every stack
+        run: |
+          for stack in infra/bootstrap infra/envs/dev infra/github; do
+            tofu -chdir="$stack" init -backend=false -input=false
+            tofu -chdir="$stack" validate
+          done

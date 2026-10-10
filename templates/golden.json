@@ -39,5 +39,66 @@
         "0c7a3b2b00f502c965c17b1f14ff67e54fec89ec631381b404b80123f445dbd6"
       ]
     }
+  },
+  "minimal": {
+    "profile-edge": {
+      "page_count": 1,
+      "svg_sha256": [
+        "5db4468b62c0e82e7cc8390fb3ff5805fef6bcc92d3ad5dba6c83b81f175f62f"
+      ]
+    },
+    "profile-long": {
+      "page_count": 2,
+      "svg_sha256": [
+        "502b7d7ae1249f63b0746ca64232e487c947bb59cd3b3c6116b5587619d27bcd",
+        "9f605a2bd5fb6f0f0aa7a9bb2fb398b8f011eadd45a35adee26123b74061d0cc"
+      ]
+    },
+    "profile-sample": {
+      "page_count": 1,
+      "svg_sha256": [
+        "8f7a2eccd99f8c00ddefdac83ea8e83704d589c7c62456d8638e71a7a03b6454"
+      ]
+    }
+  },
+  "modern": {
+    "profile-edge": {
+      "page_count": 1,
+      "svg_sha256": [
+        "7e63d2047d0d5610fd24d89b0086a6545ce8be9a36295a8b11aa80e2dbff716c"
+      ]
+    },
+    "profile-long": {
+      "page_count": 1,
+      "svg_sha256": [
+        "9141b6fe31c1295a905b4b6f2b00b6dda5f1c094b9895522a2505edb8288a0e0"
+      ]
+    },
+    "profile-sample": {
+      "page_count": 1,
+      "svg_sha256": [
+        "12d5c0fbb48180e64b33d5caab6444bded03daff53ac345e8e1a3c00ac6cec6b"
+      ]
+    }
+  },
+  "technical": {
+    "profile-edge": {
+      "page_count": 1,
+      "svg_sha256": [
+        "35a919ee54643a462d499862add4a550b084061988236b4607117380d40c6068"
+      ]
+    },
+    "profile-long": {
+      "page_count": 1,
+      "svg_sha256": [
+        "b5e36db4cb98b8e89f84f8cfce48958f0064793e5ec61265eda82a83344113c9"
+      ]
+    },
+    "profile-sample": {
+      "page_count": 1,
+      "svg_sha256": [
+        "d45f157d1b0d875c3a370274b6099ccc2c10b67d68abc1c25fe25c1e1d2182b0"
+      ]
+    }
   }
 }

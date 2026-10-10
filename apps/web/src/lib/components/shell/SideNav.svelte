@@ -1,10 +1,17 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { MediaQuery } from 'svelte/reactivity';
+	import { errorMessage } from '#lib/api/client.ts';
+	import { session } from '#lib/auth/session.svelte.ts';
+	import Badge from '#lib/components/ui/Badge.svelte';
 	import Icon from '#lib/components/ui/Icon.svelte';
 	import IconButton from '#lib/components/ui/IconButton.svelte';
+	import Menu from '#lib/components/ui/Menu.svelte';
 	import Tooltip from '#lib/components/ui/Tooltip.svelte';
+	import { toast } from '#lib/components/ui/toasts.svelte.ts';
 	import { isActive, navItems } from './nav';
 	import { loadCollapsed, saveCollapsed } from './sidenav-state';
 
@@ -18,6 +25,29 @@
 		userCollapsed = !userCollapsed;
 		saveCollapsed(userCollapsed);
 	}
+
+	const plan = $derived(session.me?.plan === 'pro' ? 'Pro' : 'Free');
+
+	async function signOut() {
+		try {
+			await session.signOut();
+		} catch (error) {
+			toast.error(errorMessage(error));
+		}
+	}
+
+	const accountItems = [
+		{
+			label: 'Settings',
+			icon: 'settings' as const,
+			onselect: () => goto(resolve('/app/settings'))
+		},
+		{ label: 'Sign out', icon: 'sign-out' as const, onselect: signOut }
+	];
+
+	onMount(() => {
+		session.loadMe().catch(() => {});
+	});
 </script>
 
 <nav
@@ -82,4 +112,21 @@
 			</li>
 		{/each}
 	</ul>
+
+	<div
+		class={[
+			'mt-auto flex items-center gap-2 border-t border-line p-2',
+			collapsed ? 'flex-col' : 'justify-between pl-4'
+		]}
+	>
+		{#if !collapsed}
+			<div class="flex min-w-0 flex-col items-start gap-1">
+				<Badge variant="outline">{plan}</Badge>
+				<span class="truncate text-sm text-fg-muted" title={session.email ?? undefined}>
+					{session.email}
+				</span>
+			</div>
+		{/if}
+		<Menu label="Account" icon="account" align="start" placement="top" items={accountItems} />
+	</div>
 </nav>

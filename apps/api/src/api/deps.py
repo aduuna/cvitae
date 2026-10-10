@@ -9,10 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.db.models import User
 from api.ports.auth import AuthVerifier
 from api.ports.renderer import RendererClient
+from api.ports.storage import Storage
 from api.repositories.documents import DocumentRepository, DocumentVersionRepository
 from api.repositories.profiles import ProfileRepository
 from api.repositories.users import UserRepository
 from api.services.users import ensure_user
+from api.settings import Settings
 
 
 async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
@@ -41,13 +43,34 @@ def get_renderer(request: Request) -> RendererClient:
 Renderer = Annotated[RendererClient, Depends(get_renderer)]
 
 
+def get_storage(request: Request) -> Storage:
+    return request.app.state.storage
+
+
+FileStorage = Annotated[Storage, Depends(get_storage)]
+
+
+def get_settings(request: Request) -> Settings:
+    return request.app.state.settings
+
+
+AppSettings = Annotated[Settings, Depends(get_settings)]
+
+
+def get_users(session: Session) -> UserRepository:
+    return UserRepository(session)
+
+
+Users = Annotated[UserRepository, Depends(get_users)]
+
+
 async def current_user(
     request: Request,
-    session: Session,
+    users: Users,
     verifier: Annotated[AuthVerifier, Depends(get_auth_verifier)],
 ) -> User:
     identity = await verifier.verify(request)
-    return await ensure_user(UserRepository(session), identity)
+    return await ensure_user(users, identity)
 
 
 CurrentUser = Annotated[User, Depends(current_user)]

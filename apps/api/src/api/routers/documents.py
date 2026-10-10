@@ -5,7 +5,7 @@ from typing import Literal
 from fastapi import APIRouter, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from api.deps import Documents, Profiles, Renderer, Versions
+from api.deps import CurrentUser, Documents, Profiles, Renderer, Versions
 from api.errors import ERROR_RESPONSES, ErrorEnvelope
 from api.services import documents as service
 from api.services import rendering, versions
@@ -38,7 +38,7 @@ class DocumentCreate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=200)
     """Defaults to "<profile name> CV"."""
     template_id: str | None = None
-    """Defaults to classic."""
+    """Defaults to the user's default template, else classic."""
 
 
 class DocumentUpdate(BaseModel):
@@ -63,7 +63,11 @@ async def list_documents(documents: Documents) -> list[DocumentSummary]:
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_document(
-    body: DocumentCreate, documents: Documents, profiles: Profiles, renderer: Renderer
+    body: DocumentCreate,
+    user: CurrentUser,
+    documents: Documents,
+    profiles: Profiles,
+    renderer: Renderer,
 ) -> Document:
     row = await service.create_document(
         documents,
@@ -71,7 +75,7 @@ async def create_document(
         renderer,
         profile_id=body.profile_id,
         name=body.name,
-        template_id=body.template_id,
+        template_id=body.template_id or user.default_template_id,
     )
     return Document.model_validate(row)
 

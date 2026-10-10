@@ -1,4 +1,5 @@
 import { test as base, type Page, type Route } from '@playwright/test';
+import type { Schemas } from '../../src/lib/api/client.ts';
 import type {
 	CvContent,
 	CvDocument,
@@ -12,11 +13,14 @@ import type {
  * within a test and follows the real endpoints closely enough for the editor flows.
  */
 export interface MockApi {
+	me: Me;
 	profiles: Profile[];
 	documents: CvDocument[];
 	versions: Map<string, (Version & { content: CvContent })[]>;
 	previewCalls: number;
 }
+
+type Me = Schemas['Me'];
 
 const TEMPLATES: TemplateMeta[] = [
 	{
@@ -120,7 +124,20 @@ function notFound(route: Route) {
 }
 
 export async function installMockApi(target: Page): Promise<MockApi> {
-	const state: MockApi = { profiles: [], documents: [], versions: new Map(), previewCalls: 0 };
+	const state: MockApi = {
+		me: {
+			id: uuid(),
+			email: 'dev@localhost',
+			display_name: null,
+			preferred_provider: 'claude',
+			plan: 'free',
+			default_template_id: null
+		},
+		profiles: [],
+		documents: [],
+		versions: new Map(),
+		previewCalls: 0
+	};
 
 	await target.route('**/api/v1/**', async (route) => {
 		const request = route.request();
@@ -130,6 +147,21 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 		const body = request.postData() ? JSON.parse(request.postData() ?? '{}') : {};
 		const [resource, id, action, number, subaction] = parts;
 
+		if (resource === 'client-config')
+			return reply(route, 200, { auth_mode: 'dev', firebase: null });
+
+		if (resource === 'me') {
+			if (method === 'PATCH') Object.assign(state.me, body);
+			return reply(route, 200, state.me);
+		}
+
+		if (resource === 'templates' && id && action === 'preview') {
+			const fallback = state.profiles.find((profile) => profile.is_default)?.content;
+			const content = fallback?.basics.name
+				? fallback
+				: { ...starterContent(), basics: { ...starterContent().basics, name: 'Sample' } };
+			return reply(route, 200, { pages: [page(content, id)], page_count: 1 });
+		}
 		if (resource === 'templates') return reply(route, 200, TEMPLATES);
 
 		if (resource === 'profiles') {

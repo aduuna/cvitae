@@ -18,7 +18,8 @@
 	import { exportPdf } from '#lib/cv/export.ts';
 	import type { DocumentSummary, ProfileSummary } from '#lib/cv/types.ts';
 	import { formatPages, formatRelative } from '#lib/format.ts';
-	import { templates } from '#lib/templates.svelte.ts';
+	import { session } from '#lib/auth/session.svelte.ts';
+	import { DEFAULT_TEMPLATE_ID, templates } from '#lib/templates.svelte.ts';
 
 	let documents = $state<DocumentSummary[] | null>(null);
 	let profiles = $state<ProfileSummary[]>([]);
@@ -27,7 +28,7 @@
 	let newOpen = $state(false);
 	let newProfileId = $state('');
 	let newName = $state('');
-	let newTemplateId = $state('classic');
+	let newTemplateId = $state(DEFAULT_TEMPLATE_ID);
 	let creating = $state(false);
 
 	let renaming = $state<DocumentSummary | null>(null);
@@ -62,7 +63,7 @@
 	function openNew() {
 		newProfileId = (profiles.find((profile) => profile.is_default) ?? profiles[0])?.id ?? '';
 		newName = '';
-		newTemplateId = templates.list[0]?.id ?? 'classic';
+		newTemplateId = session.me?.default_template_id ?? DEFAULT_TEMPLATE_ID;
 		newOpen = true;
 	}
 

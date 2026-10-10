@@ -30,3 +30,9 @@ class UserRepository:
 
     async def _by_uid(self, firebase_uid: str) -> User | None:
         return await self.session.scalar(select(User).where(User.firebase_uid == firebase_uid))
+
+    async def update(self, user: User, **values: object) -> User:
+        for name, value in values.items():
+            setattr(user, name, value)
+        await self.session.flush()
+        return user

@@ -1,6 +1,9 @@
 import { api, unwrap } from '#lib/api/client.ts';
 import type { TemplateMeta } from '#lib/cv/types.ts';
 
+/** Used when the user has not chosen a default template (matches the api). */
+export const DEFAULT_TEMPLATE_ID = 'classic';
+
 /** Template metadata from the api, loaded once per session. */
 class TemplateCatalog {
 	list = $state<TemplateMeta[]>([]);

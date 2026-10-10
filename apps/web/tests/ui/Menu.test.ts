@@ -114,3 +114,19 @@ describe('Menu with a text trigger', () => {
 		expect(trigger).toHaveFocus();
 	});
 });
+
+describe('Menu placement', () => {
+	it('opens below by default and above when asked', async () => {
+		const user = userEvent.setup();
+		const items: MenuItem[] = [{ label: 'Sign out', onselect: vi.fn() }];
+		const { unmount } = render(Menu, { items, label: 'Below' });
+		await user.click(screen.getByRole('button', { name: 'Below' }));
+		expect(screen.getByRole('menu')).toHaveClass('top-full');
+		unmount();
+
+		render(Menu, { items, label: 'Above', placement: 'top' });
+		await user.click(screen.getByRole('button', { name: 'Above' }));
+		expect(screen.getByRole('menu')).toHaveClass('bottom-full');
+		expect(screen.getByRole('menu')).not.toHaveClass('top-full');
+	});
+});

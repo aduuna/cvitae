@@ -154,6 +154,7 @@ A single exception handler maps them. Pydantic validation errors are converted t
 | `DATABASE_URL_DIRECT` | Neon direct connection string (Alembic only) |
 | `AUTH_MODE` | `firebase` or `dev` (startup fails if `dev` and `ENV` is `dev` or `prod`) |
 | `FIREBASE_PROJECT_ID` | Token audience check |
+| `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_APP_ID` | The SPA's Firebase web config, served by `GET /client-config` (not secret; set by OpenTofu) |
 | `ANTHROPIC_API_KEY`, `GEMINI_API_KEY` | Provider keys |
 | `CLAUDE_MODEL_DEFAULT` | default `claude-sonnet-5-5` |
 | `CLAUDE_MODEL_FAST` | default `claude-haiku-5-5` (job analysis) |
@@ -162,6 +163,8 @@ A single exception handler maps them. Pydantic validation errors are converted t
 | `DEFAULT_PROVIDER` | `claude` |
 | `GCS_BUCKET` | uploads bucket |
 | `STORAGE_MODE` | `gcs` or `local` |
+| `LOCAL_STORAGE_DIR` | Where `local` storage writes (default `.data/uploads` in the repository) |
+| `SAMPLE_PROFILE_PATH` | Profile shown in template previews for users without one (the image copies `templates/fixtures/profile-sample.json`) |
 | `RENDERER_URL` | renderer base URL |
 | `RENDERER_AUTH` | `oidc` (Cloud Run) or `none` (local) |
 | `PAYSTACK_SECRET_KEY`, `PAYSTACK_PRO_PLAN_CODE`, `PAYSTACK_CALLBACK_URL` | Billing |
@@ -429,7 +432,7 @@ Each `main.typ` starts with:
 for placeholders. User text is never passed to `eval`.
 
 Fonts: bundle the fonts the templates use in `apps/renderer/fonts/` (only fonts whose licences allow
-embedding, for example Libertinus Serif, Inter, Geist, Geist Mono). Pass that directory as the font path
+embedding: Libertinus Serif, Geist and Geist Mono, as static OTF files). Pass that directory as the font path
 and disable system fonts where the binding allows, so output is identical locally and in Cloud Run.
 
 Templates must not import Typst Universe packages (`@preview/...`). If one is ever needed, vendor it into
@@ -474,14 +477,15 @@ keeping the last good preview.
 
 ## REST API
 
-Base path `/api/v1`. JSON in and out, snake_case. All routes except webhooks, internal routes and
-`/healthz` require a valid Firebase ID token. FastAPI serves OpenAPI at `/api/openapi.json`, and
+Base path `/api/v1`. JSON in and out, snake_case. All routes except webhooks, internal routes,
+`/client-config` and `/healthz` require a valid Firebase ID token. FastAPI serves OpenAPI at `/api/openapi.json`, and
 `api/export_openapi.py` writes the same schema to a file without starting the server. The frontend's
 `bun run gen:api` script runs `uv run --package api python -m api.export_openapi` and then
 `bunx openapi-typescript` to produce `src/lib/api/schema.d.ts`; the app calls the API with `openapi-fetch`.
 
 | Method and path | Purpose |
 |---|---|
+| `GET /client-config` | No auth. How the SPA signs in: `auth_mode` and, for Firebase, the web config |
 | `GET /me`, `PATCH /me` | Current user; update display name, preferred provider, default template |
 | `DELETE /me` | Delete account and all data (typed email confirmation in body) |
 | `GET /me/export` | All user data as JSON |
@@ -498,6 +502,7 @@ Base path `/api/v1`. JSON in and out, snake_case. All routes except webhooks, in
 | `GET /documents/{id}/export.pdf` | Stream PDF; 409 if placeholders remain unless `?force=true` |
 | `GET /documents/{id}/versions`, `POST /documents/{id}/versions`, `POST /documents/{id}/versions/{n}/restore` | Version history |
 | `GET /templates` | Template metadata (proxied from the renderer, cached in memory) |
+| `GET /templates/{id}/preview` | SVG pages of the template with the user's default profile, or the sample profile |
 | `POST /billing/checkout` | Paystack transaction initialize with the Pro plan; returns `authorization_url` |
 | `POST /billing/verify` (reference) | Verify after redirect back from Paystack |
 | `GET /billing/manage-link` | Paystack hosted subscription management link |
@@ -511,10 +516,14 @@ response is sent.
 
 ## Authentication
 
-- Frontend: Firebase JS SDK, Google provider and email-link sign-in. The API client attaches
+- Frontend: Firebase JS SDK, Google provider (pop-up) and email-link sign-in, loaded only when
+  `GET /client-config` says `auth_mode: firebase`. The API client attaches
   `Authorization: Bearer <idToken>` from `getIdToken()` (which refreshes automatically).
 - Backend: `FirebaseVerifier` calls `firebase_admin.auth.verify_id_token` (in a thread pool) and checks the
-  project ID. The `current_user` dependency upserts the `users` row by `firebase_uid`.
+  project ID. Tokens without a verified email are refused. The `current_user` dependency upserts the
+  `users` row by `firebase_uid`.
+- Renderer calls: with `RENDERER_AUTH=oidc` the api sends a Google ID token for the renderer's URL
+  (from the metadata server on Cloud Run), cached until shortly before it expires.
 - Local development: `AUTH_MODE=dev` accepts `X-Dev-User: <email>` instead of a token. Startup fails if
   `AUTH_MODE=dev` with `ENV` set to `dev` or `prod`.
 

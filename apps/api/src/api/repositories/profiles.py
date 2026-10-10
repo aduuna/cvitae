@@ -12,3 +12,6 @@ class ProfileRepository(UserScopedRepository[Profile]):
 
     async def clear_default(self) -> None:
         await self.update_where(Profile.is_default.is_(True), is_default=False)
+
+    async def get_default(self) -> Profile | None:
+        return await self.session.scalar(self._select().where(Profile.is_default.is_(True)))

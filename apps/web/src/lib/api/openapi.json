@@ -26,6 +26,137 @@
         }
       }
     },
+    "/api/v1/client-config": {
+      "get": {
+        "tags": [
+          "client-config"
+        ],
+        "summary": "Get Client Config",
+        "operationId": "get_client_config_api_v1_client_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientConfig"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Get Me",
+        "operationId": "get_me_api_v1_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Update Me",
+        "operationId": "update_me_api_v1_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/profiles": {
       "get": {
         "tags": [
@@ -1183,6 +1314,83 @@
           }
         }
       }
+    },
+    "/api/v1/templates/{template_id}/preview": {
+      "get": {
+        "tags": [
+          "templates"
+        ],
+        "summary": "Get Template Preview",
+        "description": "The template rendered with the user's default profile, or sample data.",
+        "operationId": "get_template_preview_api_v1_templates__template_id__preview_get",
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Template Id"
+            }
+          },
+          {
+            "name": "paper",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "a4",
+                "us-letter"
+              ],
+              "type": "string",
+              "default": "a4",
+              "title": "Paper"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SvgPages"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1395,6 +1603,34 @@
           "date"
         ],
         "title": "CertificationItem"
+      },
+      "ClientConfig": {
+        "properties": {
+          "auth_mode": {
+            "type": "string",
+            "enum": [
+              "firebase",
+              "dev"
+            ],
+            "title": "Auth Mode"
+          },
+          "firebase": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FirebaseConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "auth_mode",
+          "firebase"
+        ],
+        "title": "ClientConfig"
       },
       "CvContent-Input": {
         "properties": {
@@ -2082,6 +2318,34 @@
         ],
         "title": "ExperienceItem"
       },
+      "FirebaseConfig": {
+        "properties": {
+          "api_key": {
+            "type": "string",
+            "title": "Api Key"
+          },
+          "auth_domain": {
+            "type": "string",
+            "title": "Auth Domain"
+          },
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "app_id": {
+            "type": "string",
+            "title": "App Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "api_key",
+          "auth_domain",
+          "project_id",
+          "app_id"
+        ],
+        "title": "FirebaseConfig"
+      },
       "Health": {
         "properties": {
           "status": {
@@ -2115,6 +2379,113 @@
           "url"
         ],
         "title": "Link"
+      },
+      "Me": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "preferred_provider": {
+            "type": "string",
+            "enum": [
+              "claude",
+              "gemini"
+            ],
+            "title": "Preferred Provider"
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "free",
+              "pro"
+            ],
+            "title": "Plan"
+          },
+          "default_template_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Template Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "display_name",
+          "preferred_provider",
+          "plan",
+          "default_template_id"
+        ],
+        "title": "Me"
+      },
+      "MeUpdate": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "preferred_provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "claude",
+                  "gemini"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Provider"
+          },
+          "default_template_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Template Id"
+          }
+        },
+        "type": "object",
+        "title": "MeUpdate"
       },
       "Profile": {
         "properties": {

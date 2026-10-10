@@ -15,6 +15,20 @@ vi.mock('$app/state', () => ({
 }));
 vi.mock('$app/paths', () => ({ resolve: (path: string) => path }));
 
+const mocks = vi.hoisted(() => ({ goto: vi.fn(), session: null as never }));
+vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
+vi.mock('#lib/auth/session.svelte.ts', async () => {
+	const { sessionMock } = await import('../routes/session-mock');
+	mocks.session = sessionMock() as never;
+	return { session: mocks.session };
+});
+
+function session() {
+	return mocks.session as unknown as ReturnType<
+		typeof import('../routes/session-mock').sessionMock
+	>;
+}
+
 function nav() {
 	return screen.getByRole('navigation', { name: 'Main' });
 }
@@ -110,5 +124,23 @@ describe('SideNav', () => {
 		expect(nav()).toHaveClass('w-60');
 		await userEvent.click(screen.getByRole('button', { name: 'Collapse side nav' }));
 		expect(nav()).toHaveClass('w-14');
+	});
+
+	it('shows the account with its plan, and signs out from the account menu', async () => {
+		session().email = 'ada@example.com';
+		session().me = { plan: 'free', email: 'ada@example.com', display_name: null };
+		const user = userEvent.setup();
+		render(SideNav);
+
+		expect(within(nav()).getByText('ada@example.com')).toBeVisible();
+		expect(within(nav()).getByText('Free')).toBeVisible();
+
+		await user.click(within(nav()).getByRole('button', { name: 'Account' }));
+		await user.click(screen.getByRole('menuitem', { name: 'Sign out' }));
+		expect(session().signOut).toHaveBeenCalledOnce();
+
+		await user.click(within(nav()).getByRole('button', { name: 'Account' }));
+		await user.click(screen.getByRole('menuitem', { name: 'Settings' }));
+		expect(mocks.goto).toHaveBeenCalledWith('/app/settings');
 	});
 });

@@ -10,10 +10,25 @@ from httpx import ASGITransport, AsyncClient
 from pydantic import ValidationError
 
 from api.export_openapi import main as export_openapi
-from api.main import build_auth_verifier, create_app
+from api.main import build_auth_verifier, build_renderer, build_storage, create_app
+from api.ports.auth import FirebaseVerifier
+from api.ports.renderer import GoogleIdTokenAuth
+from api.ports.storage import GcsStorage, LocalStorage
 from api.settings import DatabaseSettings, Settings
 
 DB = "postgresql+psycopg://unused"
+
+
+def firebase_settings(env: Literal["dev", "prod"] = "dev") -> Settings:
+    return Settings(
+        env=env,
+        auth_mode="firebase",
+        database_url=DB,
+        firebase_project_id="cvitae-test",
+        firebase_api_key="key",
+        firebase_auth_domain="cvitae-test.firebaseapp.com",
+        firebase_app_id="1:2:web:3",
+    )
 
 
 @pytest.mark.parametrize("env", ["dev", "prod"])
@@ -27,11 +42,67 @@ def test_dev_auth_is_allowed_locally(env: Literal["local", "test"]) -> None:
     assert Settings(env=env, auth_mode="dev", database_url=DB).auth_mode == "dev"
 
 
-def test_firebase_auth_is_not_available_yet() -> None:
-    settings = Settings(env="prod", auth_mode="firebase", database_url=DB)
+def test_firebase_auth_needs_the_web_config() -> None:
+    with pytest.raises(ValidationError, match="FIREBASE_API_KEY, FIREBASE_APP_ID"):
+        Settings(
+            env="dev",
+            auth_mode="firebase",
+            database_url=DB,
+            firebase_project_id="p",
+            firebase_auth_domain="d",
+        )
 
-    with pytest.raises(RuntimeError, match="M2"):
-        build_auth_verifier(settings)
+
+def test_firebase_auth_builds_the_firebase_verifier() -> None:
+    assert isinstance(build_auth_verifier(firebase_settings("prod")), FirebaseVerifier)
+
+
+def test_gcs_storage_needs_a_bucket() -> None:
+    with pytest.raises(ValidationError, match="GCS_BUCKET"):
+        Settings(env="test", auth_mode="dev", database_url=DB, storage_mode="gcs")
+
+
+def test_storage_follows_the_mode(tmp_path: Path) -> None:
+    local = Settings(env="test", auth_mode="dev", database_url=DB, local_storage_dir=tmp_path)
+    gcs = Settings(env="test", auth_mode="dev", database_url=DB, storage_mode="gcs", gcs_bucket="b")
+
+    assert isinstance(build_storage(local), LocalStorage)
+    assert isinstance(build_storage(gcs), GcsStorage)
+
+
+async def test_renderer_auth_follows_the_mode() -> None:
+    plain = build_renderer(Settings(env="test", auth_mode="dev", database_url=DB))
+    oidc = build_renderer(
+        Settings(env="test", auth_mode="dev", database_url=DB, renderer_auth="oidc")
+    )
+
+    assert plain._client.auth is None
+    assert isinstance(oidc._client.auth, GoogleIdTokenAuth)
+    await plain.aclose()
+    await oidc.aclose()
+
+
+async def test_client_config_in_dev_mode(client: AsyncClient) -> None:
+    response = await client.get("/api/v1/client-config", headers={"X-Dev-User": ""})
+
+    assert response.json() == {"auth_mode": "dev", "firebase": None}
+
+
+async def test_client_config_with_firebase_needs_no_sign_in() -> None:
+    app = create_app(firebase_settings())
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        response = await c.get("/api/v1/client-config")
+
+    assert response.json() == {
+        "auth_mode": "firebase",
+        "firebase": {
+            "api_key": "key",
+            "auth_domain": "cvitae-test.firebaseapp.com",
+            "project_id": "cvitae-test",
+            "app_id": "1:2:web:3",
+        },
+    }
 
 
 def test_migrations_prefer_the_direct_url() -> None:
@@ -91,11 +162,14 @@ async def test_malformed_ids_are_validation_errors(client: AsyncClient) -> None:
     assert error["details"]["errors"][0]["loc"] == ["path", "profile_id"]
 
 
-async def test_openapi_lists_the_m1_routes(client: AsyncClient) -> None:
+async def test_openapi_lists_the_routes(client: AsyncClient) -> None:
     paths = (await client.get("/api/openapi.json")).json()["paths"]
 
     assert {
         "/api/v1/healthz",
+        "/api/v1/client-config",
+        "/api/v1/me",
+        "/api/v1/templates/{template_id}/preview",
         "/api/v1/profiles",
         "/api/v1/profiles/{profile_id}",
         "/api/v1/profiles/{profile_id}/duplicate",

@@ -1,10 +1,15 @@
 """The renderer port: compiles CV data with a template into SVG pages or a PDF."""
 
+import asyncio
 import json
 import time
+from collections.abc import AsyncGenerator, Callable
 from typing import Any, Protocol
 
 import httpx
+from google.auth import jwt
+from google.auth.transport.requests import Request as GoogleRequest
+from google.oauth2 import id_token
 from pydantic import TypeAdapter, ValidationError
 
 from api.errors import RenderFailed, ServiceUnavailable
@@ -21,6 +26,45 @@ _templates_adapter = TypeAdapter(list[TemplateMeta])
 
 TEMPLATES_TTL_SECONDS = 300
 
+# Refresh an ID token this long before it expires.
+TOKEN_REFRESH_MARGIN_SECONDS = 300
+
+type TokenFetcher = Callable[[str], str]
+
+
+def fetch_google_id_token(audience: str) -> str:
+    """An ID token for `audience` from the metadata server (Cloud Run) or local credentials."""
+    return id_token.fetch_id_token(GoogleRequest(), audience)
+
+
+class GoogleIdTokenAuth(httpx.Auth):
+    """Adds `Authorization: Bearer <Google ID token>` for the renderer's URL, so Cloud Run IAM
+    lets the call through. Tokens are cached until shortly before they expire."""
+
+    def __init__(self, audience: str, fetch: TokenFetcher = fetch_google_id_token) -> None:
+        self._audience = audience
+        self._fetch = fetch
+        self._token: tuple[str, float] | None = None
+        self._lock = asyncio.Lock()
+
+    async def _current(self) -> str:
+        async with self._lock:
+            if self._token is None or self._token[1] - time.time() < TOKEN_REFRESH_MARGIN_SECONDS:
+                token = await asyncio.to_thread(self._fetch, self._audience)
+                claims = jwt.decode(token, verify=False)
+                self._token = (token, float(claims["exp"]))
+            return self._token[0]
+
+    async def async_auth_flow(
+        self, request: httpx.Request
+    ) -> AsyncGenerator[httpx.Request, httpx.Response]:
+        try:
+            token = await self._current()
+        except Exception as exc:
+            raise ServiceUnavailable("The renderer could not be authorised. Try again.") from exc
+        request.headers["Authorization"] = f"Bearer {token}"
+        yield request
+
 
 class RendererClient(Protocol):
     async def render_svg(
@@ -36,8 +80,13 @@ class HttpRendererClient:
     """Calls the renderer service. 422 becomes RenderFailed with diagnostics; a busy renderer
     (429 or 503) gets one retry. Template metadata is cached for a few minutes."""
 
-    def __init__(self, base_url: str, client: httpx.AsyncClient | None = None) -> None:
-        self._client = client or httpx.AsyncClient(base_url=base_url, timeout=30)
+    def __init__(
+        self,
+        base_url: str,
+        client: httpx.AsyncClient | None = None,
+        auth: httpx.Auth | None = None,
+    ) -> None:
+        self._client = client or httpx.AsyncClient(base_url=base_url, timeout=30, auth=auth)
         self._templates: tuple[float, list[TemplateMeta]] | None = None
 
     async def aclose(self) -> None:

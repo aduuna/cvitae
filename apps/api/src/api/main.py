@@ -14,9 +14,10 @@ from starlette.types import Scope
 
 from api.db.base import create_engine, session_factory
 from api.errors import install_error_handlers
-from api.ports.auth import AuthVerifier, DevVerifier
-from api.ports.renderer import HttpRendererClient
-from api.routers import documents, profiles, templates
+from api.ports.auth import AuthVerifier, DevVerifier, FirebaseVerifier
+from api.ports.renderer import GoogleIdTokenAuth, HttpRendererClient
+from api.ports.storage import GcsStorage, LocalStorage, Storage
+from api.routers import client_config, documents, me, profiles, templates
 from api.settings import Settings
 
 
@@ -39,13 +40,26 @@ class SpaStaticFiles(StaticFiles):
 def build_auth_verifier(settings: Settings) -> AuthVerifier:
     if settings.auth_mode == "dev":
         return DevVerifier()
-    raise RuntimeError("AUTH_MODE=firebase arrives with Firebase sign-in (M2). Use AUTH_MODE=dev.")
+    if settings.firebase_project_id is None:  # pragma: no cover - Settings requires it
+        raise RuntimeError("AUTH_MODE=firebase needs FIREBASE_PROJECT_ID")
+    return FirebaseVerifier(settings.firebase_project_id)
+
+
+def build_storage(settings: Settings) -> Storage:
+    if settings.storage_mode == "gcs" and settings.gcs_bucket:
+        return GcsStorage(settings.gcs_bucket)
+    return LocalStorage(settings.local_storage_dir)
+
+
+def build_renderer(settings: Settings) -> HttpRendererClient:
+    auth = GoogleIdTokenAuth(settings.renderer_url) if settings.renderer_auth == "oidc" else None
+    return HttpRendererClient(settings.renderer_url, auth=auth)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
     engine = create_engine(settings.database_url)
-    renderer = HttpRendererClient(settings.renderer_url)
+    renderer = build_renderer(settings)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
@@ -64,6 +78,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.sessions = session_factory(engine)
     app.state.auth_verifier = build_auth_verifier(settings)
     app.state.renderer = renderer
+    app.state.storage = build_storage(settings)
     install_error_handlers(app)
 
     v1 = APIRouter(prefix="/api/v1")
@@ -72,7 +87,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def healthz() -> Health:
         return Health()
 
-    for module in (profiles, documents, templates):
+    for module in (client_config, me, profiles, documents, templates):
         v1.include_router(module.router)
     app.include_router(v1)
 
