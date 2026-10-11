@@ -162,11 +162,19 @@ resource "google_iam_workload_identity_pool_provider" "github" {
   }
 }
 
+locals {
+  # The repository sends GitHub's immutable OIDC subject (use_immutable_subject): owner and name
+  # with their numeric ids, for example repo:owner@123/name@456:environment:dev.
+  github_owner   = split("/", var.github_repository)[0]
+  github_name    = split("/", var.github_repository)[1]
+  github_subject = "repo:${local.github_owner}@${var.github_owner_id}/${local.github_name}@${var.github_repository_id}"
+}
+
 # Only jobs that run in a GitHub environment named here can deploy. Which branches and tags may use
 # each environment is set on the repository (infra/github).
 resource "google_service_account_iam_member" "github_deploys" {
   for_each           = toset(var.github_environments)
   service_account_id = google_service_account.deployer.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principal://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/subject/repo:${var.github_repository}:environment:${each.value}"
+  member             = "principal://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/subject/${local.github_subject}:environment:${each.value}"
 }

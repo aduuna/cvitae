@@ -140,7 +140,8 @@ infra/
 Authentication to GCP uses Workload Identity Federation (`google-github-actions/auth` with the pool and
 deployer service account from `bootstrap/`). No service-account JSON keys anywhere. The pool accepts
 only this repository (by numeric repository and owner id), and the deployer trusts only jobs that run
-in a listed GitHub environment (OIDC subject `repo:aduuna/cvitae:environment:dev`).
+in a listed GitHub environment. The repository uses GitHub's immutable OIDC subject, which carries
+the numeric owner and repository ids: `repo:aduuna@29348646/cvitae@1413058337:environment:dev`.
 
 ### `ci.yml` (pull requests and pushes)
 
