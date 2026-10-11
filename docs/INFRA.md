@@ -23,7 +23,7 @@ Domain: `cvitae.aduuna.dev` (a CNAME to `ghs.googlehosted.com` at the DNS host) 
 
 | Resource | Name | Settings |
 |---|---|---|
-| Artifact Registry (Docker) | `cvitae` | Cleanup policy: keep the 10 most recent images per package. Created by `bootstrap/`, because images are pushed before the services exist. |
+| Artifact Registry (Docker) | `cvitae` | Cleanup policy: keep the 3 most recent images per package (the deployed one and two to roll back to), so storage stays near the free 0.5 GB. Created by `bootstrap/`, because images are pushed before the services exist. |
 | Cloud Run service | `api` | Public (`allUsers` invoker; auth is Firebase at app level). Min 0, max 3 instances, 1 vCPU, 512 MiB, concurrency 40, request timeout 300 s, CPU only during requests. Service account `api-sa`. |
 | Cloud Run service | `renderer` | Ingress `all`, but IAM invoker granted only to `api-sa`, so Google rejects any request without a valid OIDC token for that account before it reaches the container. Min 0, max 3, 1 vCPU, 1 GiB, concurrency 4, timeout 30 s. Service account `renderer-sa` with no roles. Direct VPC egress with `ALL_TRAFFIC` into a subnet that has no Cloud NAT, so it has no internet access. (Internal-only ingress would force the api's traffic through the VPC and require Cloud NAT for its calls to Neon, the AI providers and Paystack; not worth it at this stage.) |
 | VPC (M5) | `cvitae-vpc` with subnet `renderer-egress` (`10.10.0.0/26`) | No Cloud NAT, no routes to the internet. Exists only to cut the renderer off. |

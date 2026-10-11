@@ -85,12 +85,14 @@ resource "google_artifact_registry_repository" "images" {
   location      = var.region
   format        = "DOCKER"
 
+  # Storage past the free 0.5 GB is billed: keep the deployed image and two older ones per
+  # package (enough to roll back), delete the rest. Cleanup runs about once a day.
   cleanup_policy_dry_run = false
   cleanup_policies {
     id     = "keep-recent"
     action = "KEEP"
     most_recent_versions {
-      keep_count = 10
+      keep_count = 3
     }
   }
   cleanup_policies {
