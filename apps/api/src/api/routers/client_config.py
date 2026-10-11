@@ -5,7 +5,8 @@ from typing import Literal
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from api.ai.models import AiModel, Plan
+from api.ai.models import AiModel
+from api.billing.plans import PLANS, Plan
 from api.deps import AppSettings, Providers
 from api.ports.llm.base import ProviderName
 
@@ -27,6 +28,15 @@ class AiModelInfo(BaseModel):
     """Pro models need the Pro plan when `plans_enforced` is true."""
 
 
+class PlanInfo(BaseModel):
+    id: Plan
+    label: str
+    documents: int
+    profiles: int
+    ai_runs: int
+    """Per calendar month (UTC)."""
+
+
 class ClientConfig(BaseModel):
     auth_mode: Literal["firebase", "dev"]
     firebase: FirebaseConfig | None
@@ -36,6 +46,9 @@ class ClientConfig(BaseModel):
     default_ai_model: AiModel | None
     """Used when a user has not chosen one; None when no model is offered."""
     plans_enforced: bool
+    plans: list[PlanInfo]
+    billing_enabled: bool
+    """Whether a Free user can upgrade on this server."""
 
 
 @router.get("")
@@ -60,4 +73,15 @@ async def get_client_config(settings: AppSettings, providers: Providers) -> Clie
         ai_models=models,
         default_ai_model=default if default in offered else (models[0].id if models else None),
         plans_enforced=settings.enforce_ai_plans,
+        plans=[
+            PlanInfo(
+                id=p.id,
+                label=p.label,
+                documents=p.documents,
+                profiles=p.profiles,
+                ai_runs=p.ai_runs,
+            )
+            for p in PLANS.values()
+        ],
+        billing_enabled=settings.billing_enabled,
     )

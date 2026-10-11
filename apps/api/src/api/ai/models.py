@@ -2,19 +2,18 @@
 
 A model is a provider plus the model ids it uses: one for import and tailoring, and a small one for
 job analysis. Model ids come from settings, so they change without code changes. Plan tags are
-enforced only when `ENFORCE_AI_PLANS` is on (M4 switches it on with billing).
+enforced while `ENFORCE_AI_PLANS` is on (the default).
 """
 
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
+from api.billing.plans import Plan
 from api.ports.llm.base import ProviderName
 
 if TYPE_CHECKING:
     from api.settings import Settings
-
-Plan = Literal["free", "pro"]
 
 
 class AiModel(StrEnum):

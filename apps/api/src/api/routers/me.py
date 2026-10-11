@@ -1,11 +1,11 @@
 import uuid
-from typing import Literal
 
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field
 
 from api.ai.models import AiModel
-from api.deps import CurrentUser, Providers, Renderer, Users
+from api.billing.plans import Plan
+from api.deps import CurrentUser, Providers, Renderer, UserPlan, Users
 from api.errors import ERROR_RESPONSES
 from api.services import users as service
 
@@ -20,7 +20,8 @@ class Me(BaseModel):
     display_name: str | None
     preferred_ai_model: AiModel | None
     """The model the user chose, if it is still offered; None means the server's default."""
-    plan: Literal["free", "pro"]
+    plan: Plan
+    """The plan the user is on now."""
     default_template_id: str | None
 
 
@@ -30,21 +31,27 @@ class MeUpdate(BaseModel):
     default_template_id: str | None = Field(None, min_length=1, max_length=64)
 
 
-def me(user: object, providers: Providers) -> Me:
+def me(user: object, plan: Plan, providers: Providers) -> Me:
     result = Me.model_validate(user)
+    result.plan = plan
     if result.preferred_ai_model and not providers.option(result.preferred_ai_model):
         result.preferred_ai_model = None
     return result
 
 
 @router.get("")
-async def get_me(user: CurrentUser, providers: Providers) -> Me:
-    return me(user, providers)
+async def get_me(user: CurrentUser, plan: UserPlan, providers: Providers) -> Me:
+    return me(user, plan, providers)
 
 
 @router.patch("")
 async def update_me(
-    body: MeUpdate, user: CurrentUser, users: Users, renderer: Renderer, providers: Providers
+    body: MeUpdate,
+    user: CurrentUser,
+    plan: UserPlan,
+    users: Users,
+    renderer: Renderer,
+    providers: Providers,
 ) -> Me:
     row = await service.update_me(
         users,
@@ -55,4 +62,4 @@ async def update_me(
         preferred_ai_model=body.preferred_ai_model,
         default_template_id=body.default_template_id,
     )
-    return me(row, providers)
+    return me(row, plan, providers)

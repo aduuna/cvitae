@@ -3,6 +3,7 @@ import { devProvider, firebaseProvider, type AuthProvider } from './provider.ts'
 
 export type Me = Schemas['Me'];
 export type ClientConfig = Schemas['ClientConfig'];
+export type Usage = Schemas['Usage'];
 
 const EMAIL_KEY = 'cvitae.signInEmail';
 
@@ -44,13 +45,20 @@ export class Session {
 	/** The AI models the server offers, free first. */
 	aiModels = $state<ClientConfig['ai_models']>([]);
 	defaultAiModel = $state<ClientConfig['default_ai_model']>(null);
-	/** Pro models need the Pro plan (switched on with billing). */
+	/** Pro models need the Pro plan. */
 	plansEnforced = $state(false);
+	/** Each plan's limits, Free first. */
+	plans = $state<ClientConfig['plans']>([]);
+	/** Whether a Free user can upgrade on this server. */
+	billingEnabled = $state(false);
 	me = $state<Me | null>(null);
+	/** Usage against the plan's limits; refresh it after anything that changes it. */
+	usage = $state<Usage | null>(null);
 
 	#provider: AuthProvider | null = null;
 	#starting: Promise<void> | null = null;
 	#loadingMe: Promise<Me> | null = null;
+	#loadingUsage: Promise<Usage> | null = null;
 	readonly #config: () => Promise<ClientConfig>;
 	readonly #makeProvider: (config: ClientConfig) => Promise<AuthProvider>;
 
@@ -72,12 +80,16 @@ export class Session {
 			this.aiModels = config.ai_models;
 			this.defaultAiModel = config.default_ai_model;
 			this.plansEnforced = config.plans_enforced;
+			this.plans = config.plans;
+			this.billingEnabled = config.billing_enabled;
 			setAuthHeaders(() => provider.headers());
 			await new Promise<void>((resolve) => {
 				provider.watch((email) => {
 					if (email !== this.email) {
 						this.me = null;
 						this.#loadingMe = null;
+						this.usage = null;
+						this.#loadingUsage = null;
 					}
 					this.email = email;
 					this.status = email ? 'signed-in' : 'signed-out';
@@ -128,6 +140,30 @@ export class Session {
 			}
 		);
 		return this.#loadingMe;
+	}
+
+	/** Load the user's record again, for example after the plan changed. */
+	refreshMe(): Promise<Me> {
+		this.#loadingMe = null;
+		return this.loadMe();
+	}
+
+	/** Usage, loaded once per sign-in unless refreshed. */
+	loadUsage(): Promise<Usage> {
+		this.#loadingUsage ??= unwrap(api.GET('/api/v1/usage')).then(
+			(usage) => (this.usage = usage),
+			(error: unknown) => {
+				this.#loadingUsage = null;
+				throw error;
+			}
+		);
+		return this.#loadingUsage;
+	}
+
+	/** Usage again, after an AI run or after a CV or profile was made or deleted. */
+	refreshUsage(): Promise<Usage> {
+		this.#loadingUsage = null;
+		return this.loadUsage();
 	}
 
 	async updateMe(changes: Schemas['MeUpdate']): Promise<Me> {

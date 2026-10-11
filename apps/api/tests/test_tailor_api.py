@@ -89,10 +89,15 @@ async def test_tailoring_flow_end_to_end(
 
     # Regenerate with the other provider: discard the draft CV, tailor the saved job again.
     assert (await client.delete(f"/api/v1/documents/{document['id']}")).status_code == 204
-    again = await tailor(client, profile_id=profile_id, job_id=job["id"], ai_model="gemini-flash")
+    again = await tailor(
+        client, profile_id=profile_id, job_id=job["id"], ai_model="gemini-flash-lite"
+    )
 
     assert again.status_code == 201
-    assert (again.json()["ai_model"], again.json()["model"]) == ("gemini-flash", "gemini-3.8-flash")
+    assert (again.json()["ai_model"], again.json()["model"]) == (
+        "gemini-flash-lite",
+        "gemini-3.5-flash-lite",
+    )
     # The job's analysis is kept, so only the tailoring ran again.
     assert [r.task for r in gemini.requests] == ["tailor"]
     assert len((await client.get("/api/v1/documents")).json()) == 1

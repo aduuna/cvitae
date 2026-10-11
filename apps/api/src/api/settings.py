@@ -60,17 +60,30 @@ class Settings(DatabaseSettings):
     mimo_model_large: str = "mimo-v2.6-pro"
     default_ai_model: AiModel = AiModel.mimo_flash
     """For users who have not chosen one."""
-    enforce_ai_plans: bool = False
-    """Pro models need the Pro plan. Off until billing exists (M4)."""
+    enforce_ai_plans: bool = True
+    """Pro models need the Pro plan."""
     llm_timeout_seconds: float = 90
     mimo_timeout_seconds: float = 180
     """MiMo thinks before answering; an import takes 50 to 80 seconds."""
+
+    # Billing (docs/BACKEND.md, Billing). Upgrades are offered only when all three are set.
+    paystack_secret_key: SecretStr | None = None
+    paystack_pro_plan_code: str | None = None
+    """The monthly Pro plan created in the Paystack dashboard (PLN_...)."""
+    paystack_callback_url: str | None = None
+    """Where Paystack sends the user after checkout: the SPA's /app/settings?tab=billing."""
 
     sample_profile_path: Path = _REPO / "templates" / "fixtures" / "profile-sample.json"
     """Shown in template previews when the user has no profile yet."""
 
     static_dir: Path | None = None
     """Built SPA served at /. Unset in local development, where Vite serves the SPA."""
+
+    @property
+    def billing_enabled(self) -> bool:
+        return bool(
+            self.paystack_secret_key and self.paystack_pro_plan_code and self.paystack_callback_url
+        )
 
     @model_validator(mode="after")
     def _consistent(self) -> Self:

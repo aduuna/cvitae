@@ -1,6 +1,14 @@
+from collections.abc import Awaitable, Callable
 from typing import Any
 
+import pytest
 from httpx import AsyncClient
+
+
+@pytest.fixture(autouse=True)
+async def pro(make_pro: Callable[[], Awaitable[None]]) -> None:
+    """These tests keep several profiles, which takes Pro. Free's limit: test_quotas_api."""
+    await make_pro()
 
 
 async def create(client: AsyncClient, **body: Any) -> dict[str, Any]:

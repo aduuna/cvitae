@@ -1,0 +1,43 @@
+{
+  "event": "subscription.not_renew",
+  "data": {
+    "id": 317617,
+    "domain": "test",
+    "status": "non-renewing",
+    "subscription_code": "SUB_ada_1",
+    "email_token": "086x99rmqc4qhcw",
+    "amount": 500000,
+    "cron_expression": "0 0 10 * *",
+    "next_payment_date": null,
+    "open_invoice": null,
+    "integration": 116430,
+    "plan": {
+      "id": 103028,
+      "name": "Pro",
+      "plan_code": "PLN_pro_test",
+      "description": null,
+      "amount": 500000,
+      "interval": "monthly",
+      "send_invoices": true,
+      "send_sms": true,
+      "currency": "GHS"
+    },
+    "authorization": { "authorization_code": "AUTH_5ftfl9xrl0", "last4": "4081" },
+    "customer": {
+      "id": 57199167,
+      "first_name": null,
+      "last_name": null,
+      "email": "ada@example.com",
+      "customer_code": "CUS_ada",
+      "phone": null,
+      "metadata": null,
+      "risk_action": "default"
+    },
+    "invoices": [],
+    "invoices_history": [],
+    "invoice_limit": 0,
+    "split_code": null,
+    "most_recent_invoice": null,
+    "created_at": "2026-10-20T14:50:39.000Z"
+  }
+}

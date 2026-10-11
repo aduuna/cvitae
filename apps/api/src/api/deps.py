@@ -1,12 +1,15 @@
 """FastAPI dependencies: the only place where ports and repositories are wired."""
 
+import uuid
 from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.billing.plans import Plan
 from api.db.models import User
+from api.errors import ServiceUnavailable
 from api.ports.auth import AuthVerifier
 from api.ports.llm.registry import ProviderRegistry
 from api.ports.renderer import RendererClient
@@ -15,8 +18,11 @@ from api.repositories.ai_runs import AiRunRepository
 from api.repositories.documents import DocumentRepository, DocumentVersionRepository
 from api.repositories.jobs import JobRepository
 from api.repositories.profiles import ProfileRepository
+from api.repositories.subscriptions import SubscriptionRepository
 from api.repositories.uploads import UploadRepository
 from api.repositories.users import UserRepository
+from api.repositories.webhooks import WebhookRepository
+from api.services import billing
 from api.services.users import ensure_user
 from api.settings import Settings
 
@@ -68,6 +74,16 @@ def get_settings(request: Request) -> Settings:
 AppSettings = Annotated[Settings, Depends(get_settings)]
 
 
+def get_billing(request: Request) -> billing.Billing:
+    setup: billing.Billing | None = request.app.state.billing
+    if setup is None:
+        raise ServiceUnavailable("Upgrades are not available on this server yet.")
+    return setup
+
+
+BillingSetup = Annotated[billing.Billing, Depends(get_billing)]
+
+
 def get_users(session: Session) -> UserRepository:
     return UserRepository(session)
 
@@ -111,9 +127,37 @@ def get_ai_runs(session: Session, user: CurrentUser) -> AiRunRepository:
     return AiRunRepository(session, user.id)
 
 
+def get_subscriptions(session: Session, user: CurrentUser) -> SubscriptionRepository:
+    return SubscriptionRepository(session, user.id)
+
+
+def get_subscriptions_for(session: Session) -> billing.SubscriptionsFor:
+    """For webhooks, which are about a user found from the event, not a signed-in one."""
+
+    def scoped(user_id: uuid.UUID) -> SubscriptionRepository:
+        return SubscriptionRepository(session, user_id)
+
+    return scoped
+
+
+def get_webhooks(session: Session) -> WebhookRepository:
+    return WebhookRepository(session)
+
+
 Profiles = Annotated[ProfileRepository, Depends(get_profiles)]
 Documents = Annotated[DocumentRepository, Depends(get_documents)]
 Versions = Annotated[DocumentVersionRepository, Depends(get_versions)]
 Jobs = Annotated[JobRepository, Depends(get_jobs)]
 Uploads = Annotated[UploadRepository, Depends(get_uploads)]
 AiRuns = Annotated[AiRunRepository, Depends(get_ai_runs)]
+Subscriptions = Annotated[SubscriptionRepository, Depends(get_subscriptions)]
+SubscriptionsFor = Annotated[billing.SubscriptionsFor, Depends(get_subscriptions_for)]
+Webhooks = Annotated[WebhookRepository, Depends(get_webhooks)]
+
+
+async def get_plan(user: CurrentUser, subscriptions: Subscriptions) -> Plan:
+    """The plan the signed-in user is on now."""
+    return await billing.current_plan(user, subscriptions)
+
+
+UserPlan = Annotated[Plan, Depends(get_plan)]

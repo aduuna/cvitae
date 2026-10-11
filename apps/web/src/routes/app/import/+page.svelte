@@ -6,6 +6,8 @@
 	import { modelLabel, pickModel } from '#lib/ai/models.ts';
 	import { api, errorMessage, unwrap } from '#lib/api/client.ts';
 	import { session } from '#lib/auth/session.svelte.ts';
+	import { canUpgrade, limitReached } from '#lib/billing/plans.ts';
+	import LimitNotice from '#lib/components/billing/LimitNotice.svelte';
 	import GenerationProgress from '#lib/components/ai/GenerationProgress.svelte';
 	import ModelSelect from '#lib/components/ai/ModelSelect.svelte';
 	import CvEditor from '#lib/components/cv/CvEditor.svelte';
@@ -47,9 +49,15 @@
 	let profileName = $state('');
 	let saving = $state(false);
 
+	/** An import takes an AI run and makes a profile: set when either limit is reached. */
+	const blocked = $derived(limitReached(session.usage?.ai_runs, session.usage?.profiles));
 	const ready = $derived(
-		model !== null && (mode === 'file' ? file !== null : text.trim().length > 0)
+		model !== null && blocked === null && (mode === 'file' ? file !== null : text.trim().length > 0)
 	);
+
+	function refreshUsage() {
+		session.refreshUsage().catch(() => {});
+	}
 
 	onMount(async () => {
 		try {
@@ -58,6 +66,7 @@
 		} catch {
 			model = pickModel(null, session.aiModels, session.defaultAiModel);
 		}
+		refreshUsage();
 		await loadUploads();
 	});
 
@@ -92,6 +101,7 @@
 			void loadUploads();
 		} finally {
 			controller = null;
+			refreshUsage();
 		}
 	}
 
@@ -151,6 +161,9 @@
 	{/snippet}
 
 	{#if phase === 'choose'}
+		{#if blocked}
+			<LimitNotice message={blocked} upgrade={canUpgrade(session.usage, session.billingEnabled)} />
+		{/if}
 		<Card title="Import a CV">
 			<form class="flex flex-col gap-5" onsubmit={submit}>
 				<Tabs
@@ -206,7 +219,7 @@
 							</span>
 							<Button
 								size="sm"
-								disabled={!model}
+								disabled={!model || blocked !== null}
 								onclick={() => start({ uploadId: upload.id }, upload.filename)}
 							>
 								Import again

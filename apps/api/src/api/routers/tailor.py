@@ -14,6 +14,7 @@ from api.deps import (
     Profiles,
     Providers,
     Renderer,
+    UserPlan,
     Versions,
 )
 from api.errors import AI_ERROR_RESPONSES
@@ -79,6 +80,7 @@ class TailorResult(BaseModel):
 async def tailor(
     body: TailorRequest,
     user: CurrentUser,
+    plan: UserPlan,
     providers: Providers,
     settings: AppSettings,
     runs: AiRuns,
@@ -104,6 +106,7 @@ async def tailor(
         body.ai_model,
         default=settings.default_ai_model,
         enforce_plans=settings.enforce_ai_plans,
+        plan=plan,
     )
     result = await service.tailor(
         choice,
@@ -117,6 +120,7 @@ async def tailor(
         job_id=body.job_id,
         new_job=new_job,
         template_id=body.template_id or user.default_template_id,
+        plan=plan,
     )
     return TailorResult(
         document=Document.model_validate(result.document),

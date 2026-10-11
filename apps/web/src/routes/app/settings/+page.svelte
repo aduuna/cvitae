@@ -1,8 +1,20 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { errorMessage } from '#lib/api/client.ts';
+	import { onMount, tick } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { api, errorMessage, unwrap } from '#lib/api/client.ts';
 	import { session } from '#lib/auth/session.svelte.ts';
+	import {
+		canUpgrade,
+		formatDay,
+		paystackReference,
+		planSummary,
+		subscriptionStatus
+	} from '#lib/billing/plans.ts';
+	import UsageMeter from '#lib/components/billing/UsageMeter.svelte';
 	import Page from '#lib/components/shell/Page.svelte';
+	import Badge from '#lib/components/ui/Badge.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
 	import Input from '#lib/components/ui/Input.svelte';
@@ -18,10 +30,28 @@
 	let signingOut = $state(false);
 	let model = $state<AiModel | null>(null);
 	let savedModel: AiModel | null = null;
+	let billing = $state<'upgrade' | 'manage' | 'verify' | null>(null);
+	let billingCard = $state<HTMLElement>();
+
+	const usage = $derived(session.usage);
+	const pro = $derived(session.plans.find((plan) => plan.id === 'pro'));
+	const current = $derived(session.plans.find((plan) => plan.id === usage?.plan));
+	const subscription = $derived(usage?.subscription);
 
 	const unchanged = $derived((session.me?.display_name ?? '') === name.trim());
 
 	onMount(async () => {
+		const reference = paystackReference(page.url.searchParams);
+		if (reference) await verifyPayment(reference);
+		try {
+			await session.refreshUsage();
+		} catch (error) {
+			toast.error(errorMessage(error));
+		}
+		if (page.url.searchParams.get('tab') === 'billing') {
+			await tick();
+			billingCard?.scrollIntoView({ block: 'start' });
+		}
 		try {
 			const me = await session.loadMe();
 			name = me.display_name ?? '';
@@ -63,6 +93,43 @@
 	$effect(() => {
 		if (loaded && model && model !== savedModel) void saveModel(model);
 	});
+
+	/** Back from Paystack's checkout: confirm the payment, then drop the reference from the URL. */
+	async function verifyPayment(reference: string) {
+		billing = 'verify';
+		try {
+			await unwrap(api.POST('/api/v1/billing/verify', { body: { reference } }));
+			await session.refreshMe();
+			toast.info('You are on Pro now.');
+		} catch (error) {
+			toast.error(errorMessage(error));
+		} finally {
+			billing = null;
+			await goto(resolve('/app/settings?tab=billing'), { replace: true, shallow: true });
+		}
+	}
+
+	async function upgrade() {
+		billing = 'upgrade';
+		try {
+			const checkout = await unwrap(api.POST('/api/v1/billing/checkout'));
+			window.location.assign(checkout.authorization_url);
+		} catch (error) {
+			toast.error(errorMessage(error));
+			billing = null;
+		}
+	}
+
+	async function manage() {
+		billing = 'manage';
+		try {
+			const link = await unwrap(api.GET('/api/v1/billing/manage-link'));
+			window.location.assign(link.url);
+		} catch (error) {
+			toast.error(errorMessage(error));
+			billing = null;
+		}
+	}
 
 	async function signOut() {
 		signingOut = true;
@@ -111,12 +178,86 @@
 					label="Default AI model"
 				/>
 				<p class="text-sm text-fg-muted">
-					Used first on Import and Tailor; you can switch for any run. Claude and Gemini work under
-					the same rule: they may select, reorder and reword what you wrote, and never add facts.
+					Used first on Import and Tailor; you can switch for any run. Every model works under the
+					same rule: it may select, reorder and reword what you wrote, and never adds facts.
 				</p>
 			</div>
 		{:else}
 			<Skeleton lines={2} />
 		{/if}
 	</Card>
+
+	<div id="billing" class="scroll-mt-6" bind:this={billingCard}>
+		<Card title="Billing">
+			{#if usage && billing !== 'verify'}
+				{@const status = subscriptionStatus(usage)}
+				<div class="flex flex-col gap-5">
+					<div class="flex flex-col gap-1">
+						<div class="flex items-center gap-2">
+							<span class="text-base font-medium text-fg">Your plan</span>
+							<Badge>{current?.label ?? usage.plan}</Badge>
+						</div>
+						{#if current}
+							<p class="text-sm text-fg-muted">
+								{planSummary(current)}{usage.plan === 'pro' ? ', and the Pro AI models' : ''}.
+							</p>
+						{/if}
+						{#if status}
+							<p class="text-sm text-fg">{status}</p>
+						{/if}
+					</div>
+
+					<div class="flex flex-col gap-4">
+						<UsageMeter
+							label="AI runs this month"
+							used={usage.ai_runs.used}
+							limit={usage.ai_runs.limit}
+							caption="Resets on {formatDay(usage.period_end)}."
+						/>
+						<UsageMeter label="CVs" used={usage.documents.used} limit={usage.documents.limit} />
+						<UsageMeter label="Profiles" used={usage.profiles.used} limit={usage.profiles.limit} />
+					</div>
+
+					{#if canUpgrade(usage, session.billingEnabled)}
+						<div class="flex flex-col items-start gap-2">
+							<Button
+								variant="primary"
+								loading={billing === 'upgrade'}
+								disabled={billing !== null}
+								onclick={upgrade}
+							>
+								Upgrade to Pro
+							</Button>
+							{#if pro}
+								<p class="text-sm text-fg-muted">
+									Pro includes {planSummary(pro)}, and the Pro AI models. You pay monthly on
+									Paystack and can cancel at any time.
+								</p>
+							{/if}
+						</div>
+					{:else if usage.plan === 'free' && !subscription}
+						<p class="text-sm text-fg-muted">Upgrades are not available on this server yet.</p>
+					{/if}
+
+					{#if subscription && subscription.status !== 'cancelled'}
+						{#if subscription.manageable}
+							<div class="flex flex-col items-start gap-2">
+								<Button loading={billing === 'manage'} disabled={billing !== null} onclick={manage}>
+									Manage subscription
+								</Button>
+								<p class="text-sm text-fg-muted">Update your card or cancel on Paystack.</p>
+							</div>
+						{:else}
+							<p class="text-sm text-fg-muted">
+								Paystack is still setting up your subscription. Reload this page in a minute to
+								manage it.
+							</p>
+						{/if}
+					{/if}
+				</div>
+			{:else}
+				<Skeleton lines={4} />
+			{/if}
+		</Card>
+	</div>
 </Page>

@@ -45,6 +45,7 @@ export const icons = {
 	'nav-collapse': PanelLeftClose,
 	'nav-expand': PanelLeftOpen,
 	'placeholder-warning': CircleAlert,
+	limit: CircleAlert,
 	code: Code,
 	form: ListTree,
 	close: X,

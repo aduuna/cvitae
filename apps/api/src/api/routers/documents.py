@@ -5,8 +5,8 @@ from typing import Literal
 from fastapi import APIRouter, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from api.deps import CurrentUser, Documents, Profiles, Renderer, Versions
-from api.errors import ERROR_RESPONSES, ErrorEnvelope
+from api.deps import CurrentUser, Documents, Profiles, Renderer, UserPlan, Versions
+from api.errors import ERROR_RESPONSES, QUOTA_RESPONSES, ErrorEnvelope
 from api.services import documents as service
 from api.services import rendering, versions
 from cvcore.models import CvContent
@@ -61,10 +61,11 @@ async def list_documents(documents: Documents) -> list[DocumentSummary]:
     return [DocumentSummary.model_validate(row) for row in rows]
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED, responses=QUOTA_RESPONSES)
 async def create_document(
     body: DocumentCreate,
     user: CurrentUser,
+    plan: UserPlan,
     documents: Documents,
     profiles: Profiles,
     renderer: Renderer,
@@ -76,6 +77,7 @@ async def create_document(
         profile_id=body.profile_id,
         name=body.name,
         template_id=body.template_id or user.default_template_id,
+        plan=plan,
     )
     return Document.model_validate(row)
 
@@ -105,9 +107,14 @@ async def delete_document(document_id: uuid.UUID, documents: Documents) -> None:
     await service.delete_document(documents, document_id)
 
 
-@router.post("/{document_id}/duplicate", status_code=status.HTTP_201_CREATED)
-async def duplicate_document(document_id: uuid.UUID, documents: Documents) -> Document:
-    return Document.model_validate(await service.duplicate_document(documents, document_id))
+@router.post(
+    "/{document_id}/duplicate", status_code=status.HTTP_201_CREATED, responses=QUOTA_RESPONSES
+)
+async def duplicate_document(
+    document_id: uuid.UUID, documents: Documents, plan: UserPlan
+) -> Document:
+    row = await service.duplicate_document(documents, document_id, plan=plan)
+    return Document.model_validate(row)
 
 
 @router.post("/{document_id}/preview", responses={503: {"model": ErrorEnvelope}})

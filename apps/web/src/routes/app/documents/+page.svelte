@@ -3,6 +3,8 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { api, errorMessage, unwrap } from '#lib/api/client.ts';
+	import { canUpgrade, limitReached } from '#lib/billing/plans.ts';
+	import LimitNotice from '#lib/components/billing/LimitNotice.svelte';
 	import ListRow from '#lib/components/shell/ListRow.svelte';
 	import Page from '#lib/components/shell/Page.svelte';
 	import Badge from '#lib/components/ui/Badge.svelte';
@@ -40,6 +42,12 @@
 	let deleteOpen = $state(false);
 
 	const selectedProfile = $derived(profiles.find((profile) => profile.id === newProfileId));
+	/** Set when the plan's CV limit is reached. */
+	const blocked = $derived(limitReached(session.usage?.documents));
+
+	function refreshUsage() {
+		session.refreshUsage().catch(() => {});
+	}
 
 	async function load() {
 		try {
@@ -57,6 +65,7 @@
 
 	onMount(() => {
 		void load();
+		refreshUsage();
 		templates.load().catch(() => toast.error('Templates could not load. Reload to try again.'));
 	});
 
@@ -128,6 +137,7 @@
 				})
 			);
 			toast.info(`Duplicated ${doc.name}.`);
+			refreshUsage();
 			await load();
 		} catch (error) {
 			toast.error(errorMessage(error));
@@ -157,6 +167,7 @@
 				})
 			);
 			toast.info(`Deleted ${target.name}.`);
+			refreshUsage();
 			await load();
 		} catch (error) {
 			toast.error(errorMessage(error));
@@ -173,7 +184,12 @@
 					renameOpen = true;
 				}
 			},
-			{ label: 'Duplicate', icon: 'duplicate' as const, onselect: () => duplicate(doc) },
+			{
+				label: 'Duplicate',
+				icon: 'duplicate' as const,
+				disabled: blocked !== null,
+				onselect: () => duplicate(doc)
+			},
 			{ label: 'Download PDF', icon: 'download' as const, onselect: () => download(doc) },
 			{
 				label: 'Delete',
@@ -190,10 +206,17 @@
 
 <Page title="Documents">
 	{#snippet actions()}
-		<Button variant="primary" icon="new" disabled={documents === null} onclick={openNew}
-			>New CV</Button
+		<Button
+			variant="primary"
+			icon="new"
+			disabled={documents === null || blocked !== null}
+			onclick={openNew}>New CV</Button
 		>
 	{/snippet}
+
+	{#if blocked && documents !== null}
+		<LimitNotice message={blocked} upgrade={canUpgrade(session.usage, session.billingEnabled)} />
+	{/if}
 
 	{#if loadError}
 		<Card>

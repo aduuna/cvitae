@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from api.ai.models import AiModel, ModelOption
+from api.billing.plans import Plan
 from api.db.models import User
 from api.errors import PlanRequired, ServiceUnavailable, ValidationFailed
 from api.ports.llm.base import LLMProvider
@@ -30,7 +31,9 @@ def choose_model(
     *,
     default: AiModel,
     enforce_plans: bool,
+    plan: Plan,
 ) -> ModelChoice:
+    """`plan` is the user's current plan (services.billing.current_plan)."""
     model = requested or preferred_model(registry, user, default)
     if model is None:
         raise ServiceUnavailable("AI is not set up on this server yet.")
@@ -40,7 +43,7 @@ def choose_model(
             "This AI model is not available on this server. Choose another model.",
             {"field": "ai_model"},
         )
-    if enforce_plans and option.plan == "pro" and user.plan != "pro":
+    if enforce_plans and option.plan == "pro" and plan != "pro":
         raise PlanRequired(
             f"{option.label} is part of Pro. Upgrade to use it, or choose a free model.",
             {"ai_model": str(option.id)},

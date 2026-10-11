@@ -99,7 +99,7 @@ apps/api/src/api/
       registry.py    resolves a ProviderName to an implementation
     storage.py       Storage Protocol, GcsStorage, LocalStorage (dev/tests)
     renderer.py      RendererClient Protocol, HttpRendererClient, FakeRendererClient
-    billing.py       PaystackClient, FakePaystackClient
+    billing.py       PaystackClient Protocol, HttpPaystackClient, FakePaystackClient, payload models
     auth.py          AuthVerifier Protocol, FirebaseVerifier, DevVerifier
   ai/
     prompts/         one module per task with SYSTEM text and builders; versioned PROMPT_VERSION
@@ -162,7 +162,7 @@ A single exception handler maps them. Pydantic validation errors are converted t
 | `GEMINI_MODEL_SMALL`, `GEMINI_MODEL_LARGE` | defaults `gemini-3.5-flash-lite`, `gemini-3.8-flash` |
 | `MIMO_MODEL_SMALL`, `MIMO_MODEL_LARGE` | defaults `mimo-v2.6-flash`, `mimo-v2.6-pro` |
 | `DEFAULT_AI_MODEL` | default `mimo-flash`, for users who have not chosen one |
-| `ENFORCE_AI_PLANS` | default `false`; when true, Pro models need the Pro plan (M4 turns it on) |
+| `ENFORCE_AI_PLANS` | default `true`: Pro models need the Pro plan |
 | `LLM_TIMEOUT_SECONDS` | default `90`, per Claude or Gemini call |
 | `MIMO_TIMEOUT_SECONDS` | default `180`: MiMo thinks first, and an import takes 50 to 80 seconds |
 | `GCS_BUCKET` | uploads bucket |
@@ -171,7 +171,7 @@ A single exception handler maps them. Pydantic validation errors are converted t
 | `SAMPLE_PROFILE_PATH` | Profile shown in template previews for users without one (the image copies `templates/fixtures/profile-sample.json`) |
 | `RENDERER_URL` | renderer base URL |
 | `RENDERER_AUTH` | `oidc` (Cloud Run) or `none` (local) |
-| `PAYSTACK_SECRET_KEY`, `PAYSTACK_PRO_PLAN_CODE`, `PAYSTACK_CALLBACK_URL` | Billing |
+| `PAYSTACK_SECRET_KEY`, `PAYSTACK_PRO_PLAN_CODE`, `PAYSTACK_CALLBACK_URL` | Billing; upgrades are offered only when all three are set. The callback is the SPA's `/app/settings?tab=billing` |
 | `PUBLIC_BASE_URL` | The api's public URL (OIDC audience for internal routes, CSP) |
 | `SCHEDULER_SA_EMAIL` | Only this service account may call `/internal/*` routes |
 | `STATIC_DIR` | Built SPA directory served at `/` (unset in local dev, where Vite serves the SPA) |
@@ -196,8 +196,8 @@ in Python.
 | `document_versions` | `document_id`, `number`, `reason` (`tailor`/`manual`/`restore`/`autosave`), `content` jsonb, `source_files` jsonb null | Autosave versions older than 7 days are pruned by a daily Cloud Scheduler call. |
 | `uploads` | `user_id`, `storage_key`, `filename`, `mime_type`, `size_bytes` | File itself in GCS. |
 | `ai_runs` | `user_id`, `task` (`import`/`analyze_job`/`tailor`), `provider`, `model`, `prompt_version`, `status`, `error_code`, `input_tokens`, `output_tokens`, `cost_usd` numeric(10,6), `duration_ms` | No prompt or output content. Drives quotas and cost reporting. |
-| `subscriptions` | `user_id` unique, `paystack_customer_code`, `paystack_subscription_code`, `plan_code`, `status`, `current_period_end` | Mirrors Paystack state. |
-| `webhook_events` | `provider`, `event_key` unique, `event_type`, `processed_at` | Idempotency for webhooks. |
+| `subscriptions` | `user_id` unique, `paystack_customer_code`, `paystack_subscription_code` null, `plan_code`, `status` (`active`/`non_renewing`/`attention`/`cancelled`), `current_period_end` null | Mirrors Paystack state. The subscription code arrives with `subscription.create`; `current_period_end` is the next payment date Paystack last reported, so the date the user has paid up to. |
+| `webhook_events` | `provider`, `event_key` unique, `event_type`, `processed_at` | Idempotency for webhooks. No payload is stored. |
 
 Indexes on every `user_id` foreign key and on `(user_id, updated_at desc)` for list pages.
 Foreign keys from user-owned tables to `users` use `ON DELETE CASCADE` so account deletion is one delete
@@ -352,7 +352,8 @@ Users choose an AI model, not a provider (`api/ai/models.py`):
 | Claude Sonnet | Claude | `claude-sonnet-5-5` | `claude-haiku-5-5` | Pro |
 
 A request names the model; else the user's choice runs, else `DEFAULT_AI_MODEL`, else the first model
-the server offers. Plans are checked in `services/ai_models.py` once `ENFORCE_AI_PLANS` is on.
+the server offers. Plans are checked in `services/ai_models.py` while `ENFORCE_AI_PLANS` is on (the
+default), against the user's current plan (see Billing).
 
 ### Provider abstraction
 
@@ -425,6 +426,23 @@ Prompts, schemas, validation and the fact guard are shared. Adapters only transl
 
 Each task: check quota, build the request from the prompt module, call the provider via the registry,
 validate, run the fact guard (tailor only), record an `ai_runs` row (success or failure), return.
+
+### Quotas (services/quotas.py)
+
+Limits come from `billing/plans.py` (docs/PRODUCT.md, Plans and limits). Every check runs before the
+work it guards, so a refused request calls no model, stores no upload and saves no job:
+
+- **AI runs** count per calendar month in UTC. Free counts every `ai_runs` row, failed ones included,
+  so failing calls cannot be used to spend tokens for free; Pro counts succeeded runs only. Import
+  needs one run. Tailoring needs two when the job has no analysis yet (analysis and tailoring) and
+  one when it has, and checks both up front so it never stops halfway.
+- **CVs and profiles** are checked on create and duplicate. Tailoring also needs room for a CV, and
+  import room for a profile, since its draft is saved as one. After a downgrade, existing ones stay
+  readable, editable and exportable; only new ones are blocked.
+- A refused request is `402 quota_exceeded` with `details.resource` (`ai_runs`, `documents` or
+  `profiles`). The message is the one the UI shows, built in one place, for example "You have used
+  all 5 AI runs this month. Upgrade to Pro for 150." `GET /usage` returns the same message on each
+  meter that is at its limit, so the SPA disables the action before the user tries it.
 
 ### Prompt rules (ai/prompts/)
 
@@ -531,7 +549,7 @@ Base path `/api/v1`. JSON in and out, snake_case. All routes except webhooks, in
 | `GET /me`, `PATCH /me` | Current user; update display name, preferred AI model, default template |
 | `DELETE /me` | Delete account and all data (typed email confirmation in body) |
 | `GET /me/export` | All user data as JSON |
-| `GET /usage` | Plan, limits, AI runs used this period |
+| `GET /usage` | Current plan; a meter (`used`, `limit`, `message` once the limit is reached) for AI runs this month, CVs and profiles; the period's start and end; the subscription's status, paid-up date and whether it can be managed yet |
 | `GET/POST /profiles`, `GET/PATCH/DELETE /profiles/{id}`, `POST /profiles/{id}/duplicate` | Profiles |
 | `POST /imports` (multipart: a file, pasted text, or the `upload_id` of an earlier upload; `ai_model`) | Extract a profile draft; returns `{upload_id, draft: CvContent}`. Nothing is saved as a profile: after review the SPA saves the draft with `POST /profiles`. |
 | `GET /uploads`, `DELETE /uploads/{id}` | Files the user uploaded for import; deleting removes the object from storage |
@@ -545,8 +563,8 @@ Base path `/api/v1`. JSON in and out, snake_case. All routes except webhooks, in
 | `GET /documents/{id}/versions`, `POST /documents/{id}/versions`, `POST /documents/{id}/versions/{n}/restore` | Version history |
 | `GET /templates` | Template metadata (proxied from the renderer, cached in memory) |
 | `GET /templates/{id}/preview` | SVG pages of the template with the user's default profile, or the sample profile |
-| `POST /billing/checkout` | Paystack transaction initialize with the Pro plan; returns `authorization_url` |
-| `POST /billing/verify` (reference) | Verify after redirect back from Paystack |
+| `POST /billing/checkout` | Paystack transaction initialize with the Pro plan; returns `authorization_url`; 409 when already on Pro, or when a failed renewal is waiting for a new card (the manage link fixes that) |
+| `POST /billing/verify` (reference) | Verify after redirect back from Paystack; switches to Pro at once and returns the current plan. Repeatable: a payment is applied once, by this call or by its `charge.success` webhook (both record the same `webhook_events` key), so an old reference cannot bring Pro back after it ended. |
 | `GET /billing/manage-link` | Paystack hosted subscription management link |
 | `POST /webhooks/paystack` | Paystack events (no Firebase auth; signature checked) |
 | `POST /internal/prune-versions` | Deletes autosave versions older than 7 days. Accepts only an OIDC token from the Cloud Scheduler service account; no Firebase auth. |
@@ -574,15 +592,34 @@ response is sent.
 - One Pro plan created in the Paystack dashboard (monthly); its plan code is a setting. Amounts are in the
   smallest currency unit. Pick the currency your Paystack account settles in.
 - Checkout: `POST https://api.paystack.co/transaction/initialize` with the user's email, `plan`, a
-  `callback_url` back to `/app/settings?tab=billing`, and `metadata.user_id`. Redirect to the returned
-  `authorization_url`. On return, `POST /billing/verify` calls `GET /transaction/verify/{reference}`.
+  `callback_url` back to `/app/settings?tab=billing`, and `metadata.user_id`. Initialize requires an
+  `amount` even though the plan overrides it, so the client sends the plan's own amount
+  (`GET /plan/{code}`, cached in memory). Redirect to the returned `authorization_url`. On return,
+  Paystack adds `reference` to the callback URL and `POST /billing/verify` calls
+  `GET /transaction/verify/{reference}`: the transaction must be this user's (metadata), successful and
+  for the Pro plan.
 - Webhooks: verify `x-paystack-signature`, which is HMAC SHA512 of the raw body with the secret key,
   using a constant-time comparison. Invalid signature: 401 and a warning log. Valid: record the event in
   `webhook_events` (skip if `event_key` already exists), update `subscriptions` and `users.plan`, return 200
-  quickly.
-- Events handled: `subscription.create`, `charge.success`, `invoice.payment_failed` (mark `attention`,
-  keep Pro until period end), `subscription.not_renew` (mark `non_renewing`), `subscription.disable`
-  (downgrade to Free).
+  quickly. The key is the event type plus Paystack's id for it: the transaction reference, the
+  subscription code, or the invoice code (with `paid` for `invoice.update`); other events use a hash of
+  the body. Events this app does not use, for other plans or for customers it does not know are recorded
+  and ignored; Paystack metadata may arrive as an object or a JSON string.
+- Finding the user: `charge.success` carries `metadata.user_id` at checkout; renewals carry no metadata
+  of ours and are matched by customer code. `subscription.create` is matched by subscription code, then
+  customer code, then the account email used at checkout (it can arrive before `charge.success`). The
+  other events are matched by subscription code only, so an event about a subscription the user has
+  since replaced, or one that has ended, changes nothing.
+- Events handled: `charge.success` (Pro plan only: Pro, customer on record), `subscription.create`
+  (Pro, subscription code, `current_period_end` from `next_payment_date`), `invoice.update` when paid
+  (a renewal: back to `active`, `current_period_end` moves to the new next payment date),
+  `invoice.payment_failed` (mark `attention`, keep Pro until period end), `subscription.not_renew`
+  (mark `non_renewing`), `subscription.disable` (downgrade to Free).
+- The current plan (`services/billing.py`, `current_plan`) is `users.plan`, except that an `attention`
+  subscription whose `current_period_end` has passed counts as Free, worked out on read: Paystack does
+  not promise to disable a subscription after a failed payment, so no event or job is needed. A later
+  paid `invoice.update` or `charge.success` makes it Pro again. `/me`, `/usage`, quotas and model checks
+  all use this plan.
 - Manage or cancel: `GET https://api.paystack.co/subscription/{code}/manage/link` returns a hosted page URL.
 - Optionally also check the source IP against Paystack's published webhook IPs; the signature check is the
   required control.

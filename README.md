@@ -9,11 +9,12 @@ or enter their experience, paste a job description, and get a tailored CV render
 on MiMo, Claude or Gemini models, chosen by the user, and may only select, reorder and reword facts
 the user gave.
 
-**Status:** milestone M3 (AI import and tailoring) is built. Users sign in with Google or an
+**Status:** milestone M4 (plans, quotas and Paystack) is built. Users sign in with Google or an
 email link, import a CV (PDF, DOCX or pasted text) into a profile, paste a job description and get a
 tailored CV checked by the fact guard, edit it with a live Typst preview in one of five templates,
-and export PDFs. Every push to `main` that passes CI deploys to dev at https://cvitae.aduuna.dev.
-Plans and payments come next. See [docs/ROADMAP.md](docs/ROADMAP.md).
+and export PDFs. Free and Pro plans limit CVs, profiles and monthly AI runs, and users upgrade to Pro
+through Paystack. Every push to `main` that passes CI deploys to dev at https://cvitae.aduuna.dev.
+Advanced editing and hardening come next. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Stack
 
@@ -76,6 +77,16 @@ a deterministic fake. The real calls have their own tests, run by hand because t
 ```sh
 uv run pytest -m live apps/api/tests/test_llm_live.py -s   # prints tokens and cost per run
 ```
+
+Pro models need the Pro plan. To try them locally without Paystack, set `ENFORCE_AI_PLANS=false`.
+
+### Billing
+
+Upgrades go through Paystack and are offered only when `PAYSTACK_SECRET_KEY` (a test key, `sk_test_...`),
+`PAYSTACK_PRO_PLAN_CODE` and `PAYSTACK_CALLBACK_URL` are set. Paystack sends the user back to the
+callback URL, where the SPA verifies the payment. Webhooks need a public URL: point the Paystack
+dashboard at a tunnel to `/api/v1/webhooks/paystack`, or rely on the verify call alone while
+developing. Tests use a fake Paystack and signed sample events; they never call Paystack.
 
 ## Checks
 

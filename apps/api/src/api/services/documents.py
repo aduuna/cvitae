@@ -3,12 +3,14 @@
 import uuid
 from collections.abc import Sequence
 
+from api.billing.plans import Plan
 from api.db.models import Document
 from api.errors import Conflict, NotFound
 from api.ports.renderer import RendererClient
 from api.repositories.documents import DocumentRepository
 from api.repositories.profiles import ProfileRepository
 from api.services.profiles import get_profile
+from api.services.quotas import require_room
 from api.services.templates import DEFAULT_TEMPLATE_ID, require_template
 from cvcore.models import CvContent
 
@@ -32,10 +34,12 @@ async def create_document(
     profile_id: uuid.UUID,
     name: str | None = None,
     template_id: str | None = None,
+    plan: Plan,
 ) -> Document:
     """A new CV holding a copy of the profile's content; later profile edits do not change it."""
     profile = await get_profile(profiles, profile_id)
     template = await require_template(renderer, template_id or DEFAULT_TEMPLATE_ID)
+    await require_room("documents", plan, documents)
     return await documents.create(
         profile_id=profile.id,
         name=name or f"{profile.name} CV",
@@ -66,8 +70,11 @@ async def update_document(
     return await documents.update(document, **values)
 
 
-async def duplicate_document(documents: DocumentRepository, document_id: uuid.UUID) -> Document:
+async def duplicate_document(
+    documents: DocumentRepository, document_id: uuid.UUID, *, plan: Plan
+) -> Document:
     source = await get_document(documents, document_id)
+    await require_room("documents", plan, documents)
     return await documents.create(
         profile_id=source.profile_id,
         job_id=source.job_id,

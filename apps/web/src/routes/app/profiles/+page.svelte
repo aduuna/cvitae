@@ -3,6 +3,9 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { api, errorMessage, unwrap } from '#lib/api/client.ts';
+	import { session } from '#lib/auth/session.svelte.ts';
+	import { canUpgrade, limitReached } from '#lib/billing/plans.ts';
+	import LimitNotice from '#lib/components/billing/LimitNotice.svelte';
 	import ListRow from '#lib/components/shell/ListRow.svelte';
 	import Page from '#lib/components/shell/Page.svelte';
 	import Badge from '#lib/components/ui/Badge.svelte';
@@ -21,6 +24,13 @@
 	let deleting = $state<ProfileSummary | null>(null);
 	let confirmOpen = $state(false);
 
+	/** Set when the plan's profile limit is reached. */
+	const blocked = $derived(limitReached(session.usage?.profiles));
+
+	function refreshUsage() {
+		session.refreshUsage().catch(() => {});
+	}
+
 	async function load() {
 		try {
 			profiles = await unwrap(api.GET('/api/v1/profiles'));
@@ -30,7 +40,10 @@
 		}
 	}
 
-	onMount(load);
+	onMount(() => {
+		void load();
+		refreshUsage();
+	});
 
 	async function create() {
 		creating = true;
@@ -48,6 +61,7 @@
 		try {
 			await action();
 			toast.info(done);
+			refreshUsage();
 			await load();
 		} catch (error) {
 			toast.error(errorMessage(error));
@@ -63,6 +77,7 @@
 			{
 				label: 'Duplicate',
 				icon: 'duplicate' as const,
+				disabled: blocked !== null,
 				onselect: () =>
 					run(
 						() => unwrap(api.POST('/api/v1/profiles/{profile_id}/duplicate', path(profile))),
@@ -99,8 +114,18 @@
 
 <Page title="Profiles">
 	{#snippet actions()}
-		<Button variant="primary" icon="new" loading={creating} onclick={create}>New profile</Button>
+		<Button
+			variant="primary"
+			icon="new"
+			loading={creating}
+			disabled={blocked !== null}
+			onclick={create}>New profile</Button
+		>
 	{/snippet}
+
+	{#if blocked && profiles !== null}
+		<LimitNotice message={blocked} upgrade={canUpgrade(session.usage, session.billingEnabled)} />
+	{/if}
 
 	{#if loadError}
 		<Card>

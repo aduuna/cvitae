@@ -3,9 +3,11 @@
 import uuid
 from collections.abc import Sequence
 
+from api.billing.plans import Plan
 from api.db.models import Profile
 from api.errors import NotFound
 from api.repositories.profiles import ProfileRepository
+from api.services.quotas import require_room
 from cvcore.ids import new_id
 from cvcore.models import Basics, CvContent, Section, SectionKind
 
@@ -36,8 +38,9 @@ async def get_profile(profiles: ProfileRepository, profile_id: uuid.UUID) -> Pro
 
 
 async def create_profile(
-    profiles: ProfileRepository, name: str, content: CvContent | None = None
+    profiles: ProfileRepository, name: str, content: CvContent | None = None, *, plan: Plan
 ) -> Profile:
+    await require_room("profiles", plan, profiles)
     first = await profiles.count() == 0
     return await profiles.create(
         name=name,
@@ -66,8 +69,11 @@ async def update_profile(
     return await profiles.update(profile, **values)
 
 
-async def duplicate_profile(profiles: ProfileRepository, profile_id: uuid.UUID) -> Profile:
+async def duplicate_profile(
+    profiles: ProfileRepository, profile_id: uuid.UUID, *, plan: Plan
+) -> Profile:
     source = await get_profile(profiles, profile_id)
+    await require_room("profiles", plan, profiles)
     return await profiles.create(
         name=f"{source.name} (copy)", is_default=False, content=dict(source.content)
     )

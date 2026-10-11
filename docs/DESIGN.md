@@ -140,6 +140,7 @@ No font sizes outside the scale. No italics in the UI (italics belong to CVs). N
 | Drag handle | `GripVertical` |
 | Collapse side nav | `PanelLeftClose` / `PanelLeftOpen` |
 | Placeholder warning | `CircleAlert` |
+| Plan limit reached | `CircleAlert` |
 | Code mode | `Code` |
 | Form mode | `ListTree` |
 

@@ -5,6 +5,8 @@
 	import { modelLabel, otherModels, pickModel } from '#lib/ai/models.ts';
 	import { api, errorMessage, unwrap } from '#lib/api/client.ts';
 	import { session } from '#lib/auth/session.svelte.ts';
+	import { canUpgrade, limitReached } from '#lib/billing/plans.ts';
+	import LimitNotice from '#lib/components/billing/LimitNotice.svelte';
 	import GenerationProgress from '#lib/components/ai/GenerationProgress.svelte';
 	import ModelSelect from '#lib/components/ai/ModelSelect.svelte';
 	import Page from '#lib/components/shell/Page.svelte';
@@ -50,9 +52,18 @@
 	let deletingJob = $state<JobSummary | null>(null);
 	let deleteOpen = $state(false);
 
+	/** Tailoring makes a CV and takes AI runs: set when either limit is reached. */
+	const blocked = $derived(limitReached(session.usage?.documents, session.usage?.ai_runs));
 	const ready = $derived(
-		model !== null && profileId !== '' && (savedJob !== null || description.trim() !== '')
+		model !== null &&
+			blocked === null &&
+			profileId !== '' &&
+			(savedJob !== null || description.trim() !== '')
 	);
+
+	function refreshUsage() {
+		session.refreshUsage().catch(() => {});
+	}
 
 	onMount(async () => {
 		try {
@@ -71,6 +82,7 @@
 			error = errorMessage(failure);
 			profiles = [];
 		}
+		refreshUsage();
 	});
 
 	async function run(chosen: AiModel, jobId: string | null) {
@@ -108,6 +120,7 @@
 			}
 		} finally {
 			controller = null;
+			refreshUsage();
 		}
 	}
 
@@ -137,6 +150,7 @@
 			result = null;
 			phase = 'form';
 			toast.info('Tailored CV discarded.');
+			refreshUsage();
 		}
 		busy = null;
 	}
@@ -158,6 +172,7 @@
 					label: option.plan === 'pro' ? `${option.label} (Pro)` : option.label,
 					disabled:
 						busy !== null ||
+						Boolean(session.usage?.ai_runs.message) ||
 						(session.plansEnforced && option.plan === 'pro' && session.me?.plan !== 'pro'),
 					onselect: () => void regenerate(option.id)
 				}))
@@ -236,6 +251,9 @@
 			/>
 		</Card>
 	{:else}
+		{#if blocked}
+			<LimitNotice message={blocked} upgrade={canUpgrade(session.usage, session.billingEnabled)} />
+		{/if}
 		<form class="flex flex-col gap-6" onsubmit={submit}>
 			<Card title="Job">
 				{#if savedJob}

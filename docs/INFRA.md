@@ -126,6 +126,14 @@ infra/
   then list `anthropic-api-key` there and push: Cloud Run refuses a secret that has no version.
 - Neon is managed in the Neon console (project, branches, roles). Its connection strings go into Secret
   Manager. Managing Neon from OpenTofu is optional later.
+- Billing stays off until it is configured, the same way. Use Paystack test mode keys in `dev`:
+  1. In the Paystack dashboard, create the monthly Pro plan and note its code (`PLN_...`).
+  2. `printf '%s' "$SK" | gcloud secrets versions add paystack-secret-key --data-file=-`.
+  3. Set `paystack_pro_plan_code` in `envs/dev/terraform.tfvars` and push. The api then gets
+     `PAYSTACK_SECRET_KEY`, `PAYSTACK_PRO_PLAN_CODE` and `PAYSTACK_CALLBACK_URL`
+     (`https://<custom_domain>/app/settings?tab=billing`).
+  4. In the dashboard's API settings, set the webhook URL to
+     `https://<custom_domain>/api/v1/webhooks/paystack`.
 
 ## CI/CD (GitHub Actions)
 

@@ -5,7 +5,16 @@ from fastapi import APIRouter, File, Form, UploadFile
 from pydantic import BaseModel
 
 from api.ai.models import AiModel
-from api.deps import AiRuns, AppSettings, CurrentUser, FileStorage, Providers, Uploads
+from api.deps import (
+    AiRuns,
+    AppSettings,
+    CurrentUser,
+    FileStorage,
+    Profiles,
+    Providers,
+    Uploads,
+    UserPlan,
+)
 from api.errors import AI_ERROR_RESPONSES
 from api.ports.llm.base import ProviderName
 from api.services import imports as service
@@ -30,11 +39,13 @@ class ImportResult(BaseModel):
 @router.post("")
 async def create_import(
     user: CurrentUser,
+    plan: UserPlan,
     providers: Providers,
     settings: AppSettings,
     runs: AiRuns,
     uploads: Uploads,
     storage: FileStorage,
+    profiles: Profiles,
     file: Annotated[UploadFile | None, File(description="A PDF or DOCX, up to 10 MB")] = None,
     text: Annotated[str | None, Form(description="The CV pasted as text")] = None,
     upload_id: Annotated[uuid.UUID | None, Form(description="Import an earlier upload")] = None,
@@ -51,12 +62,15 @@ async def create_import(
         ai_model,
         default=settings.default_ai_model,
         enforce_plans=settings.enforce_ai_plans,
+        plan=plan,
     )
     result = await service.import_profile(
         choice,
         runs,
         uploads,
         storage,
+        profiles,
+        plan=plan,
         file=upload,
         text=text,
         upload_id=upload_id,

@@ -173,13 +173,19 @@ changes elsewhere.
 | Free | 0 | 3 | 1 | 5 |
 | Pro | Set in Paystack dashboard (monthly) | 100 | 10 | 150 |
 
-- An AI run is one import, one job analysis or one tailoring, regardless of model.
+- An AI run is one import, one job analysis or one tailoring, regardless of model. Tailoring for a new
+  job takes two runs (the analysis and the tailoring); tailoring a saved job again takes one.
+- AI runs count per calendar month (UTC). On Free every attempt counts, failed ones included; on Pro
+  only successful runs count.
 - Free plans use the free models (MiMo Flash, Claude Haiku, Gemini Flash-Lite); Pro adds MiMo Pro,
   Gemini Flash and Claude Sonnet. Each model's plan is in `apps/api/src/api/ai/models.py`; it is
-  enforced once `ENFORCE_AI_PLANS` is on (M4). New users start on MiMo Flash, the cheapest.
+  enforced while `ENFORCE_AI_PLANS` is on (the default). New users start on MiMo Flash, the cheapest.
 - At the limit, the action is disabled with the message "You have used all 5 AI runs this month. Upgrade
   to Pro for 150." (numbers from config).
 - Downgrade keeps existing CVs readable and exportable but blocks creating new ones above the limit.
+- Cancelling keeps Pro until the end of the paid period. A failed renewal keeps Pro until the paid
+  period ends, then the user is on Free until a payment goes through.
+- The side nav shows the plan and the AI runs used this month; Settings shows all three limits.
 
 ## Copy rules (summary; full rules in DESIGN.md)
 

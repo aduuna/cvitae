@@ -20,7 +20,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from api.db.base import Entity
+from api.db.base import Entity, utcnow
 
 
 class User(Entity):
@@ -142,3 +142,36 @@ class AiRun(UserOwned):
     output_tokens: Mapped[int] = mapped_column(default=0, server_default="0")
     cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(10, 6))
     duration_ms: Mapped[int] = mapped_column(default=0, server_default="0")
+
+
+class Subscription(UserOwned):
+    """The user's Paystack subscription, mirrored from Paystack's events. One per user."""
+
+    __tablename__ = "subscriptions"
+    __table_args__ = (
+        UniqueConstraint("user_id"),
+        Index("ix_subscriptions_paystack_subscription_code", "paystack_subscription_code"),
+        Index("ix_subscriptions_paystack_customer_code", "paystack_customer_code"),
+        CheckConstraint(
+            "status IN ('active', 'non_renewing', 'attention', 'cancelled')", name="status"
+        ),
+    )
+
+    paystack_customer_code: Mapped[str] = mapped_column(String(64))
+    paystack_subscription_code: Mapped[str | None] = mapped_column(String(64))
+    """Known once Paystack sends subscription.create."""
+    plan_code: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(16))
+    current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """Paid up to here: the next payment date Paystack last reported."""
+
+
+class WebhookEvent(Entity):
+    """A webhook already processed, so a repeated delivery changes nothing. Not user content."""
+
+    __tablename__ = "webhook_events"
+
+    provider: Mapped[str] = mapped_column(String(16))
+    event_key: Mapped[str] = mapped_column(String(255), unique=True)
+    event_type: Mapped[str] = mapped_column(String(64))
+    processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

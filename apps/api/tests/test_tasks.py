@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.ai import tasks
 from api.ai.models import AiModel, model_options
 from api.ai.prompts import analyze_job, extract_profile, tailor_cv
+from api.billing.plans import Plan
 from api.db.models import AiRun, User
 from api.errors import PlanRequired, ProviderTimeout, ServiceUnavailable, ValidationFailed
 from api.ports.auth import Identity
@@ -138,8 +139,8 @@ def test_prompts_treat_user_text_as_data() -> None:
     )
 
 
-def make_user(preferred: str | None = None, plan: str = "free") -> User:
-    return User(firebase_uid="u", email="a@x.com", preferred_ai_model=preferred, plan=plan)
+def make_user(preferred: str | None = None) -> User:
+    return User(firebase_uid="u", email="a@x.com", preferred_ai_model=preferred)
 
 
 def test_choose_uses_the_request_then_the_preference_then_the_default(
@@ -147,7 +148,12 @@ def test_choose_uses_the_request_then_the_preference_then_the_default(
 ) -> None:
     def chosen(requested: AiModel | None, user: User) -> AiModel:
         result = choose_model(
-            providers, user, requested, default=AiModel.mimo_flash, enforce_plans=False
+            providers,
+            user,
+            requested,
+            default=AiModel.mimo_flash,
+            enforce_plans=False,
+            plan="free",
         )
         return result.option.id
 
@@ -162,13 +168,20 @@ def test_a_saved_model_that_is_no_longer_offered_falls_back(
     only_claude = ProviderRegistry({ProviderName.claude: claude}, model_options(settings))
     user = make_user("gemini-flash")
 
-    result = choose_model(only_claude, user, None, default=AiModel.mimo_flash, enforce_plans=False)
+    result = choose_model(
+        only_claude, user, None, default=AiModel.mimo_flash, enforce_plans=False, plan="free"
+    )
 
     # Neither the saved model nor the default is offered: the first offered model runs.
     assert result.option.id == AiModel.claude_haiku
     with pytest.raises(ValidationFailed, match="not available on this server"):
         choose_model(
-            only_claude, user, AiModel.gemini_flash, default=AiModel.mimo_flash, enforce_plans=False
+            only_claude,
+            user,
+            AiModel.gemini_flash,
+            default=AiModel.mimo_flash,
+            enforce_plans=False,
+            plan="free",
         )
 
 
@@ -176,23 +189,26 @@ def test_no_providers_means_no_ai(settings: Settings) -> None:
     empty = ProviderRegistry({}, model_options(settings))
 
     with pytest.raises(ServiceUnavailable, match="AI is not set up"):
-        choose_model(empty, make_user(), None, default=AiModel.mimo_flash, enforce_plans=False)
+        choose_model(
+            empty, make_user(), None, default=AiModel.mimo_flash, enforce_plans=False, plan="free"
+        )
 
 
 def test_pro_models_need_pro_once_plans_are_enforced(providers: ProviderRegistry) -> None:
-    def run(user: User, enforce: bool) -> AiModel:
+    def run(plan: Plan, enforce: bool) -> AiModel:
         return choose_model(
             providers,
-            user,
+            make_user(),
             AiModel.claude_sonnet,
             default=AiModel.mimo_flash,
             enforce_plans=enforce,
+            plan=plan,
         ).option.id
 
-    assert run(make_user(), enforce=False) == AiModel.claude_sonnet
-    assert run(make_user(plan="pro"), enforce=True) == AiModel.claude_sonnet
+    assert run("free", enforce=False) == AiModel.claude_sonnet
+    assert run("pro", enforce=True) == AiModel.claude_sonnet
     with pytest.raises(PlanRequired, match="Claude Sonnet is part of Pro"):
-        run(make_user(), enforce=True)
+        run("free", enforce=True)
 
 
 def test_every_model_has_a_plan_and_free_ones_come_first(settings: Settings) -> None:

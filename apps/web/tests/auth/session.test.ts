@@ -8,7 +8,12 @@ const FIREBASE: ClientConfig = {
 	firebase: { api_key: 'k', auth_domain: 'd', project_id: 'p', app_id: 'a' },
 	ai_models: [{ id: 'mimo-flash', label: 'MiMo Flash', provider: 'mimo', plan: 'free' }],
 	default_ai_model: 'mimo-flash',
-	plans_enforced: false
+	plans_enforced: true,
+	plans: [
+		{ id: 'free', label: 'Free', documents: 3, profiles: 1, ai_runs: 5 },
+		{ id: 'pro', label: 'Pro', documents: 100, profiles: 10, ai_runs: 150 }
+	],
+	billing_enabled: true
 };
 
 const ME = {
@@ -18,6 +23,16 @@ const ME = {
 	preferred_ai_model: null,
 	plan: 'free',
 	default_template_id: null
+};
+
+const USAGE = {
+	plan: 'free',
+	period_start: '2026-10-01T00:00:00Z',
+	period_end: '2026-11-01T00:00:00Z',
+	ai_runs: { used: 3, limit: 5, message: null },
+	documents: { used: 1, limit: 3, message: null },
+	profiles: { used: 1, limit: 1, message: 'You have 1 profile, the most on Free.' },
+	subscription: null
 };
 
 function json(body: unknown, status = 200): Response {
@@ -126,6 +141,43 @@ describe('Session', () => {
 		expect(session.me).toBeNull();
 	});
 
+	it('loads usage once per sign-in, and again when asked', async () => {
+		const { session, emit } = sessionWith('ada@example.com');
+		const fetch = vi.fn(async () => json(USAGE));
+		vi.stubGlobal('fetch', fetch);
+		await session.start();
+
+		await Promise.all([session.loadUsage(), session.loadUsage()]);
+		expect(fetch).toHaveBeenCalledOnce();
+		expect(session.usage?.ai_runs).toEqual({ used: 3, limit: 5, message: null });
+
+		await session.refreshUsage();
+		expect(fetch).toHaveBeenCalledTimes(2);
+
+		emit('bob@example.com');
+		expect(session.usage).toBeNull();
+		await session.loadUsage();
+		expect(fetch).toHaveBeenCalledTimes(3);
+	});
+
+	it('retries after loading usage fails, and refreshes me after a plan change', async () => {
+		const { session } = sessionWith('ada@example.com');
+		const fetch = vi
+			.fn()
+			.mockResolvedValueOnce(json({ error: { code: 'x', message: 'Down', details: {} } }, 503))
+			.mockResolvedValueOnce(json(USAGE))
+			.mockResolvedValueOnce(json(ME))
+			.mockResolvedValueOnce(json({ ...ME, plan: 'pro' }));
+		vi.stubGlobal('fetch', fetch);
+		await session.start();
+
+		await expect(session.loadUsage()).rejects.toMatchObject({ message: 'Down' });
+		await expect(session.loadUsage()).resolves.toMatchObject({ plan: 'free' });
+		await session.loadMe();
+		await session.refreshMe();
+		expect(session.me?.plan).toBe('pro');
+	});
+
 	it('retries after loading me fails', async () => {
 		const { session } = sessionWith('ada@example.com');
 		const fetch = vi
@@ -162,7 +214,9 @@ describe('Session', () => {
 					{ id: 'claude-haiku', label: 'Claude Haiku', provider: 'claude', plan: 'free' }
 				],
 				default_ai_model: 'claude-haiku',
-				plans_enforced: true
+				plans_enforced: true,
+				plans: FIREBASE.plans,
+				billing_enabled: false
 			})
 		);
 		const session = new Session();
@@ -172,6 +226,11 @@ describe('Session', () => {
 		expect([session.mode, session.status, session.email]).toEqual(['dev', 'signed-in', DEV_USER]);
 		expect(session.aiModels.map((m) => m.id)).toEqual(['claude-haiku']);
 		expect([session.defaultAiModel, session.plansEnforced]).toEqual(['claude-haiku', true]);
+		expect(session.plans.map((plan) => [plan.id, plan.ai_runs])).toEqual([
+			['free', 5],
+			['pro', 150]
+		]);
+		expect(session.billingEnabled).toBe(false);
 	});
 
 	it('fails to start when the client config is unavailable', async () => {
@@ -190,7 +249,9 @@ describe('Session', () => {
 			firebase: null,
 			ai_models: [],
 			default_ai_model: null,
-			plans_enforced: false
+			plans_enforced: false,
+			plans: [],
+			billing_enabled: false
 		});
 
 		expect(await provider.headers()).toEqual({ 'X-Dev-User': DEV_USER });

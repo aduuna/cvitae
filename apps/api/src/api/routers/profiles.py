@@ -5,8 +5,8 @@ from typing import Literal
 from fastapi import APIRouter, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from api.deps import Profiles
-from api.errors import ERROR_RESPONSES
+from api.deps import Profiles, UserPlan
+from api.errors import ERROR_RESPONSES, QUOTA_RESPONSES
 from api.services import profiles as service
 from cvcore.models import CvContent
 
@@ -48,9 +48,9 @@ async def list_profiles(profiles: Profiles) -> list[ProfileSummary]:
     return [ProfileSummary.model_validate(row) for row in rows]
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
-async def create_profile(body: ProfileCreate, profiles: Profiles) -> Profile:
-    row = await service.create_profile(profiles, body.name, body.content)
+@router.post("", status_code=status.HTTP_201_CREATED, responses=QUOTA_RESPONSES)
+async def create_profile(body: ProfileCreate, profiles: Profiles, plan: UserPlan) -> Profile:
+    row = await service.create_profile(profiles, body.name, body.content, plan=plan)
     return Profile.model_validate(row)
 
 
@@ -76,6 +76,9 @@ async def delete_profile(profile_id: uuid.UUID, profiles: Profiles) -> None:
     await service.delete_profile(profiles, profile_id)
 
 
-@router.post("/{profile_id}/duplicate", status_code=status.HTTP_201_CREATED)
-async def duplicate_profile(profile_id: uuid.UUID, profiles: Profiles) -> Profile:
-    return Profile.model_validate(await service.duplicate_profile(profiles, profile_id))
+@router.post(
+    "/{profile_id}/duplicate", status_code=status.HTTP_201_CREATED, responses=QUOTA_RESPONSES
+)
+async def duplicate_profile(profile_id: uuid.UUID, profiles: Profiles, plan: UserPlan) -> Profile:
+    row = await service.duplicate_profile(profiles, profile_id, plan=plan)
+    return Profile.model_validate(row)

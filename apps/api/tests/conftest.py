@@ -12,7 +12,7 @@ os.environ.update(
 )
 
 import json
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
@@ -28,18 +28,22 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from api.ai.models import model_options
-from api.deps import get_providers, get_renderer, get_session, get_storage
+from api.deps import get_billing, get_providers, get_renderer, get_session, get_storage
 from api.main import create_app
+from api.ports.billing import FakePaystackClient
 from api.ports.llm.base import ProviderName
 from api.ports.llm.fake import FakeLLMProvider, default_responders
 from api.ports.llm.registry import ProviderRegistry
 from api.ports.renderer import FakeRendererClient
 from api.ports.storage import LocalStorage
+from api.repositories.users import UserRepository
+from api.services.billing import Billing
 from api.settings import Settings
 from cvcore.models import CvContent
 
 REPO = Path(__file__).resolve().parents[3]
 FIXTURES = REPO / "templates" / "fixtures"
+PRO_PLAN_CODE = "PLN_pro_test"
 
 
 def _create_database(url: str) -> None:
@@ -139,12 +143,23 @@ def storage(tmp_path: Path) -> LocalStorage:
 
 
 @pytest.fixture
+def paystack() -> FakePaystackClient:
+    return FakePaystackClient()
+
+
+@pytest.fixture
+def billing(paystack: FakePaystackClient) -> Billing:
+    return Billing(paystack, PRO_PLAN_CODE, "http://test/app/settings?tab=billing")
+
+
+@pytest.fixture
 def app(
     db_session: AsyncSession,
     renderer: FakeRendererClient,
     providers: ProviderRegistry,
     storage: LocalStorage,
     settings: Settings,
+    billing: Billing,
 ) -> FastAPI:
     app = create_app(settings)
 
@@ -160,6 +175,7 @@ def app(
     app.dependency_overrides[get_renderer] = lambda: renderer
     app.dependency_overrides[get_providers] = lambda: providers
     app.dependency_overrides[get_storage] = lambda: storage
+    app.dependency_overrides[get_billing] = lambda: billing
     return app
 
 
@@ -184,6 +200,19 @@ async def client(make_client: Callable[..., AsyncClient]) -> AsyncIterator[Async
 async def other_client(make_client: Callable[..., AsyncClient]) -> AsyncIterator[AsyncClient]:
     async with make_client("bob@example.com") as c:
         yield c
+
+
+@pytest.fixture
+def make_pro(db_session: AsyncSession) -> Callable[..., Awaitable[None]]:
+    """Put a dev-auth user on Pro, creating them as their first request would."""
+
+    async def make(email: str = "ada@example.com") -> None:
+        users = UserRepository(db_session)
+        user = await users.get_or_create(f"dev:{email}", email)
+        await users.set_plan(user.id, "pro")
+        await db_session.commit()
+
+    return make
 
 
 @pytest.fixture

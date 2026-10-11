@@ -1,16 +1,20 @@
 """Repositories against Postgres: user scoping, cascades and the list-page indexes."""
 
 import uuid
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import delete, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.db.models import Document, DocumentVersion, Profile, User
+from api.db.models import Document, DocumentVersion, Profile, Subscription, User
+from api.repositories.ai_runs import AiRunRepository
 from api.repositories.documents import DocumentRepository, DocumentVersionRepository
 from api.repositories.profiles import ProfileRepository
+from api.repositories.subscriptions import SubscriptionRepository
 from api.repositories.users import UserRepository
+from api.repositories.webhooks import WebhookRepository
 
 CONTENT = {"schema_version": 1, "basics": {"name": "A"}, "summary": "", "sections": []}
 
@@ -62,6 +66,50 @@ async def test_user_a_cannot_read_or_change_user_b_rows(db_session: AsyncSession
     assert (await DocumentVersionRepository(db_session, ada.id).latest(doc.id)) == version
 
 
+async def test_subscriptions_and_ai_runs_are_scoped_too(db_session: AsyncSession) -> None:
+    ada, bob = await user(db_session, "ada@example.com"), await user(db_session, "bob@example.com")
+    await SubscriptionRepository(db_session, ada.id).save(
+        paystack_customer_code="CUS_ada", plan_code="PLN_pro", status="active"
+    )
+    await AiRunRepository(db_session, ada.id).create(
+        task="import", provider="mimo", model="m", prompt_version="1", status="succeeded"
+    )
+    bobs = SubscriptionRepository(db_session, bob.id)
+    since = datetime(2000, 1, 1, tzinfo=UTC)
+
+    assert await bobs.current() is None
+    assert await AiRunRepository(db_session, bob.id).count_since(since, succeeded_only=False) == 0
+    # Saving creates Bob's own row; Ada's is untouched.
+    await bobs.save(paystack_customer_code="CUS_bob", plan_code="PLN_pro", status="active")
+    ada_row = await SubscriptionRepository(db_session, ada.id).current()
+    assert ada_row is not None
+    assert ada_row.paystack_customer_code == "CUS_ada"
+
+
+async def test_one_subscription_per_user(db_session: AsyncSession) -> None:
+    ada = await user(db_session, "ada@example.com")
+    subscriptions = SubscriptionRepository(db_session, ada.id)
+
+    first = await subscriptions.save(paystack_customer_code="CUS_1", plan_code="P", status="active")
+    second = await subscriptions.save(paystack_subscription_code="SUB_1", status="attention")
+
+    assert first.id == second.id
+    assert (second.paystack_customer_code, second.status) == ("CUS_1", "attention")
+    db_session.add(
+        Subscription(user_id=ada.id, paystack_customer_code="CUS_2", plan_code="P", status="active")
+    )
+    with pytest.raises(IntegrityError):
+        await db_session.flush()
+
+
+async def test_webhook_events_are_recorded_once(db_session: AsyncSession) -> None:
+    webhooks = WebhookRepository(db_session)
+
+    assert await webhooks.record("paystack", "charge.success:ref_1", "charge.success") is True
+    assert await webhooks.record("paystack", "charge.success:ref_1", "charge.success") is False
+    assert await webhooks.record("paystack", "charge.success:ref_2", "charge.success") is True
+
+
 async def test_version_numbers_count_up_per_document(db_session: AsyncSession) -> None:
     ada = await user(db_session, "ada@example.com")
     _, doc, first = await seed(db_session, ada)
@@ -77,10 +125,13 @@ async def test_version_numbers_count_up_per_document(db_session: AsyncSession) -
 async def test_deleting_a_user_cascades(db_session: AsyncSession) -> None:
     ada = await user(db_session, "ada@example.com")
     await seed(db_session, ada)
+    await SubscriptionRepository(db_session, ada.id).save(
+        paystack_customer_code="CUS_ada", plan_code="PLN_pro", status="active"
+    )
 
     await db_session.execute(delete(User).where(User.id == ada.id))
 
-    for model in (Profile, Document, DocumentVersion):
+    for model in (Profile, Document, DocumentVersion, Subscription):
         assert (await db_session.scalars(select(model))).all() == []
 
 

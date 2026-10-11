@@ -9,11 +9,14 @@ from dataclasses import dataclass
 import docx
 
 from api.ai import tasks
+from api.billing.plans import Plan
 from api.errors import ValidationFailed
 from api.ports.storage import Storage
 from api.repositories.ai_runs import AiRunRepository
+from api.repositories.profiles import ProfileRepository
 from api.repositories.uploads import UploadRepository
 from api.services.ai_models import ModelChoice
+from api.services.quotas import require_ai_runs, require_room
 from api.services.uploads import PDF, get_upload, store_upload
 from cvcore.ids import with_fresh_ids
 from cvcore.models import CvContent
@@ -50,7 +53,9 @@ async def import_profile(
     runs: AiRunRepository,
     uploads: UploadRepository,
     storage: Storage,
+    profiles: ProfileRepository,
     *,
+    plan: Plan,
     file: tuple[str, bytes] | None = None,
     text: str | None = None,
     upload_id: uuid.UUID | None = None,
@@ -58,6 +63,9 @@ async def import_profile(
     """Exactly one of `file` (name and bytes), pasted `text`, or an earlier `upload_id`."""
     if sum(source is not None for source in (file, text, upload_id)) != 1:
         raise ValidationFailed("Upload a file, paste your CV as text, or choose an earlier upload.")
+    # The draft becomes a profile, so check there is room for one before spending a run.
+    await require_room("profiles", plan, profiles)
+    await require_ai_runs(runs, plan)
 
     upload = None
     data = b""

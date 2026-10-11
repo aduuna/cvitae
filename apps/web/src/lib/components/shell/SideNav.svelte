@@ -6,6 +6,7 @@
 	import { MediaQuery } from 'svelte/reactivity';
 	import { errorMessage } from '#lib/api/client.ts';
 	import { session } from '#lib/auth/session.svelte.ts';
+	import { runsLabel } from '#lib/billing/plans.ts';
 	import Badge from '#lib/components/ui/Badge.svelte';
 	import Icon from '#lib/components/ui/Icon.svelte';
 	import IconButton from '#lib/components/ui/IconButton.svelte';
@@ -26,7 +27,7 @@
 		saveCollapsed(userCollapsed);
 	}
 
-	const plan = $derived(session.me?.plan === 'pro' ? 'Pro' : 'Free');
+	const plan = $derived((session.usage?.plan ?? session.me?.plan) === 'pro' ? 'Pro' : 'Free');
 
 	async function signOut() {
 		try {
@@ -47,6 +48,7 @@
 
 	onMount(() => {
 		session.loadMe().catch(() => {});
+		session.loadUsage().catch(() => {});
 	});
 </script>
 
@@ -121,7 +123,14 @@
 	>
 		{#if !collapsed}
 			<div class="flex min-w-0 flex-col items-start gap-1">
-				<Badge variant="outline">{plan}</Badge>
+				<div class="flex items-center gap-2">
+					<Badge variant="outline">{plan}</Badge>
+					{#if session.usage}
+						<span class="text-sm text-fg-muted tabular-nums">
+							{runsLabel(session.usage.ai_runs)}
+						</span>
+					{/if}
+				</div>
 				<span class="truncate text-sm text-fg-muted" title={session.email ?? undefined}>
 					{session.email}
 				</span>

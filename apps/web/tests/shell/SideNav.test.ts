@@ -126,6 +126,16 @@ describe('SideNav', () => {
 		expect(nav()).toHaveClass('w-14');
 	});
 
+	it('shows the plan and the AI runs used this month', async () => {
+		session().me = { plan: 'free', email: 'ada@example.com', display_name: null };
+		session().usage = { plan: 'pro', ai_runs: { used: 3, limit: 150, message: null } };
+		render(SideNav);
+
+		expect(within(nav()).getByText('Pro')).toBeVisible();
+		expect(within(nav()).getByText('3 of 150 AI runs')).toBeVisible();
+		session().usage = null;
+	});
+
 	it('shows the account with its plan, and signs out from the account menu', async () => {
 		session().email = 'ada@example.com';
 		session().me = { plan: 'free', email: 'ada@example.com', display_name: null };
@@ -134,6 +144,7 @@ describe('SideNav', () => {
 
 		expect(within(nav()).getByText('ada@example.com')).toBeVisible();
 		expect(within(nav()).getByText('Free')).toBeVisible();
+		expect(session().loadUsage).toHaveBeenCalled();
 
 		await user.click(within(nav()).getByRole('button', { name: 'Account' }));
 		await user.click(screen.getByRole('menuitem', { name: 'Sign out' }));

@@ -8,6 +8,13 @@ locals {
     "mimo-api-key"      = "MIMO_API_KEY"
   }
 
+  # Billing turns on once the Pro plan code is set (and paystack-secret-key has a value).
+  billing = var.paystack_pro_plan_code != "" && var.custom_domain != ""
+  billing_env = local.billing ? {
+    PAYSTACK_PRO_PLAN_CODE = var.paystack_pro_plan_code
+    PAYSTACK_CALLBACK_URL  = "https://${var.custom_domain}/app/settings?tab=billing"
+  } : {}
+
   api_sa      = "serviceAccount:${google_service_account.api.email}"
   renderer_sa = "serviceAccount:${google_service_account.renderer.email}"
   deployer_sa = "serviceAccount:deployer@${var.project_id}.iam.gserviceaccount.com"
@@ -76,7 +83,7 @@ module "api" {
   health_path         = "/api/v1/healthz"
   deletion_protection = false
 
-  env = {
+  env = merge({
     ENV                  = "dev"
     AUTH_MODE            = "firebase"
     FIREBASE_PROJECT_ID  = var.project_id
@@ -87,10 +94,11 @@ module "api" {
     GCS_BUCKET           = module.uploads.name
     RENDERER_URL         = module.renderer.uri
     RENDERER_AUTH        = "oidc"
-  }
+  }, local.billing_env)
   secret_env = merge(
     { DATABASE_URL = module.secrets["database-url"].id },
     { for id in var.ai_keys : local.ai_key_env[id] => module.secrets[id].id },
+    local.billing ? { PAYSTACK_SECRET_KEY = module.secrets["paystack-secret-key"].id } : {},
   )
 
   depends_on = [module.secrets]

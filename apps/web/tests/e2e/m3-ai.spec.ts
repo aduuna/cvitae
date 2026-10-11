@@ -134,13 +134,17 @@ test.describe('M3 at 1280px', () => {
 		const first = api.documents[0]?.id;
 		await page.getByRole('button', { name: 'Regenerate with' }).click();
 		await expect(page.getByRole('menuitem', { name: 'MiMo Flash' })).toHaveCount(0);
-		await page.getByRole('menuitem', { name: 'Gemini Flash (Pro)' }).click();
-		await expect(page.getByText('Generated with Gemini Flash for', { exact: false })).toBeVisible();
+		// Free plan: the Pro models are listed but cannot be chosen.
+		await expect(page.getByRole('menuitem', { name: 'Gemini Flash (Pro)' })).toBeDisabled();
+		await page.getByRole('menuitem', { name: 'Gemini Flash-Lite' }).click();
+		await expect(
+			page.getByText('Generated with Gemini Flash-Lite for', { exact: false })
+		).toBeVisible();
 		expect(api.documents.map((doc) => doc.id)).not.toContain(first);
 		expect(api.documents).toHaveLength(1);
 		expect(api.aiCalls).toEqual([
 			{ task: 'tailor', model: 'mimo-flash' },
-			{ task: 'tailor', model: 'gemini-flash' }
+			{ task: 'tailor', model: 'gemini-flash-lite' }
 		]);
 
 		await page.getByRole('button', { name: 'Open in editor' }).click();

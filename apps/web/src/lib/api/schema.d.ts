@@ -383,6 +383,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Usage */
+        get: operations["get_usage_api_v1_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Checkout
+         * @description Start a Paystack checkout for the Pro plan.
+         */
+        post: operations["checkout_api_v1_billing_checkout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify
+         * @description Confirm a payment after Paystack sends the user back, and switch to Pro.
+         */
+        post: operations["verify_api_v1_billing_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/manage-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Manage Link
+         * @description Paystack's page for updating the card or cancelling.
+         */
+        get: operations["manage_link_api_v1_billing_manage_link_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/paystack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Paystack */
+        post: operations["paystack_api_v1_webhooks_paystack_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -543,6 +637,11 @@ export interface components {
              */
             date: string;
         };
+        /** Checkout */
+        Checkout: {
+            /** Authorization Url */
+            authorization_url: string;
+        };
         /** ClientConfig */
         ClientConfig: {
             /**
@@ -556,6 +655,10 @@ export interface components {
             default_ai_model: components["schemas"]["AiModel"] | null;
             /** Plans Enforced */
             plans_enforced: boolean;
+            /** Plans */
+            plans: components["schemas"]["PlanInfo"][];
+            /** Billing Enabled */
+            billing_enabled: boolean;
         };
         /** CvContent */
         "CvContent-Input": {
@@ -886,6 +989,11 @@ export interface components {
             /** App Id */
             app_id: string;
         };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
         /** Health */
         Health: {
             /**
@@ -1021,6 +1129,11 @@ export interface components {
              */
             url: string;
         };
+        /** ManageLink */
+        ManageLink: {
+            /** Url */
+            url: string;
+        };
         /** Me */
         Me: {
             /**
@@ -1049,12 +1162,37 @@ export interface components {
             /** Default Template Id */
             default_template_id?: string | null;
         };
+        /** Meter */
+        Meter: {
+            /** Used */
+            used: number;
+            /** Limit */
+            limit: number;
+            /** Message */
+            message: string | null;
+        };
         /** PlaceholderRef */
         PlaceholderRef: {
             /** Text */
             text: string;
             /** Bullet Id */
             bullet_id?: string | null;
+        };
+        /** PlanInfo */
+        PlanInfo: {
+            /**
+             * Id
+             * @enum {string}
+             */
+            id: "free" | "pro";
+            /** Label */
+            label: string;
+            /** Documents */
+            documents: number;
+            /** Profiles */
+            profiles: number;
+            /** Ai Runs */
+            ai_runs: number;
         };
         /** Profile */
         Profile: {
@@ -1171,6 +1309,15 @@ export interface components {
          * @enum {string}
          */
         ProviderName: "claude" | "gemini" | "mimo";
+        /** Received */
+        Received: {
+            /**
+             * Status
+             * @default ok
+             * @constant
+             */
+            status?: "ok";
+        };
         /**
          * Section
          * @description One list per kind; only the list matching `kind` is filled.
@@ -1270,6 +1417,18 @@ export interface components {
             /** Items */
             items: string[];
         };
+        /** SubscriptionInfo */
+        SubscriptionInfo: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "non_renewing" | "attention" | "cancelled";
+            /** Current Period End */
+            current_period_end: string | null;
+            /** Manageable */
+            manageable: boolean;
+        };
         /** SvgPages */
         SvgPages: {
             /** Pages */
@@ -1341,6 +1500,54 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** Usage */
+        Usage: {
+            /**
+             * Plan
+             * @enum {string}
+             */
+            plan: "free" | "pro";
+            /**
+             * Period Start
+             * Format: date-time
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date-time
+             */
+            period_end: string;
+            ai_runs: components["schemas"]["Meter"];
+            documents: components["schemas"]["Meter"];
+            profiles: components["schemas"]["Meter"];
+            subscription: components["schemas"]["SubscriptionInfo"] | null;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
+        };
+        /** Verified */
+        Verified: {
+            /**
+             * Plan
+             * @enum {string}
+             */
+            plan: "free" | "pro";
+        };
+        /** VerifyRequest */
+        VerifyRequest: {
+            /** Reference */
+            reference: string;
         };
         /** Version */
         Version: {
@@ -1582,6 +1789,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
+            /** @description A plan limit is reached; the message says which */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
             /** @description Not found */
             404: {
                 headers: {
@@ -1780,6 +1996,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
+            /** @description A plan limit is reached; the message says which */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
             /** @description Not found */
             404: {
                 headers: {
@@ -1871,6 +2096,15 @@ export interface operations {
             };
             /** @description Not signed in */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description A plan limit is reached; the message says which */
+            402: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2078,6 +2312,15 @@ export interface operations {
             };
             /** @description Not signed in */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description A plan limit is reached; the message says which */
+            402: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2603,6 +2846,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
+            /** @description A plan limit is reached; the message says which */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
             /** @description Not found */
             404: {
                 headers: {
@@ -2866,6 +3118,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
+            /** @description A plan limit is reached; the message says which */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
             /** @description Not found */
             404: {
                 headers: {
@@ -2895,6 +3156,283 @@ export interface operations {
             };
             /** @description The AI provider took too long */
             504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_usage_api_v1_usage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Usage"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    checkout_api_v1_billing_checkout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checkout"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Billing is not set up, or Paystack is down */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    verify_api_v1_billing_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Verified"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Billing is not set up, or Paystack is down */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    manage_link_api_v1_billing_manage_link_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManageLink"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Billing is not set up, or Paystack is down */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    paystack_api_v1_webhooks_paystack_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-paystack-signature"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Received"];
+                };
+            };
+            /** @description The signature does not match */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Billing is not set up */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

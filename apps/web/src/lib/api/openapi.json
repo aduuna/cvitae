@@ -267,6 +267,16 @@
                 }
               }
             }
+          },
+          "402": {
+            "description": "A plan limit is reached; the message says which",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
         }
       }
@@ -518,6 +528,16 @@
                 }
               }
             }
+          },
+          "402": {
+            "description": "A plan limit is reached; the message says which",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
         }
       }
@@ -625,6 +645,16 @@
           },
           "422": {
             "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "A plan limit is reached; the message says which",
             "content": {
               "application/json": {
                 "schema": {
@@ -886,6 +916,16 @@
           },
           "422": {
             "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "A plan limit is reached; the message says which",
             "content": {
               "application/json": {
                 "schema": {
@@ -1561,6 +1601,16 @@
               }
             }
           },
+          "402": {
+            "description": "A plan limit is reached; the message says which",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "502": {
             "description": "The AI provider failed",
             "content": {
@@ -1874,6 +1924,16 @@
               }
             }
           },
+          "402": {
+            "description": "A plan limit is reached; the message says which",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "502": {
             "description": "The AI provider failed",
             "content": {
@@ -1890,6 +1950,332 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/usage": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Get Usage",
+        "operationId": "get_usage_api_v1_usage_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Usage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/checkout": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Checkout",
+        "description": "Start a Paystack checkout for the Pro plan.",
+        "operationId": "checkout_api_v1_billing_checkout_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Checkout"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Billing is not set up, or Paystack is down",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/verify": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Verify",
+        "description": "Confirm a payment after Paystack sends the user back, and switch to Pro.",
+        "operationId": "verify_api_v1_billing_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Verified"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Billing is not set up, or Paystack is down",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/manage-link": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Manage Link",
+        "description": "Paystack's page for updating the card or cancelling.",
+        "operationId": "manage_link_api_v1_billing_manage_link_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManageLink"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Billing is not set up, or Paystack is down",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks/paystack": {
+      "post": {
+        "tags": [
+          "webhooks"
+        ],
+        "summary": "Paystack",
+        "operationId": "paystack_api_v1_webhooks_paystack_post",
+        "parameters": [
+          {
+            "name": "x-paystack-signature",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Paystack-Signature"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Received"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The signature does not match",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Billing is not set up",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -2246,6 +2632,19 @@
         ],
         "title": "CertificationItem"
       },
+      "Checkout": {
+        "properties": {
+          "authorization_url": {
+            "type": "string",
+            "title": "Authorization Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "authorization_url"
+        ],
+        "title": "Checkout"
+      },
       "ClientConfig": {
         "properties": {
           "auth_mode": {
@@ -2286,6 +2685,17 @@
           "plans_enforced": {
             "type": "boolean",
             "title": "Plans Enforced"
+          },
+          "plans": {
+            "items": {
+              "$ref": "#/components/schemas/PlanInfo"
+            },
+            "type": "array",
+            "title": "Plans"
+          },
+          "billing_enabled": {
+            "type": "boolean",
+            "title": "Billing Enabled"
           }
         },
         "type": "object",
@@ -2294,7 +2704,9 @@
           "firebase",
           "ai_models",
           "default_ai_model",
-          "plans_enforced"
+          "plans_enforced",
+          "plans",
+          "billing_enabled"
         ],
         "title": "ClientConfig"
       },
@@ -3081,6 +3493,19 @@
         ],
         "title": "FirebaseConfig"
       },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
       "Health": {
         "properties": {
           "status": {
@@ -3366,6 +3791,19 @@
         ],
         "title": "Link"
       },
+      "ManageLink": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "ManageLink"
+      },
       "Me": {
         "properties": {
           "id": {
@@ -3470,6 +3908,36 @@
         "type": "object",
         "title": "MeUpdate"
       },
+      "Meter": {
+        "properties": {
+          "used": {
+            "type": "integer",
+            "title": "Used"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "used",
+          "limit",
+          "message"
+        ],
+        "title": "Meter"
+      },
       "PlaceholderRef": {
         "properties": {
           "text": {
@@ -3493,6 +3961,43 @@
           "text"
         ],
         "title": "PlaceholderRef"
+      },
+      "PlanInfo": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "free",
+              "pro"
+            ],
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "documents": {
+            "type": "integer",
+            "title": "Documents"
+          },
+          "profiles": {
+            "type": "integer",
+            "title": "Profiles"
+          },
+          "ai_runs": {
+            "type": "integer",
+            "title": "Ai Runs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "documents",
+          "profiles",
+          "ai_runs"
+        ],
+        "title": "PlanInfo"
       },
       "Profile": {
         "properties": {
@@ -3749,6 +4254,18 @@
         ],
         "title": "ProviderName"
       },
+      "Received": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status",
+            "default": "ok"
+          }
+        },
+        "type": "object",
+        "title": "Received"
+      },
       "Section-Input": {
         "properties": {
           "id": {
@@ -3943,6 +4460,43 @@
           "items"
         ],
         "title": "SkillGroup"
+      },
+      "SubscriptionInfo": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "non_renewing",
+              "attention",
+              "cancelled"
+            ],
+            "title": "Status"
+          },
+          "current_period_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Period End"
+          },
+          "manageable": {
+            "type": "boolean",
+            "title": "Manageable"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "current_period_end",
+          "manageable"
+        ],
+        "title": "SubscriptionInfo"
       },
       "SvgPages": {
         "properties": {
@@ -4165,6 +4719,131 @@
           "created_at"
         ],
         "title": "UploadSummary"
+      },
+      "Usage": {
+        "properties": {
+          "plan": {
+            "type": "string",
+            "enum": [
+              "free",
+              "pro"
+            ],
+            "title": "Plan"
+          },
+          "period_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Period Start"
+          },
+          "period_end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Period End"
+          },
+          "ai_runs": {
+            "$ref": "#/components/schemas/Meter"
+          },
+          "documents": {
+            "$ref": "#/components/schemas/Meter"
+          },
+          "profiles": {
+            "$ref": "#/components/schemas/Meter"
+          },
+          "subscription": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SubscriptionInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan",
+          "period_start",
+          "period_end",
+          "ai_runs",
+          "documents",
+          "profiles",
+          "subscription"
+        ],
+        "title": "Usage"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "Verified": {
+        "properties": {
+          "plan": {
+            "type": "string",
+            "enum": [
+              "free",
+              "pro"
+            ],
+            "title": "Plan"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan"
+        ],
+        "title": "Verified"
+      },
+      "VerifyRequest": {
+        "properties": {
+          "reference": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._=-]+$",
+            "title": "Reference"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reference"
+        ],
+        "title": "VerifyRequest"
       },
       "Version": {
         "properties": {

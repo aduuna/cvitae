@@ -35,3 +35,17 @@ variable "ai_keys" {
     error_message = "ai_keys may list anthropic-api-key, gemini-api-key and mimo-api-key only."
   }
 }
+
+variable "paystack_pro_plan_code" {
+  description = <<-EOT
+    The monthly Pro plan from the Paystack dashboard (PLN_...); empty leaves billing off. Set it
+    only after paystack-secret-key has a value. Needs custom_domain for Paystack's callback URL.
+  EOT
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.paystack_pro_plan_code == "" || startswith(var.paystack_pro_plan_code, "PLN_")
+    error_message = "paystack_pro_plan_code is a Paystack plan code (PLN_...)."
+  }
+}

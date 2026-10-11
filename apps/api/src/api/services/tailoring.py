@@ -5,6 +5,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 
 from api.ai import tasks
+from api.billing.plans import Plan
 from api.db.models import Document, Job
 from api.ports.renderer import RendererClient
 from api.repositories.ai_runs import AiRunRepository
@@ -14,6 +15,7 @@ from api.repositories.profiles import ProfileRepository
 from api.services.ai_models import ModelChoice
 from api.services.jobs import create_job, ensure_analysis, get_job
 from api.services.profiles import get_profile
+from api.services.quotas import require_ai_runs, require_room
 from api.services.templates import DEFAULT_TEMPLATE_ID, require_template
 from cvcore import factguard
 from cvcore.models import Bullet, CvContent
@@ -122,13 +124,18 @@ async def tailor(
     job_id: uuid.UUID | None = None,
     new_job: NewJob | None = None,
     template_id: str | None = None,
+    plan: Plan,
 ) -> TailorResult:
-    """`template_id` falls back to classic; the router passes the user's default."""
+    """`template_id` falls back to classic; the router passes the user's default. A job that
+    has not been analysed yet takes two AI runs: the analysis and the tailoring."""
     profile = await get_profile(profiles, profile_id)
     source = CvContent.model_validate(profile.content)
     template = await require_template(renderer, template_id or DEFAULT_TEMPLATE_ID)
-    if job_id is not None:
-        job = await get_job(jobs, job_id)
+    saved = await get_job(jobs, job_id) if job_id is not None else None
+    await require_room("documents", plan, documents)
+    await require_ai_runs(runs, plan, 1 if saved is not None and saved.analysis is not None else 2)
+    if saved is not None:
+        job = saved
     else:
         assert new_job is not None  # noqa: S101 - the router requires one of the two
         job = await create_job(

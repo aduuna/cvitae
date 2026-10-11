@@ -24,6 +24,11 @@ from api.settings import DatabaseSettings, Settings
 
 DB = "postgresql+psycopg://unused"
 
+PLANS = [
+    {"id": "free", "label": "Free", "documents": 3, "profiles": 1, "ai_runs": 5},
+    {"id": "pro", "label": "Pro", "documents": 100, "profiles": 10, "ai_runs": 150},
+]
+
 
 def firebase_settings(env: Literal["dev", "prod"] = "dev") -> Settings:
     return Settings(
@@ -111,7 +116,10 @@ async def test_client_config_in_dev_mode(client: AsyncClient) -> None:
         "provider": "mimo",
         "plan": "free",
     }
-    assert (config["default_ai_model"], config["plans_enforced"]) == ("mimo-flash", False)
+    assert (config["default_ai_model"], config["plans_enforced"]) == ("mimo-flash", True)
+    assert config["plans"] == PLANS
+    # No Paystack settings in tests: nobody can upgrade.
+    assert config["billing_enabled"] is False
 
 
 async def test_client_config_with_firebase_needs_no_sign_in() -> None:
@@ -130,7 +138,9 @@ async def test_client_config_with_firebase_needs_no_sign_in() -> None:
         },
         "ai_models": [],
         "default_ai_model": None,
-        "plans_enforced": False,
+        "plans_enforced": True,
+        "plans": PLANS,
+        "billing_enabled": False,
     }
 
 

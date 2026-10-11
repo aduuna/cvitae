@@ -95,9 +95,15 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     422: {"model": ErrorEnvelope, "description": "Invalid request"},
 }
 
-# Routes that call an AI provider can also fail upstream.
+# Routes that create something the plan limits.
+QUOTA_RESPONSES: dict[int | str, dict[str, Any]] = {
+    402: {"model": ErrorEnvelope, "description": "A plan limit is reached; the message says which"},
+}
+
+# Routes that call an AI provider can also fail upstream, and use up AI runs.
 AI_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     **ERROR_RESPONSES,
+    **QUOTA_RESPONSES,
     502: {"model": ErrorEnvelope, "description": "The AI provider failed"},
     504: {"model": ErrorEnvelope, "description": "The AI provider took too long"},
 }

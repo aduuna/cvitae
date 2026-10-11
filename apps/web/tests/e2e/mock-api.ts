@@ -19,6 +19,14 @@ import type {
  */
 export interface MockApi {
 	me: Me;
+	/** Pro models need Pro, as on the real server. */
+	plansEnforced: boolean;
+	billingEnabled: boolean;
+	/** AI runs used this month. */
+	aiRuns: number;
+	subscription: Schemas['SubscriptionInfo'] | null;
+	/** Checkouts started; verifying the last one upgrades to Pro. */
+	checkouts: number;
 	uploads: UploadSummary[];
 	jobs: Job[];
 	/** Provider of every AI call, in order. */
@@ -30,6 +38,43 @@ export interface MockApi {
 }
 
 type Me = Schemas['Me'];
+
+const PLANS: Schemas['PlanInfo'][] = [
+	{ id: 'free', label: 'Free', documents: 3, profiles: 1, ai_runs: 5 },
+	{ id: 'pro', label: 'Pro', documents: 100, profiles: 10, ai_runs: 150 }
+];
+
+function limits(plan: Me['plan']): Schemas['PlanInfo'] {
+	return PLANS.find((row) => row.id === plan) ?? PLANS[0]!;
+}
+
+/** The api's limit messages, for the cases the e2e tests reach. */
+function limitMessage(kind: 'ai_runs' | 'documents' | 'profiles', state: MockApi): string {
+	const plan = limits(state.me.plan);
+	if (kind === 'ai_runs')
+		return `You have used all ${plan.ai_runs} AI runs this month. Upgrade to Pro for 150.`;
+	if (kind === 'documents')
+		return `You have ${plan.documents} CVs, the most on ${plan.label}. Delete one or upgrade to Pro for 100.`;
+	return `You have ${plan.profiles} profile, the most on ${plan.label}. Delete one or upgrade to Pro for 10.`;
+}
+
+function usageOf(state: MockApi): Schemas['Usage'] {
+	const plan = limits(state.me.plan);
+	const meter = (kind: 'ai_runs' | 'documents' | 'profiles', used: number) => ({
+		used,
+		limit: plan[kind],
+		message: used >= plan[kind] ? limitMessage(kind, state) : null
+	});
+	return {
+		plan: state.me.plan,
+		period_start: '2026-10-01T00:00:00Z',
+		period_end: '2026-11-01T00:00:00Z',
+		ai_runs: meter('ai_runs', state.aiRuns),
+		documents: meter('documents', state.documents.length),
+		profiles: meter('profiles', state.profiles.length),
+		subscription: state.subscription
+	};
+}
 
 const AI_MODELS: Schemas['AiModelInfo'][] = [
 	{ id: 'mimo-flash', label: 'MiMo Flash', provider: 'mimo', plan: 'free' },
@@ -177,6 +222,24 @@ async function reply(route: Route, status: number, body?: unknown, headers = {})
 	});
 }
 
+/** 402 when the plan has no room for `needed` more, as the api answers. */
+function overLimit(
+	route: Route,
+	state: MockApi,
+	kind: 'ai_runs' | 'documents' | 'profiles',
+	needed = 1
+) {
+	const usage = usageOf(state)[kind];
+	if (usage.used + needed <= usage.limit) return null;
+	return reply(route, 402, {
+		error: {
+			code: 'quota_exceeded',
+			message: limitMessage(kind, state),
+			details: { resource: kind }
+		}
+	});
+}
+
 function notFound(route: Route) {
 	return reply(route, 404, {
 		error: { code: 'not_found', message: 'This does not exist or was deleted.', details: {} }
@@ -193,6 +256,11 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 			plan: 'free',
 			default_template_id: null
 		},
+		plansEnforced: true,
+		billingEnabled: true,
+		aiRuns: 0,
+		subscription: null,
+		checkouts: 0,
 		uploads: [],
 		jobs: [],
 		aiCalls: [],
@@ -222,8 +290,34 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 				firebase: null,
 				ai_models: AI_MODELS,
 				default_ai_model: 'mimo-flash',
-				plans_enforced: false
+				plans_enforced: state.plansEnforced,
+				plans: PLANS,
+				billing_enabled: state.billingEnabled
 			});
+
+		if (resource === 'usage') return reply(route, 200, usageOf(state));
+
+		if (resource === 'billing') {
+			if (id === 'checkout') {
+				state.checkouts += 1;
+				const ref = `ref_${state.checkouts}`;
+				// Paystack sends the user back to the callback URL with the reference.
+				return reply(route, 200, {
+					authorization_url: `/app/settings?tab=billing&trxref=${ref}&reference=${ref}`
+				});
+			}
+			if (id === 'verify') {
+				state.me.plan = 'pro';
+				state.subscription = {
+					status: 'active',
+					current_period_end: '2026-11-10T00:00:00Z',
+					manageable: true
+				};
+				return reply(route, 200, { plan: 'pro' });
+			}
+			if (id === 'manage-link')
+				return reply(route, 200, { url: 'https://paystack.test/manage/subscriptions/SUB_1' });
+		}
 
 		if (resource === 'me') {
 			if (method === 'PATCH') Object.assign(state.me, body);
@@ -252,6 +346,9 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 				'mimo-flash') as AiModel;
 			const file = field('file');
 			const uploadId = field('upload_id')?.[2];
+			const refused = overLimit(route, state, 'ai_runs');
+			if (refused) return refused;
+			state.aiRuns += 1;
 			state.aiCalls.push({ task: 'import', model });
 			let upload: UploadSummary | undefined = state.uploads.find((row) => row.id === uploadId);
 			if (file) {
@@ -288,8 +385,12 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 			const profile = state.profiles.find((row) => row.id === body.profile_id);
 			if (!profile) return notFound(route);
 			const model = (body.ai_model ?? state.me.preferred_ai_model ?? 'mimo-flash') as AiModel;
-			state.aiCalls.push({ task: 'tailor', model });
 			let job = state.jobs.find((row) => row.id === body.job_id);
+			const refused =
+				overLimit(route, state, 'documents') ?? overLimit(route, state, 'ai_runs', job ? 1 : 2);
+			if (refused) return refused;
+			state.aiRuns += job ? 1 : 2;
+			state.aiCalls.push({ task: 'tailor', model });
 			if (!job) {
 				job = {
 					id: uuid(),
@@ -337,6 +438,8 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 				return reply(route, 200, rows.map(summary));
 			}
 			if (!id && method === 'POST') {
+				const refused = overLimit(route, state, 'profiles');
+				if (refused) return refused;
 				const profile: Profile = {
 					id: uuid(),
 					name: body.name ?? 'Untitled profile',
@@ -351,6 +454,8 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 			const profile = state.profiles.find((row) => row.id === id);
 			if (!profile) return notFound(route);
 			if (action === 'duplicate') {
+				const refused = overLimit(route, state, 'profiles');
+				if (refused) return refused;
 				const copy = {
 					...structuredClone(profile),
 					id: uuid(),
@@ -380,6 +485,8 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 			if (!id && method === 'POST') {
 				const profile = state.profiles.find((row) => row.id === body.profile_id);
 				if (!profile) return notFound(route);
+				const refused = overLimit(route, state, 'documents');
+				if (refused) return refused;
 				const doc: CvDocument = {
 					id: uuid(),
 					name: body.name ?? `${profile.name} CV`,
@@ -436,6 +543,8 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 				});
 			}
 			if (action === 'duplicate') {
+				const refused = overLimit(route, state, 'documents');
+				if (refused) return refused;
 				const copy = { ...structuredClone(doc), id: uuid(), name: `${doc.name} (copy)` };
 				state.documents.push(copy);
 				return reply(route, 201, copy);

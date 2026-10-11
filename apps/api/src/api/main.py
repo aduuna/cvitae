@@ -16,6 +16,7 @@ from api.ai.models import model_options
 from api.db.base import create_engine, session_factory
 from api.errors import install_error_handlers
 from api.ports.auth import AuthVerifier, DevVerifier, FirebaseVerifier
+from api.ports.billing import HttpPaystackClient
 from api.ports.llm.base import LLMProvider, ProviderName
 from api.ports.llm.claude import ClaudeProvider
 from api.ports.llm.gemini import GeminiProvider
@@ -24,6 +25,7 @@ from api.ports.llm.registry import ProviderRegistry
 from api.ports.renderer import GoogleIdTokenAuth, HttpRendererClient
 from api.ports.storage import GcsStorage, LocalStorage, Storage
 from api.routers import (
+    billing,
     client_config,
     documents,
     imports,
@@ -33,7 +35,9 @@ from api.routers import (
     tailor,
     templates,
     uploads,
+    webhooks,
 )
+from api.services.billing import Billing
 from api.settings import Settings
 
 
@@ -92,15 +96,30 @@ def build_providers(settings: Settings) -> ProviderRegistry:
     return ProviderRegistry(providers, model_options(settings))
 
 
+def build_billing(settings: Settings) -> Billing | None:
+    """Paystack and the Pro plan, when all billing settings are present."""
+    key, plan, callback = (
+        settings.paystack_secret_key,
+        settings.paystack_pro_plan_code,
+        settings.paystack_callback_url,
+    )
+    if not (key and plan and callback):
+        return None
+    return Billing(HttpPaystackClient(key.get_secret_value()), plan, callback)
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
     engine = create_engine(settings.database_url)
     renderer = build_renderer(settings)
+    billing_setup = build_billing(settings)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
         yield
         await renderer.aclose()
+        if billing_setup and isinstance(billing_setup.client, HttpPaystackClient):
+            await billing_setup.client.aclose()
         await engine.dispose()
 
     app = FastAPI(
@@ -116,6 +135,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.renderer = renderer
     app.state.storage = build_storage(settings)
     app.state.providers = build_providers(settings)
+    app.state.billing = billing_setup
     install_error_handlers(app)
 
     v1 = APIRouter(prefix="/api/v1")
@@ -134,6 +154,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         imports,
         jobs,
         tailor,
+        billing,
+        webhooks,
     ):
         v1.include_router(module.router)
     app.include_router(v1)
