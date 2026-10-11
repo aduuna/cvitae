@@ -15,6 +15,7 @@ from starlette.types import Scope
 from api.ai.models import model_options
 from api.db.base import create_engine, session_factory
 from api.errors import install_error_handlers
+from api.logs import configure_logging
 from api.ports.auth import AuthVerifier, DevVerifier, FirebaseVerifier
 from api.ports.billing import HttpPaystackClient
 from api.ports.llm.base import LLMProvider, ProviderName
@@ -166,3 +167,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
 
 app = create_app()
+if app.state.settings.env in ("dev", "prod"):
+    # Deployed: structured logs for Cloud Logging. Locally and in tests, plain logs.
+    configure_logging()
