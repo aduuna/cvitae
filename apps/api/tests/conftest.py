@@ -16,11 +16,13 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
+import google.auth
 import psycopg
 import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
+from google.auth.credentials import AnonymousCredentials
 from httpx import ASGITransport, AsyncClient
 from psycopg import sql
 from sqlalchemy import make_url
@@ -54,6 +56,15 @@ def _create_database(url: str) -> None:
         found = conn.execute("SELECT 1 FROM pg_database WHERE datname = %s", (name,)).fetchone()
         if not found:
             conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
+
+
+@pytest.fixture(autouse=True)
+def no_google_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tests never use the developer's Google credentials: clients that look them up (Cloud
+    Storage, Firebase Auth) get anonymous ones, as on CI, where there are none."""
+    monkeypatch.setattr(
+        google.auth, "default", lambda *_, **__: (AnonymousCredentials(), "cvitae-test")
+    )
 
 
 @pytest.fixture(scope="session")
@@ -118,7 +129,7 @@ def mimo(sample_profile: CvContent) -> FakeLLMProvider:
 
 @pytest.fixture
 def settings() -> Settings:
-    """The app's defaults, without a developer's .env keys."""
+    """The app's defaults, without a developer's .env keys or switches."""
     return Settings(
         env="test",
         auth_mode="dev",
@@ -126,6 +137,10 @@ def settings() -> Settings:
         anthropic_api_key=None,
         gemini_api_key=None,
         mimo_api_key=None,
+        enforce_ai_plans=True,
+        paystack_secret_key=None,
+        paystack_pro_plan_code=None,
+        paystack_callback_url=None,
     )
 
 

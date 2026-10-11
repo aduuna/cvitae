@@ -43,6 +43,10 @@ def firebase_settings(env: Literal["dev", "prod"] = "dev") -> Settings:
         anthropic_api_key=None,
         gemini_api_key=None,
         mimo_api_key=None,
+        enforce_ai_plans=True,
+        paystack_secret_key=None,
+        paystack_pro_plan_code=None,
+        paystack_callback_url=None,
     )
 
 
