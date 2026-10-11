@@ -40,7 +40,10 @@ Tailwind palette is removed so non-token colors cannot be used by accident.
   --color-gray-500: #71717a;
   --color-gray-600: #52525b;
   --color-gray-700: #3f3f46;
+  --color-gray-800: #27272a;
+  --color-gray-850: #1f1f23;
   --color-gray-900: #18181b;
+  --color-red-400: #f87171;
   --color-red-700: #b91c1c;
   --color-yellow-200: #ffe58a;
 
@@ -58,6 +61,9 @@ Tailwind palette is removed so non-token colors cannot be used by accident.
   --color-accent-fg: var(--color-white);      /* text on accent */
   --color-danger: var(--color-red-700);
   --color-placeholder: var(--color-yellow-200);
+  --color-placeholder-fg: var(--color-gray-900); /* text on placeholder, dark in both themes */
+  --color-paper: var(--color-white);          /* CV pages in previews, white in both themes */
+  --color-scrim: var(--color-gray-900);       /* dialog backdrop, used at 30% */
 
   /* Type */
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
@@ -83,8 +89,25 @@ Tailwind palette is removed so non-token colors cannot be used by accident.
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-canvas: var(--color-black);
+  --color-surface: var(--color-gray-900);
+  --color-subtle: var(--color-gray-850);
+  --color-muted: var(--color-gray-800);
+  --color-line: var(--color-gray-800);
+  --color-line-strong: var(--color-gray-700);
+  --color-fg: var(--color-gray-100);
+  --color-fg-muted: var(--color-gray-400);
+  --color-fg-faint: var(--color-gray-500);
+  --color-accent: var(--color-white);
+  --color-accent-fg: var(--color-black);
+  --color-danger: var(--color-red-400);
+  --color-scrim: var(--color-black);
+}
+
 @layer base {
-  html { font-family: var(--font-sans); font-size: var(--text-base); color: var(--color-fg); background: var(--color-canvas); }
+  html { color-scheme: light; font-family: var(--font-sans); font-size: var(--text-base); color: var(--color-fg); background: var(--color-canvas); }
   :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
   ::selection { background: var(--color-fg); color: var(--color-surface); }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
@@ -99,10 +122,29 @@ A test in `apps/web/tests/tokens.test.ts` (run by `bun run test`) scans `src/lib
 `src/routes` and fails if it finds raw palette names (`gray-`, `black`, `white`, `red-`, `yellow-`),
 hex colors or `rgb(` in class lists or style blocks. Only `app.css` may contain them.
 
+The same test resolves the token pairs in both themes and fails if text pairs (`fg`, `fg-muted` and
+`danger` on `surface`, `fg` on `canvas` and `muted`, `accent-fg` on `accent`, `placeholder-fg` on
+`placeholder`) drop below 4.5:1, or `accent` on `surface` below 3:1. It also fails if the dark block
+misses a theme-dependent token.
+
 ### Dark mode
 
-Not in v1. Because components use semantic tokens only, dark mode later means redefining the semantic
-tokens under a `[data-theme="dark"]` selector, with no component changes.
+Light and dark themes share every semantic name; the dark theme redefines them under
+`:root[data-theme="dark"]` (block above). Components do not branch on the theme (the logo is the one
+exception, below) and there is no `dark:` variant.
+
+- **Choice:** Settings, Appearance card: a `SegmentedControl` with System, Light and Dark. System
+  follows `prefers-color-scheme` and updates live. The choice is per browser, in local storage under
+  `vitae.theme` (absent means System), wrapped in try/catch; it is not stored on the server.
+- **State:** `$lib/theme.svelte.ts` holds the choice and the resolved theme; the root layout writes the
+  resolved theme to `<html data-theme>`.
+- **No flash:** `static/theme.js`, loaded as a blocking script in `app.html`, sets `data-theme` before
+  first paint. It is a file, not an inline script, so a strict CSP needs no hash for it.
+- **The CV stays as printed:** preview pages use `bg-paper` (white in both themes), and `placeholder`
+  and `placeholder-fg` do not change, so highlighted gaps match the rendered CV.
+- **Logo:** black line art, shown with Tailwind's `invert` filter on the dark theme. The Google mark
+  keeps its colours in both themes.
+- **Native controls:** `color-scheme` follows the theme so scrollbars, autofill and select menus match.
 
 ## Typography
 
@@ -172,7 +214,7 @@ No font sizes outside the scale. No italics in the UI (italics belong to CVs). N
 - **Editor:** full width, split into edit panel (min 360px) and preview panel, with a draggable splitter
   (`border-line-strong`, 4px hit area). Split ratio persists per user in local storage, wrapped in
   try/catch.
-- **Preview canvas:** `bg-canvas`, pages are `bg-surface` with `shadow-page`, 24px gap between pages,
+- **Preview canvas:** `bg-canvas`, pages are `bg-paper` with `shadow-page`, 24px gap between pages,
   zoom control (fit width, 75%, 100%, 125%) in the panel header.
 - **Breakpoints:** at under 1024px the side nav collapses to the icon rail; at under 768px the editor
   stacks (preview behind a "Preview" toggle) and editing is read-only with download available.
@@ -204,7 +246,7 @@ not by passing class strings from pages.
 | `Kbd` | One style | `font-mono text-xs border-line rounded-sm`. |
 | `Splitter` | Vertical | Keyboard resizable with arrow keys. |
 | `Dropzone` | One style | Dashed `border-line-strong`, accepts PDF and DOCX, shows file name and size in mono. |
-| `Placeholder` | Inline | Used in form fields to show `[[...]]` gaps: `bg-placeholder` text `fg`, radius `sm`. |
+| `Placeholder` | Inline | Used in form fields to show `[[...]]` gaps: `bg-placeholder` text `placeholder-fg`, radius `sm`. |
 
 ### States
 

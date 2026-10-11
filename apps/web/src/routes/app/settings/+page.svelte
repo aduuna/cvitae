@@ -20,9 +20,11 @@
 	import Input from '#lib/components/ui/Input.svelte';
 	import { modelLabel, pickModel } from '#lib/ai/models.ts';
 	import ModelSelect from '#lib/components/ai/ModelSelect.svelte';
+	import SegmentedControl from '#lib/components/ui/SegmentedControl.svelte';
 	import Skeleton from '#lib/components/ui/Skeleton.svelte';
 	import { toast } from '#lib/components/ui/toasts.svelte.ts';
 	import type { AiModel } from '#lib/cv/types.ts';
+	import { theme, themeOptions } from '#lib/theme.svelte.ts';
 
 	let name = $state('');
 	let loaded = $state(false);
@@ -260,4 +262,14 @@
 			{/if}
 		</Card>
 	</div>
+
+	<Card title="Appearance">
+		<div class="flex flex-col gap-3">
+			<SegmentedControl label="Theme" options={themeOptions} bind:value={theme.preference} />
+			<p class="text-sm text-fg-muted">
+				System follows your device setting. The choice is saved in this browser. CV previews stay
+				black on white, as they print.
+			</p>
+		</div>
+	</Card>
 </Page>

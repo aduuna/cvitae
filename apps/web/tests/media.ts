@@ -1,13 +1,19 @@
 let width = 1280;
+let colorScheme: 'light' | 'dark' = 'light';
 const lists = new Set<StubMediaQueryList>();
 
 function evaluate(query: string): boolean {
 	const min = /min-width:\s*(\d+)px/.exec(query);
 	const max = /max-width:\s*(\d+)px/.exec(query);
-	return (!min || width >= Number(min[1])) && (!max || width <= Number(max[1]));
+	const scheme = /prefers-color-scheme:\s*(light|dark)/.exec(query);
+	return (
+		(!min || width >= Number(min[1])) &&
+		(!max || width <= Number(max[1])) &&
+		(!scheme || scheme[1] === colorScheme)
+	);
 }
 
-/** Minimal MediaQueryList for width queries, driven by setViewportWidth. */
+/** Minimal MediaQueryList for width and color scheme queries, driven by the setters below. */
 class StubMediaQueryList extends EventTarget {
 	onchange = null;
 
@@ -36,5 +42,10 @@ export function matchMediaStub(query: string): MediaQueryList {
 
 export function setViewportWidth(px: number): void {
 	width = px;
+	for (const list of lists) list.dispatchEvent(new Event('change'));
+}
+
+export function setColorScheme(scheme: 'light' | 'dark'): void {
+	colorScheme = scheme;
 	for (const list of lists) list.dispatchEvent(new Event('change'));
 }

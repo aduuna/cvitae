@@ -8,6 +8,6 @@ describe('Placeholder', () => {
 		render(Placeholder, { children: text('number of users') });
 
 		const gap = screen.getByText('number of users').parentElement;
-		expect(gap).toHaveClass('bg-placeholder', 'text-fg', 'rounded-sm');
+		expect(gap).toHaveClass('bg-placeholder', 'text-placeholder-fg', 'rounded-sm');
 	});
 });

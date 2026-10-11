@@ -159,6 +159,7 @@ the fixture CV fits one page in `classic` and `compact`.
   hosted management link).
 - Data: export everything as JSON; delete account (deletes all rows and stored files after typed
   confirmation of the email address).
+- Appearance: theme (System, Light or Dark), saved in this browser. CV previews stay black on white.
 
 Done when: changing the default model changes the preselected model on Import and Tailor, and
 account deletion removes all user data from Postgres and GCS (verified by a test).

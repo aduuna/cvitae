@@ -7,6 +7,7 @@
 
 <script lang="ts">
 	import { asset } from '$app/paths';
+	import { theme } from '#lib/theme.svelte.ts';
 
 	interface Props {
 		size?: keyof typeof logoSizes;
@@ -17,4 +18,9 @@
 	let { size = 'sm', label = '' }: Props = $props();
 </script>
 
-<img src={asset('logo.svg')} alt={label} class={['shrink-0', logoSizes[size]]} />
+<!-- The logo is black line art; inverted it reads as white on the dark theme. -->
+<img
+	src={asset('logo.svg')}
+	alt={label}
+	class={['shrink-0', logoSizes[size], theme.resolved === 'dark' && 'invert']}
+/>

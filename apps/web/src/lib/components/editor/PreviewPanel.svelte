@@ -82,7 +82,7 @@
 						src={svgDataUrl(svg)}
 						alt="Page {index + 1} of {preview.pages.length}"
 						style:width="{width(svg)}px"
-						class="block max-w-none bg-surface shadow-page"
+						class="block max-w-none bg-paper shadow-page"
 						draggable="false"
 					/>
 				{/each}

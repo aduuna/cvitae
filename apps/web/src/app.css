@@ -17,7 +17,10 @@
 	--color-gray-500: #71717a;
 	--color-gray-600: #52525b;
 	--color-gray-700: #3f3f46;
+	--color-gray-800: #27272a;
+	--color-gray-850: #1f1f23;
 	--color-gray-900: #18181b;
+	--color-red-400: #f87171;
 	--color-red-700: #b91c1c;
 	--color-yellow-200: #ffe58a;
 
@@ -35,6 +38,9 @@
 	--color-accent-fg: var(--color-white); /* text on accent */
 	--color-danger: var(--color-red-700);
 	--color-placeholder: var(--color-yellow-200);
+	--color-placeholder-fg: var(--color-gray-900); /* text on placeholder, dark in both themes */
+	--color-paper: var(--color-white); /* CV pages in previews, white in both themes */
+	--color-scrim: var(--color-gray-900); /* dialog backdrop, used at 30% */
 
 	/* Type */
 	--font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
@@ -92,8 +98,29 @@
 	}
 }
 
+/* Dark theme: the same semantic names on darker raw colors (docs/DESIGN.md, Dark mode).
+   static/theme.js sets data-theme before first paint; $lib/theme.svelte.ts keeps it current.
+   placeholder, placeholder-fg and paper do not change: the CV stays black on white. */
+:root[data-theme='dark'] {
+	color-scheme: dark;
+	--color-canvas: var(--color-black);
+	--color-surface: var(--color-gray-900);
+	--color-subtle: var(--color-gray-850);
+	--color-muted: var(--color-gray-800);
+	--color-line: var(--color-gray-800);
+	--color-line-strong: var(--color-gray-700);
+	--color-fg: var(--color-gray-100);
+	--color-fg-muted: var(--color-gray-400);
+	--color-fg-faint: var(--color-gray-500);
+	--color-accent: var(--color-white);
+	--color-accent-fg: var(--color-black);
+	--color-danger: var(--color-red-400);
+	--color-scrim: var(--color-black);
+}
+
 @layer base {
 	html {
+		color-scheme: light;
 		font-family: var(--font-sans);
 		font-size: var(--text-base);
 		color: var(--color-fg);

@@ -76,7 +76,7 @@
 							<img
 								src={svgDataUrl(preview)}
 								alt="Preview of the {template.name} template"
-								class="aspect-[210/297] w-full max-w-72 bg-surface shadow-page"
+								class="aspect-[210/297] w-full max-w-72 bg-paper shadow-page"
 							/>
 						{:else if preview === null}
 							<div

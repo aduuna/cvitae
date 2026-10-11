@@ -59,7 +59,7 @@
 {#if open}
 	<div
 		role="presentation"
-		class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-fg/30 px-4 pt-[15vh] pb-4"
+		class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-scrim/30 px-4 pt-[15vh] pb-4"
 		onpointerdown={onBackdropPointerDown}
 	>
 		<div

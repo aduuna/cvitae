@@ -104,5 +104,5 @@ the editor and Settings.
 ## Later (not scheduled)
 
 Cover letters from the same profile and job, DOCX export, in-browser Typst preview via WASM to cut
-renderer calls, bring-your-own API key, shareable read-only CV links, dark mode, OpenAI models as a
-fourth provider.
+renderer calls, bring-your-own API key, shareable read-only CV links, OpenAI models as a fourth
+provider.
