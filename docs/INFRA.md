@@ -186,7 +186,13 @@ services:
     image: postgres:17
     environment: { POSTGRES_USER: vitae, POSTGRES_PASSWORD: vitae, POSTGRES_DB: vitae }
     ports: ["5432:5432"]
+    volumes: [db-data:/var/lib/postgresql/data]
+
+volumes:
+  db-data:
 ```
+
+The named volume keeps local data across `docker compose down`; `docker compose down -v` deletes it.
 
 Run the api with `AUTH_MODE=dev`, `STORAGE_MODE=local`, `RENDERER_AUTH=none` and
 `RENDERER_URL=http://localhost:8001`. The Vite dev server proxies `/api` to `localhost:8000`.

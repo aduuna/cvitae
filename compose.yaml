@@ -3,3 +3,8 @@ services:
     image: postgres:17
     environment: { POSTGRES_USER: vitae, POSTGRES_PASSWORD: vitae, POSTGRES_DB: vitae }
     ports: ["5432:5432"]
+    # Named, so the data survives `docker compose down` and a recreated container.
+    volumes: [db-data:/var/lib/postgresql/data]
+
+volumes:
+  db-data:
