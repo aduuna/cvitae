@@ -5,6 +5,8 @@
 	import { session } from '#lib/auth/session.svelte.ts';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Input from '#lib/components/ui/Input.svelte';
+	import Logo from '#lib/components/shell/Logo.svelte';
+	import { asset } from '$app/paths';
 
 	let email = $state('');
 	let sentTo = $state<string | null>(null);
@@ -53,6 +55,7 @@
 	{#if session.status === 'signed-out'}
 		<div class="flex w-full max-w-100 flex-col gap-6">
 			<div class="flex flex-col gap-2">
+				<Logo size="lg" />
 				<h1 class="text-2xl font-semibold">Chameleon vitae</h1>
 				<p class="text-base text-fg-muted">
 					Paste a job description and get a CV tailored to it, typeset properly, without the AI
@@ -79,6 +82,8 @@
 						disabled={busy !== null}
 						onclick={google}
 					>
+						<!-- Google's mark, in its own colours as Google's sign-in branding requires. -->
+						<img src={asset('brand/google-g.svg')} alt="" class="size-4" />
 						Continue with Google
 					</Button>
 					<div class="flex items-center gap-3 text-sm text-fg-muted" aria-hidden="true">

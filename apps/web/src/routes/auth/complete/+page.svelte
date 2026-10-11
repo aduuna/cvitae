@@ -6,6 +6,7 @@
 	import { pendingEmail, session } from '#lib/auth/session.svelte.ts';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Input from '#lib/components/ui/Input.svelte';
+	import Logo from '#lib/components/shell/Logo.svelte';
 
 	// Opened from the email link. The email it was sent to is remembered in this browser; on
 	// another device the user confirms it.
@@ -49,7 +50,10 @@
 	<title>Signing in - Chameleon vitae</title>
 </svelte:head>
 
-<main class="flex min-h-dvh items-center justify-center bg-canvas px-4 py-12 text-fg">
+<main
+	class="flex min-h-dvh flex-col items-center justify-center gap-6 bg-canvas px-4 py-12 text-fg"
+>
+	<Logo size="lg" label="Chameleon vitae" />
 	<section
 		class="flex w-full max-w-100 flex-col gap-4 rounded-lg border border-line bg-surface p-5"
 		aria-live="polite"

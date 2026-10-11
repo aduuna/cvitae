@@ -56,6 +56,26 @@ test.describe('M4: plans and billing', () => {
 		await expect(page.getByRole('heading', { name: 'Billing' })).toBeInViewport();
 	});
 
+	test('says next to Import CV why it is off when the profile limit is reached', async ({
+		page,
+		api
+	}) => {
+		seedProfile(api);
+		await page.goto('/app/import');
+
+		await page.locator('input[type="file"]').setInputFiles({
+			name: 'cv.pdf',
+			mimeType: 'application/pdf',
+			buffer: Buffer.from('%PDF-1.7')
+		});
+		const button = page.getByRole('button', { name: 'Import CV' });
+		await expect(button).toBeDisabled();
+		await expect(button).toHaveAccessibleDescription(
+			'Importing a CV makes a new profile. You have 1 profile, the most on Free. Delete one or upgrade to Pro for 10. See plans'
+		);
+		await page.screenshot({ path: 'test-results/import-limit-1280.png' });
+	});
+
 	test('upgrades to Pro through Paystack, and the limits change', async ({ page, api }) => {
 		seedProfile(api);
 		await page.goto('/app/profiles');

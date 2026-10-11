@@ -7,7 +7,10 @@ import Landing from '../../src/routes/+page.svelte';
 const mocks = vi.hoisted(() => ({ goto: vi.fn(), session: null as never }));
 
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
-vi.mock('$app/paths', () => ({ resolve: (path: string) => path }));
+vi.mock('$app/paths', () => ({
+	resolve: (path: string) => path,
+	asset: (path: string) => path
+}));
 vi.mock('#lib/auth/session.svelte.ts', async () => {
 	const { sessionMock } = await import('./session-mock');
 	mocks.session = sessionMock() as never;
@@ -28,7 +31,11 @@ describe('landing page', () => {
 		render(Landing);
 
 		expect(screen.getByRole('heading', { level: 1, name: 'Chameleon vitae' })).toBeVisible();
-		expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeVisible();
+		const google = screen.getByRole('button', { name: 'Continue with Google' });
+		expect(google).toBeVisible();
+		// Google's mark, decorative: the button's name stays the text.
+		expect(google.querySelector('img')).toHaveAttribute('src', 'brand/google-g.svg');
+		expect(google.querySelector('img')).toHaveAttribute('alt', '');
 		expect(screen.getByRole('button', { name: 'Email me a sign-in link' })).toBeVisible();
 	});
 

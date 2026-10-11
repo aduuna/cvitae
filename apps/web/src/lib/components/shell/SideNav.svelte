@@ -13,6 +13,7 @@
 	import Menu from '#lib/components/ui/Menu.svelte';
 	import Tooltip from '#lib/components/ui/Tooltip.svelte';
 	import { toast } from '#lib/components/ui/toasts.svelte.ts';
+	import Logo from './Logo.svelte';
 	import { isActive, navItems } from './nav';
 	import { loadCollapsed, saveCollapsed } from './sidenav-state';
 
@@ -67,7 +68,10 @@
 		]}
 	>
 		{#if !collapsed}
-			<span class="text-base font-semibold text-fg">Chameleon vitae</span>
+			<span class="flex items-center gap-2 text-base font-semibold text-fg">
+				<Logo />
+				Chameleon vitae
+			</span>
 		{/if}
 		{#if wide.current}
 			<IconButton
@@ -78,7 +82,7 @@
 				onclick={toggle}
 			/>
 		{:else}
-			<span class="text-base font-semibold text-fg" aria-hidden="true">CV</span>
+			<Logo label="Chameleon vitae" />
 		{/if}
 	</div>
 

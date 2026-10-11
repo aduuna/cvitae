@@ -13,7 +13,10 @@ vi.mock('$app/state', () => ({
 		}
 	}
 }));
-vi.mock('$app/paths', () => ({ resolve: (path: string) => path }));
+vi.mock('$app/paths', () => ({
+	resolve: (path: string) => path,
+	asset: (path: string) => path
+}));
 
 const mocks = vi.hoisted(() => ({ goto: vi.fn(), session: null as never }));
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
@@ -101,6 +104,18 @@ describe('SideNav', () => {
 		} finally {
 			vi.useRealTimers();
 		}
+	});
+
+	it('shows the logo beside the name, and alone in the rail', async () => {
+		render(SideNav);
+		expect(within(nav()).getByText('Chameleon vitae').querySelector('img')).toHaveAttribute(
+			'src',
+			'logo.svg'
+		);
+		// Under 1024px the rail has no toggle; the logo stands in for the name.
+		await act(() => setViewportWidth(768));
+		expect(within(nav()).getByRole('img', { name: 'Chameleon vitae' })).toBeVisible();
+		await act(() => setViewportWidth(1280));
 	});
 
 	it('is always the icon rail under 1024px, without a toggle', async () => {

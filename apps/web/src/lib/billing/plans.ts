@@ -34,6 +34,19 @@ export function limitReached(...meters: (Meter | undefined)[]): string | null {
 	return meters.find((meter) => meter?.message)?.message ?? null;
 }
 
+/**
+ * Why an action that takes AI runs and makes something (a profile, a CV) is blocked, or null. The
+ * limit on what it makes says what the action makes, so the reason reads on its own.
+ */
+export function blockedReason(
+	runs: Meter | undefined,
+	makes: { meter: Meter | undefined; what: string }
+): string | null {
+	if (runs?.message) return runs.message;
+	if (makes.meter?.message) return `${makes.what} ${makes.meter.message}`;
+	return null;
+}
+
 /** A Free user on a server where Paystack is set up, with no subscription to fix instead (a
  * failed renewal is fixed by updating the card, not by subscribing again). */
 export function canUpgrade(usage: Usage | null, billingEnabled: boolean): boolean {

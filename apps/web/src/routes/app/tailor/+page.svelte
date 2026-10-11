@@ -5,7 +5,7 @@
 	import { modelLabel, otherModels, pickModel } from '#lib/ai/models.ts';
 	import { api, errorMessage, unwrap } from '#lib/api/client.ts';
 	import { session } from '#lib/auth/session.svelte.ts';
-	import { canUpgrade, limitReached } from '#lib/billing/plans.ts';
+	import { blockedReason, canUpgrade } from '#lib/billing/plans.ts';
 	import LimitNotice from '#lib/components/billing/LimitNotice.svelte';
 	import GenerationProgress from '#lib/components/ai/GenerationProgress.svelte';
 	import ModelSelect from '#lib/components/ai/ModelSelect.svelte';
@@ -53,7 +53,12 @@
 	let deleteOpen = $state(false);
 
 	/** Tailoring makes a CV and takes AI runs: set when either limit is reached. */
-	const blocked = $derived(limitReached(session.usage?.documents, session.usage?.ai_runs));
+	const blocked = $derived(
+		blockedReason(session.usage?.ai_runs, {
+			meter: session.usage?.documents,
+			what: 'Tailoring makes a new CV.'
+		})
+	);
 	const ready = $derived(
 		model !== null &&
 			blocked === null &&
@@ -251,9 +256,6 @@
 			/>
 		</Card>
 	{:else}
-		{#if blocked}
-			<LimitNotice message={blocked} upgrade={canUpgrade(session.usage, session.billingEnabled)} />
-		{/if}
 		<form class="flex flex-col gap-6" onsubmit={submit}>
 			<Card title="Job">
 				{#if savedJob}
@@ -308,8 +310,22 @@
 					{#if error}
 						<p class="text-sm text-danger" role="alert">{error}</p>
 					{/if}
+					{#if blocked}
+						<!-- Next to the button it disables, so the reason is where the user looks. -->
+						<LimitNotice
+							id="tailor-blocked"
+							message={blocked}
+							upgrade={canUpgrade(session.usage, session.billingEnabled)}
+						/>
+					{/if}
 					<div>
-						<Button type="submit" variant="primary" icon="tailor" disabled={!ready}>
+						<Button
+							type="submit"
+							variant="primary"
+							icon="tailor"
+							disabled={!ready}
+							aria-describedby={blocked ? 'tailor-blocked' : undefined}
+						>
 							Tailor CV
 						</Button>
 					</div>

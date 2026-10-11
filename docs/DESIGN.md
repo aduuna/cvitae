@@ -123,6 +123,11 @@ No font sizes outside the scale. No italics in the UI (italics belong to CVs). N
 - Library: `@lucide/svelte`, only via `$lib/components/ui/Icon.svelte`.
 - Defaults: 16px, stroke width 1.5, `currentColor`. Use 20px only in empty states.
 - Icons accompany labels; icon-only buttons need a tooltip and an `aria-label`.
+- The logo and third-party marks are images, not icons. The logo is `apps/web/static/logo.svg`
+  (also the favicon; PNG sizes beside it), shown through `$lib/components/shell/Logo.svelte`.
+  Third-party marks live in `apps/web/static/brand/`. The Google mark on "Continue with Google" keeps
+  Google's colours, as Google's sign-in branding requires; it is the only colour in the chrome besides
+  `danger` and `placeholder`.
 
 | Purpose | Lucide icon |
 |---|---|

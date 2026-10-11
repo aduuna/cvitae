@@ -6,7 +6,7 @@
 	import { modelLabel, pickModel } from '#lib/ai/models.ts';
 	import { api, errorMessage, unwrap } from '#lib/api/client.ts';
 	import { session } from '#lib/auth/session.svelte.ts';
-	import { canUpgrade, limitReached } from '#lib/billing/plans.ts';
+	import { blockedReason, canUpgrade } from '#lib/billing/plans.ts';
 	import LimitNotice from '#lib/components/billing/LimitNotice.svelte';
 	import GenerationProgress from '#lib/components/ai/GenerationProgress.svelte';
 	import ModelSelect from '#lib/components/ai/ModelSelect.svelte';
@@ -50,7 +50,12 @@
 	let saving = $state(false);
 
 	/** An import takes an AI run and makes a profile: set when either limit is reached. */
-	const blocked = $derived(limitReached(session.usage?.ai_runs, session.usage?.profiles));
+	const blocked = $derived(
+		blockedReason(session.usage?.ai_runs, {
+			meter: session.usage?.profiles,
+			what: 'Importing a CV makes a new profile.'
+		})
+	);
 	const ready = $derived(
 		model !== null && blocked === null && (mode === 'file' ? file !== null : text.trim().length > 0)
 	);
@@ -161,9 +166,6 @@
 	{/snippet}
 
 	{#if phase === 'choose'}
-		{#if blocked}
-			<LimitNotice message={blocked} upgrade={canUpgrade(session.usage, session.billingEnabled)} />
-		{/if}
 		<Card title="Import a CV">
 			<form class="flex flex-col gap-5" onsubmit={submit}>
 				<Tabs
@@ -199,8 +201,22 @@
 				{#if error}
 					<p class="text-sm text-danger" role="alert">{error}</p>
 				{/if}
+				{#if blocked}
+					<!-- Next to the button it disables, so the reason is where the user looks. -->
+					<LimitNotice
+						id="import-blocked"
+						message={blocked}
+						upgrade={canUpgrade(session.usage, session.billingEnabled)}
+					/>
+				{/if}
 				<div>
-					<Button type="submit" variant="primary" icon="import" disabled={!ready}>Import CV</Button>
+					<Button
+						type="submit"
+						variant="primary"
+						icon="import"
+						disabled={!ready}
+						aria-describedby={blocked ? 'import-blocked' : undefined}>Import CV</Button
+					>
 				</div>
 			</form>
 		</Card>

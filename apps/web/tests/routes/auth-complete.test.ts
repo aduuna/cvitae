@@ -11,7 +11,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
-vi.mock('$app/paths', () => ({ resolve: (path: string) => path }));
+vi.mock('$app/paths', () => ({
+	resolve: (path: string) => path,
+	asset: (path: string) => path
+}));
 vi.mock('#lib/auth/session.svelte.ts', async () => {
 	const { sessionMock } = await import('./session-mock');
 	mocks.session = sessionMock() as never;

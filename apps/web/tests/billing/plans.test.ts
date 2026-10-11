@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	blockedReason,
 	canUpgrade,
 	formatDay,
 	limitReached,
@@ -52,6 +53,18 @@ describe('billing helpers', () => {
 			'You have 1 profile, the most on Free.'
 		);
 		expect(limitReached(undefined)).toBeNull();
+	});
+
+	it('says what an action makes when that limit blocks it', () => {
+		const current = usage();
+		const importing = { meter: current.profiles, what: 'Importing a CV makes a new profile.' };
+
+		expect(blockedReason(current.ai_runs, importing)).toBe(
+			'Importing a CV makes a new profile. You have 1 profile, the most on Free.'
+		);
+		const spent = { used: 5, limit: 5, message: 'You have used all 5 AI runs this month.' };
+		expect(blockedReason(spent, importing)).toBe('You have used all 5 AI runs this month.');
+		expect(blockedReason(current.ai_runs, { meter: current.documents, what: 'x' })).toBeNull();
 	});
 
 	it('offers an upgrade to Free users without a subscription to fix', () => {

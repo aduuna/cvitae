@@ -6,7 +6,10 @@ import UsageMeter from '#lib/components/billing/UsageMeter.svelte';
 
 const mocks = vi.hoisted(() => ({ goto: vi.fn() }));
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
-vi.mock('$app/paths', () => ({ resolve: (path: string) => path }));
+vi.mock('$app/paths', () => ({
+	resolve: (path: string) => path,
+	asset: (path: string) => path
+}));
 
 describe('LimitNotice', () => {
 	it('shows why the action is blocked and the way to Pro', async () => {
