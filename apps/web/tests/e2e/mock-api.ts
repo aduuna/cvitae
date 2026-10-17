@@ -116,7 +116,7 @@ function now(): string {
 	return new Date(Date.now() + counter).toISOString();
 }
 
-function starterContent(): CvContent {
+export function starterContent(): CvContent {
 	const section = (kind: 'experience' | 'education' | 'skills', title: string) => ({
 		id: uuid().slice(-12),
 		kind,

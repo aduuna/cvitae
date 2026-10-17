@@ -270,9 +270,13 @@ not by passing class strings from pages.
 
 ## Page patterns
 
-- **List pages** (Documents, Profiles, Tailor history): top bar with title and a primary "New ..."
+- **List pages** (Documents, Tailor history): top bar with title and a primary "New ..."
   button; a table-like list of rows (48px) with name, meta in `fg-muted`, and a row menu.
   Empty state when there is nothing yet.
+- **Tile pages** (Profiles): the same top bar, then a grid of `bg-surface` tiles (radius `lg`,
+  `border-line`, `border-line-strong` on hover): 3 columns on wide screens, 2 from 640px, 1 below.
+  A tile has an icon (with a status badge such as Default beside it), the name, and meta in
+  `fg-muted` at the bottom; the whole tile opens the item and its menu sits top-right.
 - **Form pages** (Profile editor, Settings): stacked cards, each with a heading and fields. Labels above
   fields, `text-sm font-medium`. Help text under fields in `text-sm text-fg-muted`.
 - **Generation progress** (Import, Tailor): a card with the current step text, a thin indeterminate

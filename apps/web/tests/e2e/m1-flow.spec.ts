@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, test } from './mock-api';
+import { expect, starterContent, test } from './mock-api';
 
 async function hasHorizontalScroll(page: Page): Promise<boolean> {
 	return page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
@@ -214,5 +214,41 @@ test.describe('editor under 768px', () => {
 		await page.getByRole('radio', { name: 'Preview' }).click();
 		await expect(page.getByRole('img', { name: 'Page 1 of 1' })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Export PDF' })).toBeEnabled();
+	});
+});
+
+test.describe('profiles page', () => {
+	test('shows profiles as tiles that open anywhere on click, with actions in a menu', async ({
+		page,
+		api
+	}) => {
+		for (const [i, name] of ['Data engineering', 'Backend development'].entries()) {
+			api.profiles.push({
+				id: `00000000-0000-4000-8000-00000000000${i}`,
+				name,
+				is_default: i === 0,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				content: starterContent()
+			});
+		}
+		await page.goto('/app/profiles');
+		const tiles = page.getByRole('list', { name: 'Profiles' }).getByRole('listitem');
+		const backend = tiles.filter({ hasText: 'Backend development' });
+
+		await expect(tiles).toHaveCount(2);
+		await expect(tiles.filter({ hasText: 'Data engineering' })).toContainText('Default');
+		await page.getByRole('button', { name: 'Actions for Backend development' }).click();
+		await page.getByRole('menuitem', { name: 'Make default' }).click();
+		await expect(backend).toContainText('Default');
+		await page.screenshot({ path: 'test-results/profiles-tiles-1280.png' });
+
+		// The bottom corner of the tile, away from the name, opens it too.
+		const box = await backend.boundingBox();
+		await page.mouse.click(
+			(box?.x ?? 0) + (box?.width ?? 0) - 12,
+			(box?.y ?? 0) + (box?.height ?? 0) - 12
+		);
+		await expect(page).toHaveURL(/\/app\/profiles\/00000000-0000-4000-8000-000000000001$/);
 	});
 });
