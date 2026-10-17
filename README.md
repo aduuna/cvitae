@@ -68,6 +68,37 @@ cd apps/web && bun run dev                                                      
 
 Open http://localhost:5173. The Vite dev server proxies `/api` to the api on port 8000.
 
+### With mise
+
+If you use [mise](https://mise.jdx.dev/), `mise.toml` wraps the steps above in tasks, so one terminal
+is enough. Docker must be running.
+
+```sh
+mise install        # bun and uv, at the versions in mise.toml
+mise run setup      # first run: uv sync, bun install, .env from .env.example
+mise run dev        # Postgres, migrations, api, renderer and web app; Ctrl+C stops them
+```
+
+`mise run dev` starts Postgres, waits for it, applies migrations, then runs the api, renderer and
+web app in parallel with prefixed logs. Ctrl+C leaves the Postgres container running; stop it with
+`docker compose stop db`. Each part also runs alone: `mise run db`, `mise run migrate`,
+`mise run dev:api`, `mise run dev:renderer` and `mise run dev:web`. `mise tasks` lists them all.
+
+### In a dev container or Codespaces
+
+`.devcontainer/` sets up the same environment in a container: open the repository in GitHub
+Codespaces, or in VS Code with "Dev Containers: Reopen in Container". On first start it installs
+mise, the tools in `mise.toml`, the dependencies and the Playwright browser, and creates `.env`.
+Postgres runs inside the container through Docker in Docker. When it is ready:
+
+```sh
+mise run dev
+```
+
+Ports 5173 (web), 8000 (api) and 8001 (renderer) are forwarded, and the web app opens in the
+browser. The container keeps its own `.venv` and `apps/web/node_modules` in volumes, so it never
+overwrites the ones on your machine.
+
 ### AI providers
 
 Import and Tailor call MiMo, Claude or Gemini. Set any of `MIMO_API_KEY`, `ANTHROPIC_API_KEY` and
@@ -141,6 +172,8 @@ templates/        Typst templates, shared helpers, fixtures and goldens
 infra/            OpenTofu: bootstrap, modules, envs/dev, github
 docs/             product, design, backend, infrastructure and roadmap specs
 compose.yaml      local Postgres
+mise.toml         optional local tasks (mise run dev)
+.devcontainer/    dev container for Codespaces and VS Code
 ```
 
 ## Documentation

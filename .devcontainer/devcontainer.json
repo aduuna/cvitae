@@ -1,0 +1,51 @@
+// Dev container for GitHub Codespaces and VS Code Dev Containers. Tools come from mise.toml;
+// Postgres runs from compose.yaml through Docker in Docker, so `mise run dev` works as on a laptop.
+{
+  "name": "Chameleon vitae",
+  "image": "mcr.microsoft.com/devcontainers/base:3-noble",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "hostRequirements": { "cpus": 4, "memory": "8gb" },
+
+  // Linux builds of the Python venv and node_modules live in volumes, so they never overwrite the
+  // host's copies when the repository folder is mounted from a laptop.
+  "mounts": [
+    "source=cvitae-venv,target=${containerWorkspaceFolder}/.venv,type=volume",
+    "source=cvitae-node-modules,target=${containerWorkspaceFolder}/apps/web/node_modules,type=volume"
+  ],
+  "containerEnv": {
+    "MISE_TRUSTED_CONFIG_PATHS": "${containerWorkspaceFolder}",
+    // Codespaces serves forwarded ports on *.app.github.dev; Vite blocks unknown hosts by default.
+    "__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS": ".app.github.dev"
+  },
+  "remoteEnv": {
+    "PATH": "/home/vscode/.local/bin:/home/vscode/.local/share/mise/shims:${containerEnv:PATH}"
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+
+  "forwardPorts": [5173, 8000, 8001],
+  "portsAttributes": {
+    "5173": { "label": "web", "onAutoForward": "openBrowser" },
+    "8000": { "label": "api", "onAutoForward": "silent" },
+    "8001": { "label": "renderer", "onAutoForward": "silent" }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "svelte.svelte-vscode",
+        "bradlc.vscode-tailwindcss",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "astral-sh.ty",
+        "myriad-dreamin.tinymist"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python"
+      }
+    }
+  }
+}

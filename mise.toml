@@ -1,0 +1,45 @@
+# Optional local task runner. `mise run dev` starts Postgres, the api, the renderer and the web app.
+# See "Run locally" in README.md. Tasks run from the repository root unless `dir` says otherwise.
+
+[tools]
+bun = "1.3.9"
+uv = "latest"
+
+[tasks.setup]
+description = "Install dependencies and create .env (first run)"
+run = [
+  "uv sync",
+  "test -f .env || cp .env.example .env",
+  "cd apps/web && bun install",
+]
+
+[tasks.db]
+description = "Start Postgres and wait until it accepts connections"
+run = [
+  "docker compose up -d db",
+  "until docker compose exec -T db pg_isready -U vitae -q; do sleep 1; done",
+]
+
+[tasks.migrate]
+description = "Apply database migrations"
+depends = ["db"]
+dir = "apps/api"
+run = "uv run --package api alembic upgrade head"
+
+[tasks."dev:api"]
+description = "Run the api on :8000"
+depends = ["migrate"]
+run = "uv run --package api fastapi dev apps/api/src/api/main.py"
+
+[tasks."dev:renderer"]
+description = "Run the renderer on :8001"
+run = "uv run --package renderer fastapi dev apps/renderer/src/renderer/main.py --port 8001"
+
+[tasks."dev:web"]
+description = "Run the web app on :5173"
+dir = "apps/web"
+run = "bun run dev"
+
+[tasks.dev]
+description = "Start Postgres, api, renderer and web app together"
+depends = ["dev:api", "dev:renderer", "dev:web"]
