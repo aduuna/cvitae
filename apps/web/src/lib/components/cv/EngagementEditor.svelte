@@ -17,7 +17,13 @@
 	);
 </script>
 
-<ItemPanel {title} placeholder="New client" deleteLabel="Delete client" {ondelete}>
+<ItemPanel
+	id={engagement.id}
+	{title}
+	placeholder="New client"
+	deleteLabel="Delete client"
+	{ondelete}
+>
 	<div class="grid grid-cols-1 gap-3 @md:grid-cols-2">
 		<Input label="Label" bind:value={engagement.label} help="Client, Contingent worker, ..." />
 		<Input label="Name" bind:value={engagement.name} />

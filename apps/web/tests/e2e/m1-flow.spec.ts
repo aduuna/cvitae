@@ -217,6 +217,47 @@ test.describe('editor under 768px', () => {
 	});
 });
 
+test.describe('click to edit', () => {
+	test.use({ viewport: { width: 1280, height: 800 } });
+
+	test('a click on the preview opens the field that part of the CV comes from', async ({
+		page
+	}) => {
+		await buildProfile(page);
+		await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+		await page.goto('/app/documents');
+		await page.getByRole('button', { name: 'New CV' }).first().click();
+		await page.getByRole('dialog').getByRole('button', { name: 'Create CV' }).click();
+		await expect(page).toHaveURL(/\/app\/documents\/[\w-]+$/);
+
+		const preview = page.getByRole('img', { name: 'Page 1 of 1' });
+		await expect(preview).toBeVisible();
+		const box = (await preview.boundingBox())!;
+		// A point in page coordinates (pt), as the mock renderer lays the page out.
+		const at = (x: number, y: number) => ({
+			x: box.x + (x / 595.28) * box.width,
+			y: box.y + (y / 841.89) * box.height
+		});
+
+		// The second bullet's line (y 160 to 176): hovering marks it, a click opens its field.
+		await page.mouse.move(at(100, 168).x, at(100, 168).y);
+		await expect(preview.locator('xpath=..')).toHaveClass(/cursor-pointer/);
+		await page.mouse.click(at(100, 168).x, at(100, 168).y);
+		const experience = page.getByRole('region', { name: 'Experience' });
+		await expect(experience.getByRole('textbox', { name: 'Bullet 2' })).toBeFocused();
+		await expect(experience.getByRole('textbox', { name: 'Bullet 2' })).toHaveValue(
+			'Served [[number of analysts]] analysts'
+		);
+		await page.screenshot({ path: 'test-results/click-to-edit-1280.png' });
+
+		// The name opens the header's first field; blank paper opens nothing.
+		await page.mouse.click(at(60, 54).x, at(60, 54).y);
+		await expect(page.getByRole('textbox', { name: 'Name', exact: true }).first()).toBeFocused();
+		await page.mouse.move(at(500, 700).x, at(500, 700).y);
+		await expect(preview.locator('xpath=..')).not.toHaveClass(/cursor-pointer/);
+	});
+});
+
 test.describe('profiles page', () => {
 	test('shows profiles as tiles that open anywhere on click, with actions in a menu', async ({
 		page,

@@ -68,8 +68,10 @@ class GoogleIdTokenAuth(httpx.Auth):
 
 class RendererClient(Protocol):
     async def render_svg(
-        self, template_id: str, data: dict[str, Any], paper: Paper
-    ) -> SvgPages: ...
+        self, template_id: str, data: dict[str, Any], paper: Paper, *, source_links: bool = False
+    ) -> SvgPages:
+        """`source_links`: link each part to its form field, for click-to-edit previews."""
+        ...
 
     async def render_pdf(self, template_id: str, data: dict[str, Any], paper: Paper) -> bytes: ...
 
@@ -92,8 +94,10 @@ class HttpRendererClient:
     async def aclose(self) -> None:
         await self._client.aclose()
 
-    async def render_svg(self, template_id: str, data: dict[str, Any], paper: Paper) -> SvgPages:
-        response = await self._render(template_id, data, paper, "svg")
+    async def render_svg(
+        self, template_id: str, data: dict[str, Any], paper: Paper, *, source_links: bool = False
+    ) -> SvgPages:
+        response = await self._render(template_id, data, paper, "svg", source_links)
         return SvgPages.model_validate_json(response.content)
 
     async def render_pdf(self, template_id: str, data: dict[str, Any], paper: Paper) -> bytes:
@@ -108,13 +112,19 @@ class HttpRendererClient:
         return self._templates[1]
 
     async def _render(
-        self, template_id: str, data: dict[str, Any], paper: Paper, format: OutputFormat
+        self,
+        template_id: str,
+        data: dict[str, Any],
+        paper: Paper,
+        format: OutputFormat,
+        source_links: bool = False,
     ) -> httpx.Response:
         body = RenderRequest(
             files={"data.json": json.dumps(data)},
             template_id=template_id,
             format=format,
             paper=paper,
+            source_links=source_links,
         )
         response = await self._send("POST", "/render", json=body.model_dump())
         if response.status_code == 422:
@@ -156,10 +166,15 @@ class FakeRendererClient:
 
     def __init__(self) -> None:
         self.calls: list[tuple[str, str, dict[str, Any]]] = []
+        self.source_links: list[bool] = []
+        """Per SVG render, whether source links were asked for."""
         self.fail_with: RenderFailed | None = None
 
-    async def render_svg(self, template_id: str, data: dict[str, Any], paper: Paper) -> SvgPages:
+    async def render_svg(
+        self, template_id: str, data: dict[str, Any], paper: Paper, *, source_links: bool = False
+    ) -> SvgPages:
         self._record("svg", template_id, data)
+        self.source_links.append(source_links)
         name = str(data["basics"]["name"]).replace("<", "")
         return SvgPages(pages=[_FAKE_SVG.format(name=name)], page_count=1)
 

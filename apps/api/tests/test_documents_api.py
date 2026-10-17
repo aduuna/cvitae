@@ -165,6 +165,8 @@ async def test_preview_renders_saved_content_and_stores_page_count(
     fmt, template_id, data = renderer.calls[-1]
     assert (fmt, template_id) == ("svg", "compact")
     assert data["summary"][1] == {"t": "9 years", "b": True, "p": False}
+    # The editor's preview links each part to its form field, for click-to-edit.
+    assert renderer.source_links == [True]
     listed = (await client.get("/api/v1/documents")).json()
     assert listed[0]["page_count"] == 1
 

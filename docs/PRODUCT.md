@@ -131,6 +131,10 @@ the model and regenerating works.
     switching stop applying to this CV. Ejecting is one-way; the user can duplicate the CV first.
 - Preview updates within about one second of the user stopping typing. On a compile error the last good
   preview stays visible with an error panel listing line and message.
+- Click to edit: hovering the preview marks the part under the pointer, and a click opens the form
+  field it comes from (a bullet, a role or other item, a section heading, the summary or the header),
+  scrolled into view, focused and briefly ringed. Exported PDFs carry no such links. Form-mode CVs
+  only; a CV edited as Typst has no form to open.
 - Placeholders render highlighted in preview. Export is blocked while placeholders remain, with a clear
   message and a "Show placeholders" action. (Export with placeholders is still possible from a
   secondary menu, labelled "Export anyway".)

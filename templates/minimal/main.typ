@@ -31,7 +31,7 @@
     emph(details)
   }
   #bullets(item.bullets)
-  #for engagement-item in item.engagements { engagement(engagement-item) }
+  #for engagement-item in item.engagements { src(engagement-item, engagement(engagement-item)) }
 ]
 
 #let project(item) = block(below: 1em)[
@@ -62,7 +62,7 @@
   columns: (auto, 1fr),
   column-gutter: 1.2em,
   row-gutter: 0.7em,
-  ..groups.map(group => ([*#group.label*], group.items.join(", "))).flatten(),
+  ..groups.map(group => (src(group, [*#group.label*]), src(group, group.items.join(", ")))).flatten(),
 )
 
 #let certification(item) = block(below: 0.6em)[
@@ -73,32 +73,26 @@
 ]
 
 // Header: name, headline, contact details, all left-aligned.
-#text(size: 20pt, cv.basics.name)
-#if cv.basics.headline.trim() != "" {
-  v(-0.4em)
-  text(size: 11.5pt, cv.basics.headline)
-}
-#v(-0.1em)
-#text(size: 9.5pt, join-items(contact-items(cv.basics), [#h(0.6em)#h(0.6em)]))
+#src("basics")[
+  #text(size: 20pt, cv.basics.name)
+  #if cv.basics.headline.trim() != "" {
+    v(-0.4em)
+    text(size: 11.5pt, cv.basics.headline)
+  }
+  #v(-0.1em)
+  #text(size: 9.5pt, join-items(contact-items(cv.basics), [#h(0.6em)#h(0.6em)]))
+]
 
 #if cv.summary.len() > 0 {
-  block(above: 1.4em, rich(cv.summary))
+  src("summary", block(above: 1.4em, rich(cv.summary)))
 }
 
-#for section in cv.sections {
-  if not has-items(section) { continue }
-  section-heading(section.title)
-  if section.kind == "experience" {
-    for item in section.experience { experience(item) }
-  } else if section.kind == "projects" {
-    for item in section.projects { project(item) }
-  } else if section.kind == "education" {
-    for item in section.education { education(item) }
-  } else if section.kind == "skills" {
-    skills(section.skills)
-  } else if section.kind == "certifications" {
-    for item in section.certifications { certification(item) }
-  } else {
-    bullets(section.custom)
-  }
-}
+#sections(
+  cv,
+  section-heading: section-heading,
+  experience: experience,
+  project: project,
+  education: education,
+  skills: skills,
+  certification: certification,
+)

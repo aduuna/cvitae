@@ -20,7 +20,7 @@
 	const title = $derived([item.role, item.org].filter((part) => part.trim()).join(', '));
 </script>
 
-<ItemPanel {title} placeholder="New role" deleteLabel="Delete role" {ondelete}>
+<ItemPanel id={item.id} {title} placeholder="New role" deleteLabel="Delete role" {ondelete}>
 	<div class="grid grid-cols-1 gap-3 @md:grid-cols-2">
 		<Input label="Organisation" bind:value={item.org} />
 		<Input label="Role" bind:value={item.role} />

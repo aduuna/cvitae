@@ -44,7 +44,11 @@
 	}
 </script>
 
-<section aria-label={name} class="@container rounded-lg border border-line bg-surface">
+<section
+	aria-label={name}
+	data-cv-id={section.id}
+	class="@container rounded-lg border border-line bg-surface"
+>
 	<header class="flex items-center gap-2 border-b border-line py-3 pr-3 pl-4">
 		<div class="min-w-0 flex-1">
 			<Input aria-label="Section title" bind:value={section.title} />

@@ -3,10 +3,18 @@
 	import Skeleton from '#lib/components/ui/Skeleton.svelte';
 	import { formatPages } from '#lib/format.ts';
 	import { pageWidthPx, svgDataUrl, type PreviewState } from '#lib/preview.svelte.ts';
+	import { areaAt, mergeLines, sourceAreas, type SourceArea } from '#lib/source-links.ts';
 
 	type Zoom = 'fit' | '75' | '100' | '125';
 
-	let { preview }: { preview: PreviewState } = $props();
+	interface Props {
+		preview: PreviewState;
+		/** Called with the target of a linked part of a page when it is clicked (click to edit).
+		 * Without it, pages are plain images. */
+		onpick?: (target: string) => void;
+	}
+
+	let { preview, onpick }: Props = $props();
 
 	const zoomOptions: { value: Zoom; label: string }[] = [
 		{ value: 'fit', label: 'Fit' },
@@ -25,6 +33,31 @@
 		const natural = pageWidthPx(svg);
 		if (zoom === 'fit') return Math.max(200, canvasWidth - GUTTER * 2);
 		return Math.round((natural * Number(zoom)) / 100);
+	}
+
+	const areas = $derived(onpick ? preview.pages.map(sourceAreas) : []);
+	/** The part under the pointer, marked on its page with every line that shares its target. */
+	let hovered = $state<{ page: number; target: string } | null>(null);
+	const marks = $derived(
+		hovered
+			? mergeLines((areas[hovered.page] ?? []).filter((area) => area.target === hovered?.target))
+			: []
+	);
+
+	function areaUnder(event: MouseEvent, page: number): SourceArea | null {
+		const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
+		const x = (event.clientX - box.left) / box.width;
+		return areaAt(areas[page] ?? [], x, (event.clientY - box.top) / box.height);
+	}
+
+	function hover(event: MouseEvent, page: number) {
+		const area = areaUnder(event, page);
+		hovered = area ? { page, target: area.target } : null;
+	}
+
+	function pick(event: MouseEvent, page: number) {
+		const area = areaUnder(event, page);
+		if (area) onpick?.(area.target);
 	}
 
 	const status = $derived(
@@ -78,13 +111,33 @@
 		{:else}
 			<div class="flex w-max min-w-full flex-col items-center gap-6">
 				{#each preview.pages as svg, index (index)}
-					<img
-						src={svgDataUrl(svg)}
-						alt="Page {index + 1} of {preview.pages.length}"
+					<!-- Click to edit is a pointer shortcut to fields the form already offers keyboards. -->
+					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+					<div
+						class={['relative', hovered?.page === index && 'cursor-pointer']}
 						style:width="{width(svg)}px"
-						class="block max-w-none bg-paper shadow-page"
-						draggable="false"
-					/>
+						onmousemove={onpick ? (event) => hover(event, index) : undefined}
+						onmouseleave={() => (hovered = null)}
+						onclick={onpick ? (event) => pick(event, index) : undefined}
+					>
+						<img
+							src={svgDataUrl(svg)}
+							alt="Page {index + 1} of {preview.pages.length}"
+							class="block w-full max-w-none bg-paper shadow-page"
+							draggable="false"
+						/>
+						{#if hovered?.page === index}
+							{#each marks as mark, markIndex (markIndex)}
+								<div
+									class="pointer-events-none absolute rounded-sm bg-paper-mark/5 outline-1 outline-paper-mark/30"
+									style:left="calc({mark.x * 100}% - 2px)"
+									style:top="calc({mark.y * 100}% - 1px)"
+									style:width="calc({mark.width * 100}% + 4px)"
+									style:height="calc({mark.height * 100}% + 2px)"
+								></div>
+							{/each}
+						{/if}
+					</div>
 				{/each}
 			</div>
 		{/if}

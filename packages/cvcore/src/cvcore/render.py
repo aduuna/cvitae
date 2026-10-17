@@ -17,7 +17,8 @@ class PlaceholderRef(BaseModel):
 
 def to_render_json(content: CvContent) -> dict[str, Any]:
     """data.json for a template: every bullet and the summary become spans, so Typst never
-    evaluates user text as markup. Bullets lose their `id` and `source_id`."""
+    evaluates user text as markup. Bullets keep their `id` (previews link to it) and lose
+    `source_id`."""
     data = content.model_dump(mode="json")
     data["summary"] = _spans(content.summary)
     for section in data["sections"]:
@@ -36,7 +37,7 @@ def _spans(text: str) -> list[dict[str, Any]]:
 
 
 def _bullets(bullets: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [{"spans": _spans(bullet["text"])} for bullet in bullets]
+    return [{"id": bullet["id"], "spans": _spans(bullet["text"])} for bullet in bullets]
 
 
 def iter_bullets(content: CvContent) -> Iterator[Bullet]:

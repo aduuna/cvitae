@@ -23,6 +23,8 @@ async def test_preview_uses_the_sample_without_a_profile(
     fmt, template_id, data = renderer.calls[-1]
     assert (fmt, template_id) == ("svg", "compact")
     assert data["basics"]["name"] == sample_content["basics"]["name"]
+    # Gallery previews are images only; nothing in them links back to a form.
+    assert renderer.source_links == [False]
 
 
 async def test_preview_uses_the_default_profile(

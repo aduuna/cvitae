@@ -160,13 +160,30 @@ function placeholders(content: CvContent): { text: string; bullet_id: string | n
 	return found;
 }
 
+/** A link area the way the renderer draws one for click to edit: a transparent rect in an <a>. */
+function sourceLink(target: string, x: number, y: number, width: number): string {
+	return `<a transform="translate(${x} ${y})" href="cv:${target}"><rect width="${width}" height="16" fill="transparent"/></a>`;
+}
+
+/** A preview page: the name and headline (linked to the header), then each role's bullets, linked
+ * to their fields from y 140 down, 20pt apart. */
 function page(content: CvContent, template: string): string {
-	const name = content.basics.name.replace(/[<&]/g, '');
-	const headline = content.basics.headline.replace(/[<&]/g, '');
+	const clean = (text: string) => text.replace(/[<&]/g, '');
+	const bullets = content.sections.flatMap((s) => s.experience.flatMap((role) => role.bullets));
 	return (
 		'<svg xmlns="http://www.w3.org/2000/svg" width="595.28pt" height="841.89pt" ' +
-		`viewBox="0 0 595.28 841.89"><text x="40" y="60">${name}</text>` +
-		`<text x="40" y="80">${headline}</text><text x="40" y="100">${template}</text></svg>`
+		`viewBox="0 0 595.28 841.89"><text x="40" y="60">${clean(content.basics.name)}</text>` +
+		`<text x="40" y="80">${clean(content.basics.headline)}</text>` +
+		sourceLink('basics', 40, 46, 300) +
+		`<text x="40" y="100">${template}</text>` +
+		bullets
+			.map(
+				(bullet, i) =>
+					`<text x="40" y="${152 + i * 20}">${clean(bullet.text)}</text>` +
+					sourceLink(bullet.id, 40, 140 + i * 20, 400)
+			)
+			.join('') +
+		'</svg>'
 	);
 }
 

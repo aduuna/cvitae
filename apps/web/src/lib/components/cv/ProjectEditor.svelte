@@ -12,7 +12,13 @@
 	let { item = $bindable(), ondelete }: Props = $props();
 </script>
 
-<ItemPanel title={item.name} placeholder="New project" deleteLabel="Delete project" {ondelete}>
+<ItemPanel
+	id={item.id}
+	title={item.name}
+	placeholder="New project"
+	deleteLabel="Delete project"
+	{ondelete}
+>
 	<div class="grid grid-cols-1 gap-3 @md:grid-cols-2">
 		<Input label="Name" bind:value={item.name} />
 		<Input

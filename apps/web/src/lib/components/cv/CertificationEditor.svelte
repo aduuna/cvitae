@@ -12,6 +12,7 @@
 </script>
 
 <ItemPanel
+	id={item.id}
 	title={item.name}
 	placeholder="New certification"
 	deleteLabel="Delete certification"

@@ -40,6 +40,7 @@
 	--color-placeholder: var(--color-yellow-200);
 	--color-placeholder-fg: var(--color-gray-900); /* text on placeholder, dark in both themes */
 	--color-paper: var(--color-white); /* CV pages in previews, white in both themes */
+	--color-paper-mark: var(--color-gray-900); /* marks on CV pages, dark in both themes */
 	--color-scrim: var(--color-gray-900); /* dialog backdrop, used at 30% */
 
 	/* Type */
@@ -100,7 +101,7 @@
 
 /* Dark theme: the same semantic names on darker raw colors (docs/DESIGN.md, Dark mode).
    static/theme.js sets data-theme before first paint; $lib/theme.svelte.ts keeps it current.
-   placeholder, placeholder-fg and paper do not change: the CV stays black on white. */
+   placeholder, placeholder-fg, paper and paper-mark do not change: the CV stays black on white. */
 :root[data-theme='dark'] {
 	color-scheme: dark;
 	--color-canvas: var(--color-black);

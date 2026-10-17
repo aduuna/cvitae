@@ -36,17 +36,19 @@ async def test_svg_request_shape_and_result() -> None:
         seen.append(json.loads(request.content))
         return httpx.Response(200, json={"pages": ["<svg/>"], "page_count": 1})
 
-    pages = await client_for(handler).render_svg("classic", DATA, "a4")
+    client = client_for(handler)
+    pages = await client.render_svg("classic", DATA, "a4")
+    await client.render_svg("classic", DATA, "a4", source_links=True)
 
     assert pages.page_count == 1
-    assert seen == [
-        {
-            "files": {"data.json": json.dumps(DATA)},
-            "template_id": "classic",
-            "format": "svg",
-            "paper": "a4",
-        }
-    ]
+    request = {
+        "files": {"data.json": json.dumps(DATA)},
+        "template_id": "classic",
+        "format": "svg",
+        "paper": "a4",
+        "source_links": False,
+    }
+    assert seen == [request, {**request, "source_links": True}]
 
 
 async def test_pdf_bytes() -> None:

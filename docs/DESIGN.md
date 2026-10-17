@@ -63,6 +63,7 @@ Tailwind palette is removed so non-token colors cannot be used by accident.
   --color-placeholder: var(--color-yellow-200);
   --color-placeholder-fg: var(--color-gray-900); /* text on placeholder, dark in both themes */
   --color-paper: var(--color-white);          /* CV pages in previews, white in both themes */
+  --color-paper-mark: var(--color-gray-900);  /* marks on CV pages, dark in both themes */
   --color-scrim: var(--color-gray-900);       /* dialog backdrop, used at 30% */
 
   /* Type */
@@ -217,7 +218,9 @@ No font sizes outside the scale. No italics in the UI (italics belong to CVs). N
   (`border-line-strong`, 4px hit area). Split ratio persists per user in local storage, wrapped in
   try/catch.
 - **Preview canvas:** `bg-canvas`, pages are `bg-paper` with `shadow-page`, 24px gap between pages,
-  zoom control (fit width, 75%, 100%, 125%) in the panel header.
+  zoom control (fit width, 75%, 100%, 125%) in the panel header. Click to edit: the part under the
+  pointer gets one box per line in `paper-mark` (5% fill, 30% outline, radius `sm`) and a pointer
+  cursor; the field a click opens gets a 2px `accent` ring for 1.2 s.
 - **Breakpoints:** at under 1024px the side nav collapses to the icon rail; at under 768px the editor
   stacks (preview behind a "Preview" toggle) and editing is read-only with download available.
 

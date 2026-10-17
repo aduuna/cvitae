@@ -17,6 +17,9 @@ class RenderRequest(BaseModel):
     template_id: str | None = None
     format: OutputFormat = "svg"
     paper: Paper = "a4"
+    source_links: bool = False
+    """SVG previews only: link each part of the CV to its form field (`cv:<id>`), so a click on
+    the preview can open it. Ignored for PDF."""
 
     @model_validator(mode="after")
     def _template_or_main(self) -> Self:

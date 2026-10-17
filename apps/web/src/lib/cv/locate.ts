@@ -26,11 +26,3 @@ export function describeLocation(content: CvContent, ref: PlaceholderRef): strin
 function place(section: string, item: string): string {
 	return item ? `${section}, ${item}` : section;
 }
-
-/** The form control holding a placeholder, inside `root`. */
-export function placeholderField(root: ParentNode, ref: PlaceholderRef): HTMLElement | null {
-	const selector = ref.bullet_id
-		? `[data-bullet-id="${CSS.escape(ref.bullet_id)}"]`
-		: '[data-field="summary"]';
-	return root.querySelector<HTMLElement>(selector);
-}

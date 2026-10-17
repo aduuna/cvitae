@@ -34,10 +34,13 @@ class Pdf:
 async def preview(
     documents: DocumentRepository, renderer: RendererClient, document_id: uuid.UUID
 ) -> SvgPages:
-    """SVG pages of the saved CV. Keeps the stored page count current."""
+    """SVG pages of the saved CV, with each part linked to its form field so a click on the preview
+    can open it. Keeps the stored page count current."""
     document = await get_document(documents, document_id)
     content = CvContent.model_validate(document.content)
-    pages = await renderer.render_svg(document.template_id, to_render_json(content), DEFAULT_PAPER)
+    pages = await renderer.render_svg(
+        document.template_id, to_render_json(content), DEFAULT_PAPER, source_links=True
+    )
     if document.page_count != pages.page_count:
         await documents.update(document, page_count=pages.page_count)
     return pages

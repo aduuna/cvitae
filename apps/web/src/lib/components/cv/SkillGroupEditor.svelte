@@ -13,6 +13,7 @@
 </script>
 
 <ItemPanel
+	id={item.id}
 	title={item.label}
 	placeholder="New skill group"
 	deleteLabel="Delete skill group"

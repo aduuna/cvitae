@@ -23,7 +23,7 @@
 	import Splitter from '#lib/components/ui/Splitter.svelte';
 	import { toast } from '#lib/components/ui/toasts.svelte.ts';
 	import { exportPdf } from '#lib/cv/export.ts';
-	import { placeholderField } from '#lib/cv/locate.ts';
+	import { sourceField } from '#lib/source-links.ts';
 	import type { CvContent, CvDocument, PlaceholderRef } from '#lib/cv/types.ts';
 	import { formatPages } from '#lib/format.ts';
 	import { PreviewState } from '#lib/preview.svelte.ts';
@@ -162,12 +162,26 @@
 		void preview?.refresh();
 	}
 
-	async function focusPlaceholder(ref: PlaceholderRef) {
+	// Briefly rings what a jump landed on, so the eye finds it: the item, section or header the
+	// target names, else the field itself (a bullet or the summary).
+	const FLASH = ['ring-2', 'ring-accent', 'ring-offset-2', 'ring-offset-surface'];
+
+	/** Opens the form field for a preview link target: an id, "summary" or "basics". */
+	async function openField(target: string) {
 		narrowView = 'form';
 		await tick();
-		const field = editPanel ? placeholderField(editPanel, ref) : null;
-		field?.scrollIntoView({ block: 'center' });
-		field?.focus();
+		const field = editPanel ? sourceField(editPanel, target) : null;
+		if (!editPanel || !field) return;
+		field.scrollIntoView({ block: 'center' });
+		field.focus({ preventScroll: true });
+		const ring =
+			editPanel.querySelector<HTMLElement>(`[data-cv-id="${CSS.escape(target)}"]`) ?? field;
+		ring.classList.add(...FLASH);
+		setTimeout(() => ring.classList.remove(...FLASH), 1200);
+	}
+
+	function focusPlaceholder(ref: PlaceholderRef) {
+		void openField(ref.bullet_id ?? 'summary');
 	}
 </script>
 
@@ -242,7 +256,7 @@
 				label="Resize edit panel"
 				onchange={saveSplit}
 			/>
-			<div class="min-w-0 flex-1"><PreviewPanel {preview} /></div>
+			<div class="min-w-0 flex-1"><PreviewPanel {preview} onpick={openField} /></div>
 		</div>
 	{:else}
 		<div class="flex h-full min-h-0 flex-col">
@@ -274,7 +288,7 @@
 					</div>
 				</div>
 			{:else}
-				<div class="min-h-0 flex-1"><PreviewPanel {preview} /></div>
+				<div class="min-h-0 flex-1"><PreviewPanel {preview} onpick={openField} /></div>
 			{/if}
 		</div>
 	{/if}

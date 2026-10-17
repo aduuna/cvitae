@@ -43,7 +43,13 @@ def parse_diagnostics(diagnostic: str, fallback: str) -> list[dict[str, Any]]:
 
 
 def compile_project(
-    root: Path, out_dir: Path, fmt: str, paper: str, fonts_dir: Path, max_pages: int
+    root: Path,
+    out_dir: Path,
+    fmt: str,
+    paper: str,
+    fonts_dir: Path,
+    max_pages: int,
+    source_links: bool = False,
 ) -> dict[str, Any]:
     import typst  # imported after the limits are in place
 
@@ -52,7 +58,7 @@ def compile_project(
         font_paths=typst.Fonts(
             include_system_fonts=False, include_embedded_fonts=False, font_paths=[str(fonts_dir)]
         ),
-        sys_inputs={"paper": paper},
+        sys_inputs={"paper": paper, "source-links": "true" if source_links else "false"},
         # Empty, so no package can load; downloads are also blocked by the proxy settings.
         package_path=str(root.parent / "packages"),
         package_cache_path=str(root.parent / "packages"),
@@ -86,11 +92,17 @@ def _failure(code: str, message: str) -> dict[str, Any]:
 
 
 def main(argv: list[str]) -> None:
-    root, out_dir, fmt, paper, fonts_dir, cpu, memory, max_pages = argv[1:9]
+    root, out_dir, fmt, paper, fonts_dir, cpu, memory, max_pages, links = argv[1:10]
     apply_limits(int(cpu), int(memory))
     try:
         result = compile_project(
-            Path(root), Path(out_dir), fmt, paper, Path(fonts_dir), int(max_pages)
+            Path(root),
+            Path(out_dir),
+            fmt,
+            paper,
+            Path(fonts_dir),
+            int(max_pages),
+            source_links=links == "true",
         )
     except MemoryError:
         result = _failure("limit_exceeded", "The CV needed more memory than allowed.")

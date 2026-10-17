@@ -14,7 +14,13 @@
 	const title = $derived([item.degree, item.institution].filter((part) => part.trim()).join(', '));
 </script>
 
-<ItemPanel {title} placeholder="New education" deleteLabel="Delete education" {ondelete}>
+<ItemPanel
+	id={item.id}
+	{title}
+	placeholder="New education"
+	deleteLabel="Delete education"
+	{ondelete}
+>
 	<div class="grid grid-cols-1 gap-3 @md:grid-cols-2">
 		<Input label="Institution" bind:value={item.institution} />
 		<Input label="Degree" bind:value={item.degree} />

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { newSection } from '#lib/cv/factory.ts';
-import { describeLocation, placeholderField } from '#lib/cv/locate.ts';
+import { describeLocation } from '#lib/cv/locate.ts';
 import type { CvContent } from '#lib/cv/types.ts';
 
 function content(): CvContent {
@@ -54,19 +54,5 @@ describe('describeLocation', () => {
 		['gone', 'A bullet that no longer exists']
 	])('places bullet %s in %s', (bulletId, expected) => {
 		expect(describeLocation(content(), { text: 'x', bullet_id: bulletId })).toBe(expected);
-	});
-});
-
-describe('placeholderField', () => {
-	it('finds the bullet or the summary field', () => {
-		document.body.innerHTML =
-			'<textarea data-field="summary"></textarea><textarea data-bullet-id="b1"></textarea>';
-
-		expect(placeholderField(document, { text: 'x', bullet_id: 'b1' })).toBe(
-			document.querySelector('[data-bullet-id="b1"]')
-		);
-		expect(placeholderField(document, { text: 'x' })).toBe(
-			document.querySelector('[data-field="summary"]')
-		);
 	});
 });

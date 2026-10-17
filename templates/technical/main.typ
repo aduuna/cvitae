@@ -48,7 +48,7 @@
   }
   #v(-0.15em)
   #bullets(item.bullets)
-  #for engagement-item in item.engagements { engagement(engagement-item) }
+  #for engagement-item in item.engagements { src(engagement-item, engagement(engagement-item)) }
 ]
 
 #let project(item) = block(below: 0.75em)[
@@ -84,7 +84,7 @@
   columns: (1fr, 1fr),
   column-gutter: 1.4em,
   row-gutter: 0.75em,
-  ..groups.map(group => [
+  ..groups.map(group => src(group)[
     #mono(fill: accent, lower(group.label))
     #v(-0.45em)
     #group.items.join(", ")
@@ -99,32 +99,26 @@
 ]
 
 // Header: name, headline in mono, contact line.
-#text(size: 19pt, weight: "semibold", cv.basics.name)
-#if cv.basics.headline.trim() != "" {
-  v(-0.45em)
-  mono(size: 10pt, fill: accent, cv.basics.headline)
-}
-#v(-0.15em)
-#mono(size: 8.5pt, join-items(contact-items(cv.basics), [ | ]))
+#src("basics")[
+  #text(size: 19pt, weight: "semibold", cv.basics.name)
+  #if cv.basics.headline.trim() != "" {
+    v(-0.45em)
+    mono(size: 10pt, fill: accent, cv.basics.headline)
+  }
+  #v(-0.15em)
+  #mono(size: 8.5pt, join-items(contact-items(cv.basics), [ | ]))
+]
 
 #if cv.summary.len() > 0 {
-  block(above: 0.95em, rich(cv.summary))
+  src("summary", block(above: 0.95em, rich(cv.summary)))
 }
 
-#for section in cv.sections {
-  if not has-items(section) { continue }
-  section-heading(section.title)
-  if section.kind == "experience" {
-    for item in section.experience { experience(item) }
-  } else if section.kind == "projects" {
-    for item in section.projects { project(item) }
-  } else if section.kind == "education" {
-    for item in section.education { education(item) }
-  } else if section.kind == "skills" {
-    skills(section.skills)
-  } else if section.kind == "certifications" {
-    for item in section.certifications { certification(item) }
-  } else {
-    bullets(section.custom)
-  }
-}
+#sections(
+  cv,
+  section-heading: section-heading,
+  experience: experience,
+  project: project,
+  education: education,
+  skills: skills,
+  certification: certification,
+)

@@ -149,6 +149,8 @@ async def _compile_in_child(
 
     args = [str(root), str(out_dir), request.format, request.paper, str(settings.fonts_dir)]
     args += [str(settings.cpu_seconds), str(settings.memory_bytes), str(settings.max_pages)]
+    # Source links are for clickable previews; a PDF never carries them.
+    args.append("true" if request.source_links and request.format == "svg" else "false")
     # Few malloc arenas keep reserved address space well under RLIMIT_AS on many-core hosts.
     env = {"PATH": os.defpath, "HOME": str(tmp), "NO_PROXY": "", "MALLOC_ARENA_MAX": "2"}
     for key in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"):

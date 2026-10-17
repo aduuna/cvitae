@@ -103,11 +103,12 @@ const SEMANTIC = [
 	'placeholder',
 	'placeholder-fg',
 	'paper',
+	'paper-mark',
 	'scrim'
 ];
 
 /** The CV keeps its print colors in both themes. */
-const THEME_INDEPENDENT = ['placeholder', 'placeholder-fg', 'paper'];
+const THEME_INDEPENDENT = ['placeholder', 'placeholder-fg', 'paper', 'paper-mark'];
 
 const DARK_SELECTOR = ":root[data-theme='dark']";
 

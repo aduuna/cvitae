@@ -6,22 +6,37 @@ from cvcore.render import PlaceholderRef, find_placeholders, iter_bullets, to_re
 
 def test_render_json_replaces_bullet_text_with_spans(content: CvContent) -> None:
     data = to_render_json(content)
+    source = content.sections[0].experience[0]
 
     role = data["sections"][0]["experience"][0]
+    # Bullets keep their id, so previews can link each one back to its field.
     assert role["bullets"][0] == {
+        "id": source.bullets[0].id,
         "spans": [
             {"t": "Cut costs by ", "b": False, "p": False},
             {"t": "40%", "b": True, "p": False},
-        ]
+        ],
     }
     assert role["engagements"][0]["bullets"] == [
-        {"spans": [{"t": "Built ", "b": False, "p": False}, {"t": "what", "b": False, "p": True}]}
+        {
+            "id": source.engagements[0].bullets[0].id,
+            "spans": [
+                {"t": "Built ", "b": False, "p": False},
+                {"t": "what", "b": False, "p": True},
+            ],
+        }
     ]
     assert data["sections"][1]["projects"][0]["bullets"] == [
-        {"spans": [{"t": "Typst", "b": False, "p": False}]}
+        {
+            "id": content.sections[1].projects[0].bullets[0].id,
+            "spans": [{"t": "Typst", "b": False, "p": False}],
+        }
     ]
     assert data["sections"][2]["custom"] == [
-        {"spans": [{"t": "Best paper", "b": False, "p": False}]}
+        {
+            "id": content.sections[2].custom[0].id,
+            "spans": [{"t": "Best paper", "b": False, "p": False}],
+        }
     ]
 
 

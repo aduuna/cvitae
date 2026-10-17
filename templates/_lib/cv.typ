@@ -69,10 +69,51 @@
   lhs, align(end, rhs),
 )
 
+// Previews only: with the "source-links" input, each part of the CV links to the form field it
+// comes from ("cv:" and an item's id, or "cv:summary" and "cv:basics"), so a click on the preview
+// can open that field. Links add no visible mark, and PDFs never set the input.
+#let source-links = sys.inputs.at("source-links", default: "false") == "true"
+
+// `body`, linked to `source`: an item with an id, or the name of a part such as "summary".
+#let src(source, body) = {
+  let id = if type(source) == str { source } else { source.at("id", default: none) }
+  if source-links and id != none { link("cv:" + id, body) } else { body }
+}
+
 // A bullet list of rich-text bullets, skipping empty ones; nothing when none are left.
 #let bullets(items, ..options) = {
   let filled = items.filter(it => it.spans.len() > 0)
   if filled.len() > 0 {
-    list(..options, ..filled.map(it => rich(it.spans)))
+    list(..options, ..filled.map(it => src(it, rich(it.spans))))
+  }
+}
+
+// Every section with items, in order, drawn by the template's own functions: one item each, and
+// skills takes the section's groups. Headings and items link to their fields in previews.
+#let sections(
+  cv,
+  section-heading: none,
+  experience: none,
+  project: none,
+  education: none,
+  skills: none,
+  certification: none,
+) = {
+  for section in cv.sections {
+    if not has-items(section) { continue }
+    src(section, section-heading(section.title))
+    if section.kind == "experience" {
+      for item in section.experience { src(item, experience(item)) }
+    } else if section.kind == "projects" {
+      for item in section.projects { src(item, project(item)) }
+    } else if section.kind == "education" {
+      for item in section.education { src(item, education(item)) }
+    } else if section.kind == "skills" {
+      skills(section.skills)
+    } else if section.kind == "certifications" {
+      for item in section.certifications { src(item, certification(item)) }
+    } else {
+      bullets(section.custom)
+    }
   }
 }

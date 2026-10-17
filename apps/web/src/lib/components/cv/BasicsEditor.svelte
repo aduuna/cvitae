@@ -11,7 +11,7 @@
 </script>
 
 <Card title="Basics">
-	<div class="@container flex flex-col gap-4">
+	<div data-cv-id="basics" class="@container flex flex-col gap-4">
 		<div class="grid grid-cols-1 gap-3 @md:grid-cols-2">
 			<Input label="Name" bind:value={basics.name} autocomplete="name" />
 			<Input label="Headline" bind:value={basics.headline} placeholder="Senior data engineer" />
