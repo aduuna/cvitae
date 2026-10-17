@@ -40,7 +40,7 @@ export interface MockApi {
 type Me = Schemas['Me'];
 
 const PLANS: Schemas['PlanInfo'][] = [
-	{ id: 'free', label: 'Free', documents: 3, profiles: 1, ai_runs: 5 },
+	{ id: 'free', label: 'Free', documents: 4, profiles: 2, ai_runs: 20 },
 	{ id: 'pro', label: 'Pro', documents: 100, profiles: 10, ai_runs: 150 }
 ];
 
@@ -52,10 +52,10 @@ function limits(plan: Me['plan']): Schemas['PlanInfo'] {
 function limitMessage(kind: 'ai_runs' | 'documents' | 'profiles', state: MockApi): string {
 	const plan = limits(state.me.plan);
 	if (kind === 'ai_runs')
-		return `You have used all ${plan.ai_runs} AI runs this month. Upgrade to Pro for 150.`;
+		return "You have used all of this month's AI usage. Upgrade to Pro for 7 times as much.";
 	if (kind === 'documents')
 		return `You have ${plan.documents} CVs, the most on ${plan.label}. Delete one or upgrade to Pro for 100.`;
-	return `You have ${plan.profiles} profile, the most on ${plan.label}. Delete one or upgrade to Pro for 10.`;
+	return `You have ${plan.profiles} profiles, the most on ${plan.label}. Delete one or upgrade to Pro for 10.`;
 }
 
 function usageOf(state: MockApi): Schemas['Usage'] {

@@ -207,7 +207,7 @@ No font sizes outside the scale. No italics in the UI (italics belong to CVs). N
 
 - **Side nav:** `bg-surface`, right border `border-line`. Items are 32px tall, icon plus label, radius
   `md`. Active item: `bg-muted text-fg font-medium` with a 2px `accent` bar on the left. Hover:
-  `bg-subtle`. Bottom of the nav: plan badge and usage ("3 of 5 AI runs"), then the account menu.
+  `bg-subtle`. Bottom of the nav: plan badge (no usage; it lives in Settings), then the account menu.
 - **Top bar:** `bg-surface`, bottom border `border-line`, 48px, page title left, primary action right.
 - **Pages:** `bg-canvas` outside content cards; list and form pages use a centered column (max 960px)
   of `bg-surface` cards with `border-line` and radius `lg`.
@@ -289,7 +289,8 @@ not by passing class strings from pages.
 - Name the model plainly where it matters: "Generated with MiMo Flash", "Extracted with Claude Haiku".
   Pro models carry "(Pro)" in model lists.
 - Placeholders read as instructions: "[[number of users]]", "[[latency before and after]]".
-- Numbers: use digits, thousands separators, and units ("150 AI runs", "10 MB").
+- Numbers: use digits, thousands separators, and units ("100 CVs", "10 MB").
+- AI usage is a percentage of the month's allowance ("15%"), never a count of runs.
 
 ## Accessibility
 

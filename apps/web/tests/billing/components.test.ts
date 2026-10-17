@@ -14,12 +14,12 @@ vi.mock('$app/paths', () => ({
 describe('LimitNotice', () => {
 	it('shows why the action is blocked and the way to Pro', async () => {
 		render(LimitNotice, {
-			message: 'You have used all 5 AI runs this month. Upgrade to Pro for 150.',
+			message: "You have used all of this month's AI usage. Upgrade to Pro for 7 times as much.",
 			upgrade: true
 		});
 
 		expect(screen.getByRole('status')).toHaveTextContent(
-			'You have used all 5 AI runs this month. Upgrade to Pro for 150.'
+			"You have used all of this month's AI usage. Upgrade to Pro for 7 times as much."
 		);
 		await userEvent.click(screen.getByRole('button', { name: 'See plans' }));
 		expect(mocks.goto).toHaveBeenCalledWith('/app/settings?tab=billing');
@@ -34,19 +34,25 @@ describe('LimitNotice', () => {
 
 describe('UsageMeter', () => {
 	it('shows used of limit as text and as a meter', () => {
-		render(UsageMeter, {
-			label: 'AI runs this month',
-			used: 3,
-			limit: 5,
-			caption: 'Resets on 1 November.'
-		});
+		render(UsageMeter, { label: 'CVs', used: 3, limit: 5, caption: 'Delete one to make room.' });
 
-		const meter = screen.getByRole('meter', { name: 'AI runs this month' });
+		const meter = screen.getByRole('meter', { name: 'CVs' });
 		expect(meter).toHaveAttribute('aria-valuenow', '3');
 		expect(meter).toHaveAttribute('aria-valuemax', '5');
 		expect(meter.firstElementChild).toHaveStyle({ width: '60%' });
 		expect(screen.getByText('3 of 5')).toBeVisible();
-		expect(screen.getByText('Resets on 1 November.')).toBeVisible();
+		expect(screen.getByText('Delete one to make room.')).toBeVisible();
+	});
+
+	it('shows AI usage as a share, rounded down so 100% is the limit', () => {
+		render(UsageMeter, { label: 'AI usage this month', used: 149, limit: 150, percent: true });
+
+		const meter = screen.getByRole('meter', { name: 'AI usage this month' });
+		expect(meter).toHaveAttribute('aria-valuenow', '99');
+		expect(meter).toHaveAttribute('aria-valuemax', '100');
+		expect(meter).toHaveAttribute('aria-valuetext', '99%');
+		expect(screen.getByText('99%')).toBeVisible();
+		expect(screen.queryByText(/149/)).toBeNull();
 	});
 
 	it('stays full when a downgrade leaves more than the limit', () => {

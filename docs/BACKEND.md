@@ -137,7 +137,7 @@ Dependency wiring lives in `deps.py` only. Tests use `app.dependency_overrides`.
 One envelope for every error response:
 
 ```json
-{ "error": { "code": "quota_exceeded", "message": "You have used all 5 AI runs this month.", "details": {} } }
+{ "error": { "code": "quota_exceeded", "message": "You have used all of this month's AI usage.", "details": {} } }
 ```
 
 `errors.py` defines `AppError(code, message, status, details)` and subclasses: `NotFound` (404),
@@ -441,7 +441,8 @@ work it guards, so a refused request calls no model, stores no upload and saves 
   readable, editable and exportable; only new ones are blocked.
 - A refused request is `402 quota_exceeded` with `details.resource` (`ai_runs`, `documents` or
   `profiles`). The message is the one the UI shows, built in one place, for example "You have used
-  all 5 AI runs this month. Upgrade to Pro for 150." `GET /usage` returns the same message on each
+  all of this month's AI usage. Upgrade to Pro for 7 times as much." AI messages say "AI usage" and
+  carry no counts (docs/PRODUCT.md, Plans and limits). `GET /usage` returns the same message on each
   meter that is at its limit, so the SPA disables the action before the user tries it.
 
 ### Prompt rules (ai/prompts/)

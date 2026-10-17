@@ -211,9 +211,10 @@
 
 					<div class="flex flex-col gap-4">
 						<UsageMeter
-							label="AI runs this month"
+							label="AI usage this month"
 							used={usage.ai_runs.used}
 							limit={usage.ai_runs.limit}
+							percent
 							caption="Resets on {formatDay(usage.period_end)}."
 						/>
 						<UsageMeter label="CVs" used={usage.documents.used} limit={usage.documents.limit} />
@@ -232,8 +233,8 @@
 							</Button>
 							{#if pro}
 								<p class="text-sm text-fg-muted">
-									Pro includes {planSummary(pro)}, and the Pro AI models. You pay monthly on
-									Paystack and can cancel at any time.
+									Pro includes {planSummary(pro, current)}, and the Pro AI models. You pay monthly
+									on Paystack and can cancel at any time.
 								</p>
 							{/if}
 						</div>

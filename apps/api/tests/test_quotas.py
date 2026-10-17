@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta, timezone
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.billing.plans import PLANS
 from api.db.models import AiRun
 from api.errors import QuotaExceeded
 from api.repositories.ai_runs import AiRunRepository
@@ -55,6 +56,11 @@ def test_the_period_is_the_calendar_month_in_utc() -> None:
     assert quotas.month(early)[0] == datetime(2026, 10, 1, tzinfo=UTC)
 
 
+def test_pro_offers_several_times_the_ai_usage() -> None:
+    # Free's limit message offers Pro for "N times as much"; N must be a real step up.
+    assert PLANS["pro"].ai_runs // PLANS["free"].ai_runs >= 2
+
+
 async def test_free_counts_every_attempt_and_pro_only_successes(db_session: AsyncSession) -> None:
     user_id = await make_user(db_session)
     await add_runs(db_session, user_id, 2, "succeeded")
@@ -71,21 +77,22 @@ async def test_free_counts_every_attempt_and_pro_only_successes(db_session: Asyn
 async def test_ai_runs_stop_at_the_limit_with_the_plan_message(db_session: AsyncSession) -> None:
     user_id = await make_user(db_session)
     runs = AiRunRepository(db_session, user_id)
-    await add_runs(db_session, user_id, 4, "succeeded")
+    await add_runs(db_session, user_id, 19, "succeeded")
 
     await quotas.require_ai_runs(runs, "free", now=NOW)
     with pytest.raises(QuotaExceeded) as two:
         await quotas.require_ai_runs(runs, "free", 2, now=NOW)
     assert two.value.message == (
-        "This needs 2 AI runs and you have 1 left this month. Upgrade to Pro for 150."
+        "This needs more AI usage than you have left this month. "
+        "Upgrade to Pro for 7 times as much."
     )
-    assert two.value.details == {"resource": "ai_runs", "used": 4, "limit": 5, "needed": 2}
+    assert two.value.details == {"resource": "ai_runs", "used": 19, "limit": 20, "needed": 2}
 
     await add_runs(db_session, user_id, 1, "failed")
     with pytest.raises(QuotaExceeded) as spent:
         await quotas.require_ai_runs(runs, "free", now=NOW)
     assert spent.value.message == (
-        "You have used all 5 AI runs this month. Upgrade to Pro for 150."
+        "You have used all of this month's AI usage. Upgrade to Pro for 7 times as much."
     )
 
 
@@ -99,7 +106,7 @@ async def test_pro_runs_reset_next_month(db_session: AsyncSession) -> None:
         await quotas.require_ai_runs(runs, "pro", now=NOW)
 
     assert error.value.message == (
-        "You have used all 150 AI runs this month. They reset on 1 November."
+        "You have used all of this month's AI usage. It resets on 1 November."
     )
     await quotas.require_ai_runs(runs, "pro", now=datetime(2026, 11, 1, tzinfo=UTC))
 
@@ -107,9 +114,9 @@ async def test_pro_runs_reset_next_month(db_session: AsyncSession) -> None:
 @pytest.mark.parametrize(
     ("count", "message"),
     [
-        (3, "You have 3 CVs, the most on Free. Delete one or upgrade to Pro for 100."),
+        (4, "You have 4 CVs, the most on Free. Delete one or upgrade to Pro for 100."),
         # After a downgrade, the CVs above the limit stay.
-        (5, "You have 5 CVs and Free includes 3. Delete some or upgrade to Pro for 100."),
+        (5, "You have 5 CVs and Free includes 4. Delete some or upgrade to Pro for 100."),
     ],
 )
 async def test_cvs_stop_at_the_limit(db_session: AsyncSession, count: int, message: str) -> None:
@@ -121,28 +128,29 @@ async def test_cvs_stop_at_the_limit(db_session: AsyncSession, count: int, messa
         await quotas.require_room("documents", "free", documents)
 
     assert error.value.message == message
-    assert error.value.details == {"resource": "documents", "used": count, "limit": 3}
+    assert error.value.details == {"resource": "documents", "used": count, "limit": 4}
     await quotas.require_room("documents", "pro", documents)
 
 
-async def test_one_profile_on_free(db_session: AsyncSession) -> None:
+async def test_two_profiles_on_free(db_session: AsyncSession) -> None:
     user_id = await make_user(db_session)
     profiles = ProfileRepository(db_session, user_id)
-    await quotas.require_room("profiles", "free", profiles)
     await profiles.create(name="Data", is_default=True, content={})
+    await quotas.require_room("profiles", "free", profiles)
+    await profiles.create(name="Design", is_default=False, content={})
 
     with pytest.raises(QuotaExceeded) as error:
         await quotas.require_room("profiles", "free", profiles)
 
     assert error.value.message == (
-        "You have 1 profile, the most on Free. Delete one or upgrade to Pro for 10."
+        "You have 2 profiles, the most on Free. Delete one or upgrade to Pro for 10."
     )
 
 
 async def test_usage_has_a_meter_for_each_limit(db_session: AsyncSession) -> None:
     user_id = await make_user(db_session)
     other = await make_user(db_session, "bob@example.com")
-    await add_runs(db_session, user_id, 5, "succeeded")
+    await add_runs(db_session, user_id, 20, "succeeded")
     await add_runs(db_session, other, 2, "succeeded")
     await add_documents(db_session, user_id, 2)
 
@@ -160,9 +168,9 @@ async def test_usage_has_a_meter_for_each_limit(db_session: AsyncSession) -> Non
         datetime(2026, 11, 1, tzinfo=UTC),
     )
     assert usage.ai_runs == quotas.Meter(
-        used=5,
-        limit=5,
-        message="You have used all 5 AI runs this month. Upgrade to Pro for 150.",
+        used=20,
+        limit=20,
+        message="You have used all of this month's AI usage. Upgrade to Pro for 7 times as much.",
     )
-    assert usage.documents == quotas.Meter(used=2, limit=3, message=None)
-    assert usage.profiles == quotas.Meter(used=0, limit=1, message=None)
+    assert usage.documents == quotas.Meter(used=2, limit=4, message=None)
+    assert usage.profiles == quotas.Meter(used=0, limit=2, message=None)

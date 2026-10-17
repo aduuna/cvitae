@@ -19,14 +19,16 @@ export function formatDay(iso: string): string {
 	}).format(new Date(iso));
 }
 
-/** "3 of 5 AI runs" for the side nav. */
-export function runsLabel(meter: Meter): string {
-	return `${number.format(meter.used)} of ${number.format(meter.limit)} AI runs`;
-}
-
-/** "3 CVs, 1 profile and 5 AI runs a month". */
-export function planSummary(plan: PlanInfo): string {
-	return `${count(plan.documents, 'CV', 'CVs')}, ${count(plan.profiles, 'profile', 'profiles')} and ${count(plan.ai_runs, 'AI run', 'AI runs')} a month`;
+/**
+ * "4 CVs and 2 profiles", or against a smaller plan "100 CVs, 10 profiles and 7 times the AI usage".
+ * AI runs are shown as AI usage, never as counts (docs/PRODUCT.md, Plans and limits).
+ */
+export function planSummary(plan: PlanInfo, smaller?: PlanInfo): string {
+	const documents = count(plan.documents, 'CV', 'CVs');
+	const profiles = count(plan.profiles, 'profile', 'profiles');
+	if (!smaller) return `${documents} and ${profiles}`;
+	const times = Math.floor(plan.ai_runs / smaller.ai_runs);
+	return `${documents}, ${profiles} and ${times} times the AI usage`;
 }
 
 /** Why an action is blocked: the first limit that is reached, or null. */
@@ -35,7 +37,7 @@ export function limitReached(...meters: (Meter | undefined)[]): string | null {
 }
 
 /**
- * Why an action that takes AI runs and makes something (a profile, a CV) is blocked, or null. The
+ * Why an action that takes AI usage and makes something (a profile, a CV) is blocked, or null. The
  * limit on what it makes says what the action makes, so the reason reads on its own.
  */
 export function blockedReason(

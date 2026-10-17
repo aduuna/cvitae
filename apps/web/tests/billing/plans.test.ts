@@ -6,7 +6,6 @@ import {
 	limitReached,
 	paystackReference,
 	planSummary,
-	runsLabel,
 	subscriptionStatus,
 	type Usage
 } from '#lib/billing/plans.ts';
@@ -16,9 +15,9 @@ function usage(overrides: Partial<Usage> = {}): Usage {
 		plan: 'free',
 		period_start: '2026-10-01T00:00:00Z',
 		period_end: '2026-11-01T00:00:00Z',
-		ai_runs: { used: 3, limit: 5, message: null },
-		documents: { used: 1, limit: 3, message: null },
-		profiles: { used: 1, limit: 1, message: 'You have 1 profile, the most on Free.' },
+		ai_runs: { used: 3, limit: 20, message: null },
+		documents: { used: 1, limit: 4, message: null },
+		profiles: { used: 2, limit: 2, message: 'You have 2 profiles, the most on Free.' },
 		subscription: null,
 		...overrides
 	};
@@ -33,15 +32,12 @@ function subscribed(
 }
 
 describe('billing helpers', () => {
-	it('labels usage and plans with digits and units', () => {
-		expect(runsLabel({ used: 3, limit: 5, message: null })).toBe('3 of 5 AI runs');
-		expect(runsLabel({ used: 1200, limit: 1500, message: null })).toBe('1,200 of 1,500 AI runs');
-		expect(planSummary({ id: 'free', label: 'Free', documents: 3, profiles: 1, ai_runs: 5 })).toBe(
-			'3 CVs, 1 profile and 5 AI runs a month'
-		);
-		expect(
-			planSummary({ id: 'pro', label: 'Pro', documents: 100, profiles: 10, ai_runs: 150 })
-		).toBe('100 CVs, 10 profiles and 150 AI runs a month');
+	it('sums up plans with digits, and AI usage only against a smaller plan', () => {
+		const free = { id: 'free' as const, label: 'Free', documents: 4, profiles: 2, ai_runs: 20 };
+		const pro = { id: 'pro' as const, label: 'Pro', documents: 100, profiles: 10, ai_runs: 150 };
+		expect(planSummary(free)).toBe('4 CVs and 2 profiles');
+		expect(planSummary({ ...free, documents: 1, profiles: 1 })).toBe('1 CV and 1 profile');
+		expect(planSummary(pro, free)).toBe('100 CVs, 10 profiles and 7 times the AI usage');
 		// Periods are UTC, so the day does not move with the viewer's time zone.
 		expect(formatDay('2026-11-01T00:00:00Z')).toBe('1 November');
 	});
@@ -50,7 +46,7 @@ describe('billing helpers', () => {
 		const current = usage();
 		expect(limitReached(current.ai_runs, current.documents)).toBeNull();
 		expect(limitReached(current.ai_runs, current.profiles)).toBe(
-			'You have 1 profile, the most on Free.'
+			'You have 2 profiles, the most on Free.'
 		);
 		expect(limitReached(undefined)).toBeNull();
 	});
@@ -60,10 +56,10 @@ describe('billing helpers', () => {
 		const importing = { meter: current.profiles, what: 'Importing a CV makes a new profile.' };
 
 		expect(blockedReason(current.ai_runs, importing)).toBe(
-			'Importing a CV makes a new profile. You have 1 profile, the most on Free.'
+			'Importing a CV makes a new profile. You have 2 profiles, the most on Free.'
 		);
-		const spent = { used: 5, limit: 5, message: 'You have used all 5 AI runs this month.' };
-		expect(blockedReason(spent, importing)).toBe('You have used all 5 AI runs this month.');
+		const spent = { used: 20, limit: 20, message: "You have used all of this month's AI usage." };
+		expect(blockedReason(spent, importing)).toBe("You have used all of this month's AI usage.");
 		expect(blockedReason(current.ai_runs, { meter: current.documents, what: 'x' })).toBeNull();
 	});
 

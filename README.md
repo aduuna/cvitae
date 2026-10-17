@@ -12,7 +12,7 @@ the user gave.
 **Status:** milestone M4 (plans, quotas and Paystack) is built. Users sign in with Google or an
 email link, import a CV (PDF, DOCX or pasted text) into a profile, paste a job description and get a
 tailored CV checked by the fact guard, edit it with a live Typst preview in one of five templates,
-and export PDFs. Free and Pro plans limit CVs, profiles and monthly AI runs, and users upgrade to Pro
+and export PDFs. Free and Pro plans limit CVs, profiles and monthly AI usage, and users upgrade to Pro
 through Paystack. Every push to `main` that passes CI deploys to dev at https://cvitae.aduuna.dev.
 Advanced editing and hardening come next. See [docs/ROADMAP.md](docs/ROADMAP.md).
 

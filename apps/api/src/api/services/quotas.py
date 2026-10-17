@@ -55,16 +55,17 @@ def _count(n: int, nouns: tuple[str, str]) -> str:
     return f"{n:,} {nouns[0] if n == 1 else nouns[1]}"
 
 
-def _ai_message(plan: Plan, used: int, needed: int, reset: datetime) -> str:
+def _ai_message(plan: Plan, used: int, reset: datetime) -> str:
+    """The UI calls AI runs "AI usage" and shows no counts (docs/PRODUCT.md, Plans and limits)."""
     limits = PLANS[plan]
-    left = max(limits.ai_runs - used, 0)
-    if left == 0:
-        head = f"You have used all {limits.ai_runs:,} AI runs this month."
+    if used >= limits.ai_runs:
+        head = "You have used all of this month's AI usage."
     else:
-        head = f"This needs {needed} AI runs and you have {left} left this month."
+        head = "This needs more AI usage than you have left this month."
     if plan == UPGRADE:
-        return f"{head} They reset on {_day(reset)}."
-    return f"{head} Upgrade to {PLANS[UPGRADE].label} for {PLANS[UPGRADE].ai_runs:,}."
+        return f"{head} It resets on {_day(reset)}."
+    times = PLANS[UPGRADE].ai_runs // limits.ai_runs
+    return f"{head} Upgrade to {PLANS[UPGRADE].label} for {times} times as much."
 
 
 def _stock_message(stock: Stock, plan: Plan, used: int) -> str:
@@ -94,7 +95,7 @@ async def require_ai_runs(
     limit = PLANS[plan].ai_runs
     if used + needed > limit:
         raise QuotaExceeded(
-            _ai_message(plan, used, needed, reset),
+            _ai_message(plan, used, reset),
             {"resource": "ai_runs", "used": used, "limit": limit, "needed": needed},
         )
 
@@ -131,7 +132,7 @@ async def usage(
         plan=plan,
         period_start=start,
         period_end=reset,
-        ai_runs=meter(runs_used, limits.ai_runs, _ai_message(plan, runs_used, 1, reset)),
+        ai_runs=meter(runs_used, limits.ai_runs, _ai_message(plan, runs_used, reset)),
         documents=meter(
             documents_used, limits.documents, _stock_message("documents", plan, documents_used)
         ),

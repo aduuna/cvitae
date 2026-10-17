@@ -141,13 +141,13 @@ describe('SideNav', () => {
 		expect(nav()).toHaveClass('w-14');
 	});
 
-	it('shows the plan and the AI runs used this month', async () => {
+	it('shows the plan but not the AI usage, which lives in Settings', async () => {
 		session().me = { plan: 'free', email: 'ada@example.com', display_name: null };
 		session().usage = { plan: 'pro', ai_runs: { used: 3, limit: 150, message: null } };
 		render(SideNav);
 
 		expect(within(nav()).getByText('Pro')).toBeVisible();
-		expect(within(nav()).getByText('3 of 150 AI runs')).toBeVisible();
+		expect(within(nav()).queryByText(/AI|150|%/)).toBeNull();
 		session().usage = null;
 	});
 

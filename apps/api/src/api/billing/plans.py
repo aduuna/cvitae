@@ -22,7 +22,7 @@ class PlanLimits:
 
 PLANS: dict[Plan, PlanLimits] = {
     "free": PlanLimits(
-        id="free", label="Free", documents=3, profiles=1, ai_runs=5, counts_failed_runs=True
+        id="free", label="Free", documents=4, profiles=2, ai_runs=20, counts_failed_runs=True
     ),
     "pro": PlanLimits(
         id="pro", label="Pro", documents=100, profiles=10, ai_runs=150, counts_failed_runs=False

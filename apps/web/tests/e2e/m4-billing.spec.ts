@@ -4,7 +4,8 @@ import { expect, test, type MockApi } from './mock-api';
 
 const AD = 'Senior Data Engineer\nLumen Payments\nSpark, Kafka and Airflow.';
 
-function seedProfile(api: MockApi) {
+/** Free's limit is two profiles, so `count = 2` reaches it. */
+function seedProfiles(api: MockApi, count = 1) {
 	const content: CvContent = {
 		schema_version: 1,
 		basics: {
@@ -18,14 +19,16 @@ function seedProfile(api: MockApi) {
 		summary: '',
 		sections: []
 	};
-	api.profiles.push({
-		id: '00000000-0000-4000-8000-00000000aaaa',
-		name: 'Data engineering',
-		is_default: true,
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
-		content
-	});
+	for (const [i, suffix] of ['aaaa', 'bbbb'].slice(0, count).entries()) {
+		api.profiles.push({
+			id: `00000000-0000-4000-8000-00000000${suffix}`,
+			name: i === 0 ? 'Data engineering' : 'Platform engineering',
+			is_default: i === 0,
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString(),
+			content
+		});
+	}
 }
 
 function nav(page: Page) {
@@ -37,15 +40,18 @@ async function hasHorizontalScroll(page: Page): Promise<boolean> {
 }
 
 test.describe('M4: plans and billing', () => {
-	test('shows AI runs in the side nav and blocks tailoring at the limit', async ({ page, api }) => {
-		seedProfile(api);
-		api.aiRuns = 5;
+	test('blocks tailoring at the AI usage limit, and the side nav stays quiet', async ({
+		page,
+		api
+	}) => {
+		seedProfiles(api);
+		api.aiRuns = 20;
 		await page.goto('/app/tailor');
 
-		await expect(nav(page).getByText('5 of 5 AI runs')).toBeVisible();
 		await expect(page.getByRole('status')).toContainText(
-			'You have used all 5 AI runs this month. Upgrade to Pro for 150.'
+			"You have used all of this month's AI usage. Upgrade to Pro for 7 times as much."
 		);
+		await expect(nav(page)).not.toContainText(/AI usage|%/);
 		await page.getByLabel('Job description').fill(AD);
 		await expect(page.getByRole('button', { name: 'Tailor CV' })).toBeDisabled();
 		expect(api.aiCalls).toEqual([]);
@@ -60,7 +66,7 @@ test.describe('M4: plans and billing', () => {
 		page,
 		api
 	}) => {
-		seedProfile(api);
+		seedProfiles(api, 2);
 		await page.goto('/app/import');
 
 		await page.locator('input[type="file"]').setInputFiles({
@@ -71,38 +77,42 @@ test.describe('M4: plans and billing', () => {
 		const button = page.getByRole('button', { name: 'Import CV' });
 		await expect(button).toBeDisabled();
 		await expect(button).toHaveAccessibleDescription(
-			'Importing a CV makes a new profile. You have 1 profile, the most on Free. Delete one or upgrade to Pro for 10. See plans'
+			'Importing a CV makes a new profile. You have 2 profiles, the most on Free. Delete one or upgrade to Pro for 10. See plans'
 		);
 		await page.screenshot({ path: 'test-results/import-limit-1280.png' });
 	});
 
 	test('upgrades to Pro through Paystack, and the limits change', async ({ page, api }) => {
-		seedProfile(api);
+		seedProfiles(api, 2);
 		await page.goto('/app/profiles');
 		await expect(page.getByRole('button', { name: 'New profile' })).toBeDisabled();
 		await expect(page.getByRole('status')).toContainText(
-			'You have 1 profile, the most on Free. Delete one or upgrade to Pro for 10.'
+			'You have 2 profiles, the most on Free. Delete one or upgrade to Pro for 10.'
 		);
 
 		await page.goto('/app/settings');
 		const billing = page.locator('#billing');
 		await expect(billing.getByRole('meter', { name: 'Profiles' })).toHaveAttribute(
 			'aria-valuetext',
-			'1 of 1'
+			'2 of 2'
 		);
-		await expect(billing.getByText('3 CVs, 1 profile and 5 AI runs a month.')).toBeVisible();
+		await expect(billing.getByText('4 CVs and 2 profiles.')).toBeVisible();
+		await expect(
+			billing.getByText('Pro includes 100 CVs, 10 profiles and 7 times the AI usage', {
+				exact: false
+			})
+		).toBeVisible();
 		await billing.getByRole('button', { name: 'Upgrade to Pro' }).click();
 
 		// Paystack sends the user back with a reference, which is verified.
 		await expect(page.getByText('You are on Pro now.')).toBeVisible();
 		await expect(page).toHaveURL(/\/app\/settings\?tab=billing$/);
 		await expect(billing.getByText('Renews on 10 November.')).toBeVisible();
-		await expect(billing.getByRole('meter', { name: 'AI runs this month' })).toHaveAttribute(
+		await expect(billing.getByRole('meter', { name: 'AI usage this month' })).toHaveAttribute(
 			'aria-valuetext',
-			'0 of 150'
+			'0%'
 		);
 		await expect(nav(page).getByText('Pro', { exact: true })).toBeVisible();
-		await expect(nav(page).getByText('0 of 150 AI runs')).toBeVisible();
 		await expect(billing.getByRole('button', { name: 'Upgrade to Pro' })).toHaveCount(0);
 		expect(api.checkouts).toBe(1);
 
@@ -129,12 +139,12 @@ test.describe('M4: plans and billing', () => {
 	});
 
 	test('billing fits at 768px', async ({ page, api }) => {
-		seedProfile(api);
+		seedProfiles(api);
 		api.aiRuns = 3;
 		await page.setViewportSize({ width: 768, height: 1024 });
 		await page.goto('/app/settings?tab=billing');
 
-		await expect(page.locator('#billing').getByText('3 of 5')).toBeVisible();
+		await expect(page.locator('#billing').getByText('15%')).toBeVisible();
 		expect(await hasHorizontalScroll(page)).toBe(false);
 		await page.screenshot({ path: 'test-results/settings-billing-768.png', fullPage: true });
 	});

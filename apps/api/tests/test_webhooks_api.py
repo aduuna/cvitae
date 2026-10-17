@@ -104,7 +104,7 @@ async def test_the_subscription_lifecycle_and_replays(
     await deliver(client, event("subscription_disable"))
     plan, subscription = await state(client)
     assert (plan, subscription["status"]) == ("free", "cancelled")
-    assert (await client.get("/api/v1/usage")).json()["ai_runs"]["limit"] == 5
+    assert (await client.get("/api/v1/usage")).json()["ai_runs"]["limit"] == 20
     assert await recorded(db_session) == 5
 
     # Paystack delivers the same events again: nothing changes.

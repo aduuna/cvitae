@@ -57,34 +57,35 @@ def refused(response: Any, resource: str) -> str:
     return error["message"]
 
 
-async def test_free_keeps_three_cvs(client: AsyncClient, sample_content: dict[str, Any]) -> None:
+async def test_free_keeps_four_cvs(client: AsyncClient, sample_content: dict[str, Any]) -> None:
     profile_id = await make_profile(client, sample_content)
-    made = [await new_cv(client, profile_id) for _ in range(3)]
-    assert [r.status_code for r in made] == [201, 201, 201]
+    made = [await new_cv(client, profile_id) for _ in range(4)]
+    assert [r.status_code for r in made] == [201] * 4
 
-    fourth = await new_cv(client, profile_id)
+    fifth = await new_cv(client, profile_id)
     copy = await client.post(f"/api/v1/documents/{made[0].json()['id']}/duplicate")
 
-    message = "You have 3 CVs, the most on Free. Delete one or upgrade to Pro for 100."
-    assert refused(fourth, "documents") == message
+    message = "You have 4 CVs, the most on Free. Delete one or upgrade to Pro for 100."
+    assert refused(fifth, "documents") == message
     assert refused(copy, "documents") == message
     usage = (await client.get("/api/v1/usage")).json()
-    assert usage["documents"] == {"used": 3, "limit": 3, "message": message}
+    assert usage["documents"] == {"used": 4, "limit": 4, "message": message}
     # Deleting one makes room again.
     await client.delete(f"/api/v1/documents/{made[0].json()['id']}")
     assert (await new_cv(client, profile_id)).status_code == 201
 
 
-async def test_free_keeps_one_profile(client: AsyncClient, sample_content: dict[str, Any]) -> None:
+async def test_free_keeps_two_profiles(client: AsyncClient, sample_content: dict[str, Any]) -> None:
     profile_id = await make_profile(client, sample_content)
+    assert (await client.post("/api/v1/profiles", json={})).status_code == 201
 
-    second = await client.post("/api/v1/profiles", json={})
+    third = await client.post("/api/v1/profiles", json={})
     copy = await client.post(f"/api/v1/profiles/{profile_id}/duplicate")
 
-    message = "You have 1 profile, the most on Free. Delete one or upgrade to Pro for 10."
-    assert refused(second, "profiles") == message
+    message = "You have 2 profiles, the most on Free. Delete one or upgrade to Pro for 10."
+    assert refused(third, "profiles") == message
     assert refused(copy, "profiles") == message
-    assert len((await client.get("/api/v1/profiles")).json()) == 1
+    assert len((await client.get("/api/v1/profiles")).json()) == 2
 
 
 async def test_pro_has_room_for_more(
@@ -93,8 +94,10 @@ async def test_pro_has_room_for_more(
     await make_pro()
     profile_id = await make_profile(client, sample_content)
 
-    assert (await client.post("/api/v1/profiles", json={})).status_code == 201
-    assert [(await new_cv(client, profile_id)).status_code for _ in range(4)] == [201] * 4
+    assert [(await client.post("/api/v1/profiles", json={})).status_code for _ in range(2)] == [
+        201
+    ] * 2
+    assert [(await new_cv(client, profile_id)).status_code for _ in range(5)] == [201] * 5
     usage = (await client.get("/api/v1/usage")).json()
     assert usage["plan"] == "pro"
     assert (usage["documents"]["limit"], usage["profiles"]["limit"]) == (100, 10)
@@ -122,7 +125,7 @@ async def test_a_downgrade_keeps_existing_cvs_usable(
     assert len(listed) == 5
     assert [r.status_code for r in (opened, preview, pdf, edited)] == [200, 200, 200, 200]
     assert refused(await new_cv(client, profile_id), "documents") == (
-        "You have 5 CVs and Free includes 3. Delete some or upgrade to Pro for 100."
+        "You have 5 CVs and Free includes 4. Delete some or upgrade to Pro for 100."
     )
 
 
@@ -134,7 +137,7 @@ async def test_no_ai_runs_left_means_no_model_call(
 ) -> None:
     profile_id = await make_profile(client, sample_content)
     await client.delete(f"/api/v1/profiles/{profile_id}")
-    await use_runs(db_session, await user_id(client), 5)
+    await use_runs(db_session, await user_id(client), 20)
 
     imported = await client.post("/api/v1/imports", data={"text": "Ada Lovelace, engineer"})
     profile_id = await make_profile(client, sample_content)
@@ -142,12 +145,12 @@ async def test_no_ai_runs_left_means_no_model_call(
         "/api/v1/tailor", json={"profile_id": profile_id, "job": {"description": JOB_AD}}
     )
 
-    message = "You have used all 5 AI runs this month. Upgrade to Pro for 150."
+    message = "You have used all of this month's AI usage. Upgrade to Pro for 7 times as much."
     assert refused(imported, "ai_runs") == message
     assert refused(tailored, "ai_runs") == message
     assert mimo.requests == []
     usage = (await client.get("/api/v1/usage")).json()
-    assert usage["ai_runs"] == {"used": 5, "limit": 5, "message": message}
+    assert usage["ai_runs"] == {"used": 20, "limit": 20, "message": message}
 
 
 async def test_a_new_job_takes_two_runs_and_a_saved_analysis_one(
@@ -158,7 +161,7 @@ async def test_a_new_job_takes_two_runs_and_a_saved_analysis_one(
 ) -> None:
     profile_id = await make_profile(client, sample_content)
     owner = await user_id(client)
-    await use_runs(db_session, owner, 2)
+    await use_runs(db_session, owner, 17)
     first = await client.post(
         "/api/v1/tailor", json={"profile_id": profile_id, "job": {"description": JOB_AD}}
     )
@@ -167,12 +170,13 @@ async def test_a_new_job_takes_two_runs_and_a_saved_analysis_one(
     await client.delete(f"/api/v1/documents/{first.json()['document']['id']}")
     mimo.requests.clear()
 
-    # 4 of 5 used: a new job needs 2 runs and is refused before anything is saved.
+    # 19 of 20 used: a new job needs 2 runs and is refused before anything is saved.
     new_job = await client.post(
         "/api/v1/tailor", json={"profile_id": profile_id, "job": {"description": JOB_AD}}
     )
     assert refused(new_job, "ai_runs") == (
-        "This needs 2 AI runs and you have 1 left this month. Upgrade to Pro for 150."
+        "This needs more AI usage than you have left this month. "
+        "Upgrade to Pro for 7 times as much."
     )
     assert await db_session.scalar(select(func.count()).select_from(Job)) == 1
     assert mimo.requests == []
@@ -189,7 +193,7 @@ async def test_tailoring_needs_room_for_the_cv(
     mimo: FakeLLMProvider,
 ) -> None:
     profile_id = await make_profile(client, sample_content)
-    for _ in range(3):
+    for _ in range(4):
         await new_cv(client, profile_id)
 
     response = await client.post(
@@ -206,7 +210,8 @@ async def test_import_needs_room_for_the_profile(
     mimo: FakeLLMProvider,
     db_session: AsyncSession,
 ) -> None:
-    await make_profile(client, sample_content)
+    for _ in range(2):
+        await make_profile(client, sample_content)
 
     response = await client.post(
         "/api/v1/imports", files={"file": ("cv.pdf", (FIXTURES / "sample-cv.pdf").read_bytes())}
