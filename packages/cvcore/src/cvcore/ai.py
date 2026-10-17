@@ -23,6 +23,13 @@ class BulletChange(CvModel):
     rationale: str = Field(description="One sentence on why it was kept, reworded or moved.")
 
 
+class ImportedCv(CvModel):
+    content: CvContent = Field(description="The career data, copied from the CV.")
+    profile_name: str = Field(
+        description='A suggested profile name, for example "Data engineering".'
+    )
+
+
 class TailoredCv(CvModel):
     content: CvContent = Field(description="The tailored CV.")
     changes: list[BulletChange] = Field(description="One entry per bullet that was reworded.")

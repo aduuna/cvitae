@@ -15,6 +15,7 @@ from api.ports.llm.fake import FakeLLMProvider
 from api.ports.storage import LocalStorage
 from cvcore.models import CvContent
 from cvcore.render import iter_bullets
+from cvcore.wire import WireImportedCv, to_wire
 
 FIXTURES = Path(__file__).resolve().parents[3] / "templates" / "fixtures"
 
@@ -58,6 +59,7 @@ async def test_imports_a_pdf_and_keeps_the_file(
         "mimo",
         "mimo-v2.6-flash",
     )
+    assert body["profile_name"] == "Data engineering"
     draft = CvContent.model_validate(body["draft"])
     # Same facts as the source of sample-cv.pdf, with fresh ids.
     assert draft.basics == sample_profile.basics
@@ -84,6 +86,19 @@ async def test_imports_docx_as_text(client: AsyncClient, mimo: FakeLLMProvider) 
     [sent] = mimo.requests
     assert sent.document is None
     assert "<cv>\nAma Owusu-Mensah\nData engineer\nPython | Spark\n</cv>" in sent.user_text
+
+
+async def test_the_headline_names_the_profile_when_the_model_does_not(
+    client: AsyncClient, mimo: FakeLLMProvider, sample_profile: CvContent
+) -> None:
+    sample_profile.basics.headline = "  Senior Data Engineer  "
+    mimo.responders["import"] = lambda _: WireImportedCv(
+        content=to_wire(sample_profile), profile_name=" "
+    )
+
+    response = await client.post("/api/v1/imports", data={"text": "Ama, data engineer"})
+
+    assert response.json()["profile_name"] == "Senior Data Engineer"
 
 
 async def test_imports_pasted_text(client: AsyncClient, mimo: FakeLLMProvider) -> None:

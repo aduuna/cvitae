@@ -11,7 +11,7 @@ from cvcore.ai import JobAnalysis
 from cvcore.models import CvContent
 from cvcore.render import iter_bullets
 from cvcore.richtext import plain_text
-from cvcore.wire import WireTailoredCv, to_wire
+from cvcore.wire import WireImportedCv, WireTailoredCv, to_wire
 
 type Responder = Callable[[LLMRequest[Any]], BaseModel]
 
@@ -64,7 +64,7 @@ def default_responders(sample_profile: CvContent) -> dict[str, Responder]:
     to its source."""
 
     def extract(_: LLMRequest[Any]) -> BaseModel:
-        return to_wire(sample_profile)
+        return WireImportedCv(content=to_wire(sample_profile), profile_name="Data engineering")
 
     def analyze(request: LLMRequest[Any]) -> BaseModel:
         description = request.user_text.split("<job_description>", 1)[-1]

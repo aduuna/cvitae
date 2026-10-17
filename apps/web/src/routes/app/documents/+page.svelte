@@ -99,13 +99,8 @@
 		}
 	}
 
-	async function createProfile() {
-		try {
-			const profile = await unwrap(api.POST('/api/v1/profiles', { body: {} }));
-			await goto(resolve('/app/profiles/[id]', { id: profile.id }));
-		} catch (error) {
-			toast.error(errorMessage(error));
-		}
+	function createProfile() {
+		void goto(resolve('/app/profiles/new'));
 	}
 
 	async function rename(event?: SubmitEvent) {

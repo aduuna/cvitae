@@ -40,11 +40,10 @@ Icons are Lucide, listed in `docs/DESIGN.md`.
 | Order | Item | Route | Purpose |
 |---|---|---|---|
 | 1 | Documents | `/app/documents` | All CVs. Open, create, duplicate, rename, delete. Default landing page. |
-| 2 | Profiles | `/app/profiles` | Enter and edit work experience and other career data. |
-| 3 | Import | `/app/import` | Upload an existing CV (PDF, DOCX) or paste text to create a profile. |
-| 4 | Tailor | `/app/tailor` | Paste a job description and generate a tailored CV. Lists saved jobs. |
-| 5 | Templates | `/app/templates` | Browse the 5 templates with previews; set a default. |
-| 6 | Settings | `/app/settings` | Account, AI model, billing, data export and deletion. |
+| 2 | Profiles | `/app/profiles` | Enter and edit work experience and other career data. New profiles start at `/app/profiles/new`: import a CV (the default) or start from scratch. |
+| 3 | Tailor | `/app/tailor` | Paste a job description and generate a tailored CV. Lists saved jobs. |
+| 4 | Templates | `/app/templates` | Browse the 5 templates with previews; set a default. |
+| 5 | Settings | `/app/settings` | Account, AI model, billing, data export and deletion. |
 
 The editor for a single CV lives at `/app/documents/[id]` and keeps the side nav visible (collapsible).
 
@@ -75,8 +74,15 @@ and create a second profile from scratch or by duplicating the first.
 
 ### 3. Import
 
+- Import is how a new profile starts by default. Every "New profile" button opens
+  `/app/profiles/new`: one row of tabs with the three ways to start, as alternatives rather than
+  steps: "Upload a CV" (selected), "Paste a CV" and "Enter manually" (an empty profile in the
+  editor). Under "Upload a CV", earlier uploads are listed to import again.
 - Inputs: PDF or DOCX up to 10 MB, or pasted text.
 - The selected AI model extracts a structured profile.
+- The model also suggests the profile's name: the kind of work the CV is for, such as "Data
+  engineering", never the person's name. Without a suggestion the CV's headline is used. The user
+  can change it before saving.
 - The user reviews the result in the profile editor before it is saved, with a banner:
   "Imported from <filename>. Check every entry before using it."
 - The draft exists only until it is saved, and it cost AI usage, so leaving the review asks first:

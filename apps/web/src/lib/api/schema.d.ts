@@ -1008,6 +1008,8 @@ export interface components {
             /** Upload Id */
             upload_id: string | null;
             draft: components["schemas"]["CvContent-Output"];
+            /** Profile Name */
+            profile_name: string;
             ai_model: components["schemas"]["AiModel"];
             provider: components["schemas"]["ProviderName"];
             /** Model */

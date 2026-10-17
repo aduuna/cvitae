@@ -62,12 +62,12 @@ test.describe('M4: plans and billing', () => {
 		await expect(page.getByRole('heading', { name: 'Billing' })).toBeInViewport();
 	});
 
-	test('says next to Import CV why it is off when the profile limit is reached', async ({
+	test('says by each new-profile option why it is off at the profile limit', async ({
 		page,
 		api
 	}) => {
 		seedProfiles(api, 2);
-		await page.goto('/app/import');
+		await page.goto('/app/profiles/new');
 
 		await page.locator('input[type="file"]').setInputFiles({
 			name: 'cv.pdf',
@@ -78,6 +78,12 @@ test.describe('M4: plans and billing', () => {
 		await expect(button).toBeDisabled();
 		await expect(button).toHaveAccessibleDescription(
 			'Importing a CV makes a new profile. You have 2 profiles, the most on Free. Delete one or upgrade to Pro for 10. See plans'
+		);
+		await page.getByRole('tab', { name: 'Enter manually' }).click();
+		const empty = page.getByRole('button', { name: 'Create empty profile' });
+		await expect(empty).toBeDisabled();
+		await expect(empty).toHaveAccessibleDescription(
+			'You have 2 profiles, the most on Free. Delete one or upgrade to Pro for 10. See plans'
 		);
 		await page.screenshot({ path: 'test-results/import-limit-1280.png' });
 	});

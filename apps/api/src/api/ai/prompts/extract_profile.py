@@ -2,7 +2,7 @@
 
 from api.ai.prompts.common import DATA_NOT_INSTRUCTIONS, RICH_TEXT
 
-PROMPT_VERSION = "extract-2026-10-10b"
+PROMPT_VERSION = "extract-2026-10-17"
 
 SYSTEM = f"""\
 You turn a person's CV into structured career data for a CV-writing app. The person will review \
@@ -29,6 +29,11 @@ bullets.
 titled "Skills".
 - A custom section is one entry whose bullets are the section's lines.
 - Give every section, entry and bullet a short unique id; source_id stays empty.
+
+Also name the profile. People keep one profile per kind of job they apply for, so profile_name \
+says which kind this CV is for, in 1 to 4 words and sentence case: "Data engineering", "Backend \
+development", "Product design". Base it on the person's headline and recent roles. Never use their \
+name or an employer's name.
 
 {RICH_TEXT} Keep the CV's own emphasis only when it is bold in the CV.
 

@@ -108,6 +108,14 @@ class WireCv(CvModel):
     sections: list[WireSection]
 
 
+class WireImportedCv(CvModel):
+    content: WireCv = Field(description="The career data, copied from the CV.")
+    profile_name: str = Field(
+        description="The kind of work this profile is for, in 1 to 4 words, for example "
+        '"Data engineering". Never the person\'s name or an employer.'
+    )
+
+
 class WireChange(CvModel):
     source_id: str = Field(description="Id of the profile bullet this change is about.")
     rationale: str = Field(description="One sentence on why it was reworded.")

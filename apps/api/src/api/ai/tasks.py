@@ -18,9 +18,9 @@ from api.ai.prompts import tailor_cv as tailor_prompt
 from api.errors import ProviderError, ProviderTimeout
 from api.ports.llm.base import LLMProvider, LLMRequest, LLMResult
 from api.services.ai_models import ModelChoice
-from cvcore.ai import BulletChange, JobAnalysis, TailoredCv
+from cvcore.ai import BulletChange, ImportedCv, JobAnalysis, TailoredCv
 from cvcore.models import CvContent
-from cvcore.wire import WireCv, WireTailoredCv, from_wire
+from cvcore.wire import WireImportedCv, WireTailoredCv, from_wire
 
 logger = logging.getLogger(__name__)
 
@@ -108,19 +108,21 @@ def _with_output[T: BaseModel](result: LLMResult[Any], output: T) -> LLMResult[T
 
 async def extract_profile(
     choice: ModelChoice, runs: RunRecorder, *, text: str | None, pdf: bytes | None
-) -> LLMResult[CvContent]:
+) -> LLMResult[ImportedCv]:
     # Providers write the flat wire shape (cvcore.wire); the app works with CvContent.
     request = LLMRequest(
         task="import",
         system=extract_prompt.SYSTEM,
         user_text=extract_prompt.build(text),
-        output_model=WireCv,
+        output_model=WireImportedCv,
         model=choice.option.model,
         document=pdf,
         effort="low",
     )
     result = await run(choice.provider, runs, request, extract_prompt.PROMPT_VERSION)
-    return _with_output(result, from_wire(result.output))
+    wire = result.output
+    imported = ImportedCv(content=from_wire(wire.content), profile_name=wire.profile_name)
+    return _with_output(result, imported)
 
 
 async def analyze_job(

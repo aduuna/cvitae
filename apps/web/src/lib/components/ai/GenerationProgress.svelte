@@ -42,7 +42,7 @@
 		</div>
 		<div class="flex items-center justify-between gap-4">
 			<p class="text-sm text-fg-muted">
-				{caption ? `${caption}. ` : ''}This can take up to a minute.
+				{caption ? `${caption}. ` : ''}This can take 1 to 2 minutes.
 			</p>
 			<Button variant="ghost" size="sm" onclick={oncancel}>Cancel</Button>
 		</div>

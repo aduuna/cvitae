@@ -52,7 +52,6 @@ describe('SideNav', () => {
 		expect(links.map((link) => [link.textContent?.trim(), link.getAttribute('href')])).toEqual([
 			['Documents', '/app/documents'],
 			['Profiles', '/app/profiles'],
-			['Import', '/app/import'],
 			['Tailor', '/app/tailor'],
 			['Templates', '/app/templates'],
 			['Settings', '/app/settings']

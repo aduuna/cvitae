@@ -6,7 +6,7 @@
 	import { modelLabel, pickModel } from '#lib/ai/models.ts';
 	import { api, errorMessage, unwrap } from '#lib/api/client.ts';
 	import { session } from '#lib/auth/session.svelte.ts';
-	import { blockedReason, canUpgrade } from '#lib/billing/plans.ts';
+	import { blockedReason, canUpgrade, limitReached } from '#lib/billing/plans.ts';
 	import LimitNotice from '#lib/components/billing/LimitNotice.svelte';
 	import GenerationProgress from '#lib/components/ai/GenerationProgress.svelte';
 	import ModelSelect from '#lib/components/ai/ModelSelect.svelte';
@@ -49,6 +49,7 @@
 	let usedModel = $state<AiModel | null>(null);
 	let profileName = $state('');
 	let saving = $state(false);
+	let creating = $state(false);
 
 	// The draft exists only on this page and cost an AI run, so leaving asks to save it first.
 	let leaveTo = $state<URL | null>(null);
@@ -77,6 +78,8 @@
 			what: 'Importing a CV makes a new profile.'
 		})
 	);
+	/** Entering a profile manually only needs room for it. */
+	const full = $derived(limitReached(session.usage?.profiles));
 	const ready = $derived(
 		model !== null && blocked === null && (mode === 'file' ? file !== null : text.trim().length > 0)
 	);
@@ -114,7 +117,7 @@
 			draft = result.draft;
 			usedModel = result.ai_model;
 			sourceName = name;
-			profileName = result.draft.basics.name ? `${result.draft.basics.name}` : 'Imported profile';
+			profileName = result.profile_name || 'Imported profile';
 			phase = 'review';
 			if (result.upload_id) void loadUploads();
 		} catch (failure) {
@@ -157,6 +160,18 @@
 		}
 	}
 
+	async function createEmpty() {
+		creating = true;
+		try {
+			const profile = await unwrap(api.POST('/api/v1/profiles', { body: {} }));
+			await goto(resolve('/app/profiles/[id]', { id: profile.id }));
+		} catch (failure) {
+			toast.error(errorMessage(failure));
+		} finally {
+			creating = false;
+		}
+	}
+
 	function discard() {
 		draft = null;
 		phase = 'choose';
@@ -180,7 +195,7 @@
 	}
 </script>
 
-<Page title="Import">
+<Page title="New profile">
 	{#snippet actions()}
 		{#if phase === 'review'}
 			<Button onclick={discard}>Discard</Button>
@@ -189,62 +204,87 @@
 	{/snippet}
 
 	{#if phase === 'choose'}
-		<Card title="Import a CV">
-			<form class="flex flex-col gap-5" onsubmit={submit}>
-				<Tabs
-					label="Import from"
-					tabs={[
-						{ id: 'file', label: 'Upload a file' },
-						{ id: 'text', label: 'Paste text' }
-					]}
-					bind:value={mode}
-				>
-					{#snippet panel(id)}
-						<div class="pt-4">
-							{#if id === 'file'}
-								<Dropzone bind:file label="CV file" />
-							{:else}
-								<Textarea
-									label="CV text"
-									rows={12}
-									bind:value={text}
-									help="Paste the whole CV. Formatting is not needed."
+		<!-- Three ways to start, side by side as alternatives; uploading a CV is the default. -->
+		<Card>
+			<Tabs
+				label="Start the profile from"
+				tabs={[
+					{ id: 'file', label: 'Upload a CV' },
+					{ id: 'text', label: 'Paste a CV' },
+					{ id: 'manual', label: 'Enter manually' }
+				]}
+				bind:value={mode}
+			>
+				{#snippet panel(id)}
+					<div class="pt-5">
+						{#if id === 'manual'}
+							<div class="flex flex-col items-start gap-5">
+								<p class="text-base text-fg-muted">
+									Fill in your roles, skills and education yourself in the profile editor.
+								</p>
+								{#if full}
+									<LimitNotice
+										id="manual-blocked"
+										message={full}
+										upgrade={canUpgrade(session.usage, session.billingEnabled)}
+									/>
+								{/if}
+								<Button
+									variant="primary"
+									icon="new"
+									loading={creating}
+									disabled={full !== null}
+									aria-describedby={full ? 'manual-blocked' : undefined}
+									onclick={createEmpty}>Create empty profile</Button
+								>
+							</div>
+						{:else}
+							<form class="flex flex-col gap-5" onsubmit={submit}>
+								{#if id === 'file'}
+									<Dropzone bind:file label="CV file" />
+								{:else}
+									<Textarea
+										label="CV text"
+										rows={12}
+										bind:value={text}
+										help="Paste the whole CV. Formatting is not needed."
+									/>
+								{/if}
+								<ModelSelect
+									bind:value={model}
+									models={session.aiModels}
+									plan={session.me?.plan}
+									enforced={session.plansEnforced}
+									help="The model that reads your CV and fills in the profile. Pro models are more accurate on long or complex CVs."
 								/>
-							{/if}
-						</div>
-					{/snippet}
-				</Tabs>
-				<ModelSelect
-					bind:value={model}
-					models={session.aiModels}
-					plan={session.me?.plan}
-					enforced={session.plansEnforced}
-					help="Free models cost you nothing extra; Pro models are more capable."
-				/>
-				{#if error}
-					<p class="text-sm text-danger" role="alert">{error}</p>
-				{/if}
-				{#if blocked}
-					<!-- Next to the button it disables, so the reason is where the user looks. -->
-					<LimitNotice
-						id="import-blocked"
-						message={blocked}
-						upgrade={canUpgrade(session.usage, session.billingEnabled)}
-					/>
-				{/if}
-				<div>
-					<Button
-						type="submit"
-						variant="primary"
-						icon="import"
-						disabled={!ready}
-						aria-describedby={blocked ? 'import-blocked' : undefined}>Import CV</Button
-					>
-				</div>
-			</form>
+								{#if error}
+									<p class="text-sm text-danger" role="alert">{error}</p>
+								{/if}
+								{#if blocked}
+									<!-- Next to the button it disables, so the reason is where the user looks. -->
+									<LimitNotice
+										id="import-blocked"
+										message={blocked}
+										upgrade={canUpgrade(session.usage, session.billingEnabled)}
+									/>
+								{/if}
+								<div>
+									<Button
+										type="submit"
+										variant="primary"
+										icon="import"
+										disabled={!ready}
+										aria-describedby={blocked ? 'import-blocked' : undefined}>Import CV</Button
+									>
+								</div>
+							</form>
+						{/if}
+					</div>
+				{/snippet}
+			</Tabs>
 		</Card>
 
-		{#if uploads.length > 0}
+		{#if mode === 'file' && uploads.length > 0}
 			<Card title="Earlier uploads" padding="none">
 				<ul>
 					{#each uploads as upload (upload.id)}

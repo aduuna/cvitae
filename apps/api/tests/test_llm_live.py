@@ -91,7 +91,9 @@ async def test_import_matches_the_sample_cv(model: AiModel) -> None:
     )
 
     report(runs)
-    draft = result.output
+    draft = result.output.content
+    assert result.output.profile_name
+    assert SAMPLE.basics.name not in result.output.profile_name
     assert draft.basics.name == SAMPLE.basics.name
     assert roles(draft) == roles(SAMPLE)
     assert {words(b.text) for b in iter_bullets(draft)} == {

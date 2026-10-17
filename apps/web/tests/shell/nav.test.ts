@@ -6,7 +6,6 @@ describe('navItems', () => {
 		expect(navItems.map((item) => [item.label, item.href, item.icon])).toEqual([
 			['Documents', '/app/documents', 'documents'],
 			['Profiles', '/app/profiles', 'profiles'],
-			['Import', '/app/import', 'import'],
 			['Tailor', '/app/tailor', 'tailor'],
 			['Templates', '/app/templates', 'templates'],
 			['Settings', '/app/settings', 'settings']

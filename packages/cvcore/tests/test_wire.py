@@ -7,7 +7,7 @@ import pytest
 
 from cvcore.llm_schema import llm_schema
 from cvcore.models import CvContent
-from cvcore.wire import WireCv, WireTailoredCv, from_wire, parse_url, to_wire
+from cvcore.wire import WireCv, WireImportedCv, WireTailoredCv, from_wire, parse_url, to_wire
 
 FIXTURES = Path(__file__).resolve().parents[3] / "templates" / "fixtures"
 
@@ -39,7 +39,7 @@ def optional_fields(node: dict[str, Any]) -> int:
     return count
 
 
-@pytest.mark.parametrize("model", [WireCv, WireTailoredCv])
+@pytest.mark.parametrize("model", [WireCv, WireImportedCv, WireTailoredCv])
 def test_the_wire_schema_has_no_optional_fields(model: type[WireCv]) -> None:
     # Claude's structured output allows few optional fields, and Gemini skips optional lists.
     assert optional_fields(llm_schema(model)) == 0

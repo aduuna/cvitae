@@ -62,11 +62,11 @@ async function hasHorizontalScroll(page: Page): Promise<boolean> {
 
 /** Imports pasted text and waits for the review screen. */
 async function importPastedText(page: Page) {
-	await page.goto('/app/import');
-	await page.getByRole('tab', { name: 'Paste text' }).click();
+	await page.goto('/app/profiles/new');
+	await page.getByRole('tab', { name: 'Paste a CV' }).click();
 	await page.getByLabel('CV text').fill('Ama Owusu-Mensah, lead data engineer at Northwind.');
 	await page.getByRole('button', { name: 'Import CV' }).click();
-	await expect(page.getByLabel('Profile name')).toHaveValue('Ama Owusu-Mensah');
+	await expect(page.getByLabel('Profile name')).toHaveValue('Data engineering');
 }
 
 test.describe('M3 at 1280px', () => {
@@ -76,8 +76,8 @@ test.describe('M3 at 1280px', () => {
 		page,
 		api
 	}) => {
-		await page.goto('/app/import');
-		await page.getByRole('tab', { name: 'Paste text' }).click();
+		await page.goto('/app/profiles/new');
+		await page.getByRole('tab', { name: 'Paste a CV' }).click();
 		await page.getByLabel('CV text').fill('Ama Owusu-Mensah, lead data engineer at Northwind.');
 		await page.getByRole('button', { name: 'Import CV' }).click();
 
@@ -85,13 +85,13 @@ test.describe('M3 at 1280px', () => {
 			page.getByText('Imported from pasted text. Check every entry before using it.')
 		).toBeVisible();
 		await expect(page.getByText('Extracted with MiMo Flash.', { exact: false })).toBeVisible();
-		await expect(page.getByLabel('Profile name')).toHaveValue('Ama Owusu-Mensah');
+		await expect(page.getByLabel('Profile name')).toHaveValue('Data engineering');
 		await page.screenshot({ path: 'test-results/import-review-1280.png' });
 
 		await page.getByRole('button', { name: 'Save profile' }).click();
 
 		await expect(page).toHaveURL(/\/app\/profiles\/[\w-]+$/);
-		expect(api.profiles.map((p) => p.name)).toEqual(['Ama Owusu-Mensah']);
+		expect(api.profiles.map((p) => p.name)).toEqual(['Data engineering']);
 		expect(api.aiCalls).toEqual([{ task: 'import', model: 'mimo-flash' }]);
 	});
 
@@ -108,13 +108,13 @@ test.describe('M3 at 1280px', () => {
 		await settings.click();
 		await prompt.getByRole('button', { name: 'Keep reviewing' }).click();
 		await expect(prompt).toBeHidden();
-		await expect(page).toHaveURL(/\/app\/import$/);
-		await expect(page.getByLabel('Profile name')).toHaveValue('Ama Owusu-Mensah');
+		await expect(page).toHaveURL(/\/app\/profiles\/new$/);
+		await expect(page.getByLabel('Profile name')).toHaveValue('Data engineering');
 
 		await settings.click();
 		await prompt.getByRole('button', { name: 'Save profile' }).click();
 		await expect(page).toHaveURL(/\/app\/settings$/);
-		expect(api.profiles.map((p) => p.name)).toEqual(['Ama Owusu-Mensah']);
+		expect(api.profiles.map((p) => p.name)).toEqual(['Data engineering']);
 		expect(api.aiCalls).toHaveLength(1);
 	});
 
@@ -164,7 +164,7 @@ test.describe('M3 at 1280px', () => {
 		page,
 		api
 	}) => {
-		await page.goto('/app/import');
+		await page.goto('/app/profiles/new');
 		await page.locator('input[type="file"]').setInputFiles({
 			name: 'Ama CV.pdf',
 			mimeType: 'application/pdf',
@@ -244,13 +244,14 @@ test.describe('M3 at 1280px', () => {
 		expect(api.jobs).toHaveLength(1);
 	});
 
-	test('the default model in settings is preselected on Import', async ({ page, api }) => {
+	test('the default model in settings is preselected for a new profile', async ({ page, api }) => {
 		await page.goto('/app/settings');
 		await page.getByLabel('Default AI model').selectOption({ label: 'Claude Haiku' });
 		await expect(page.getByText('New imports and tailoring use Claude Haiku.')).toBeVisible();
 		expect(api.me.preferred_ai_model).toBe('claude-haiku');
 
-		await page.getByRole('link', { name: 'Import' }).click();
+		await page.getByRole('link', { name: 'Profiles' }).click();
+		await page.getByRole('button', { name: 'New profile' }).first().click();
 
 		await expect(page.getByLabel('AI model')).toHaveValue('claude-haiku');
 	});

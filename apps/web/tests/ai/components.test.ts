@@ -26,7 +26,7 @@ describe('GenerationProgress', () => {
 		expect(screen.getByText('Reading')).toHaveAttribute('aria-live', 'polite');
 		expect(screen.getByRole('progressbar', { name: 'Working' })).toBeVisible();
 		expect(
-			screen.getByText(/Tailoring with Claude\. This can take up to a minute\./)
+			screen.getByText(/Tailoring with Claude\. This can take 1 to 2 minutes\./)
 		).toBeVisible();
 
 		await act(() => vi.advanceTimersByTime(2100));

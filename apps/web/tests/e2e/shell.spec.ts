@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './mock-api';
 
-const sections = ['Documents', 'Profiles', 'Import', 'Tailor', 'Templates', 'Settings'];
+const sections = ['Documents', 'Profiles', 'Tailor', 'Templates', 'Settings'];
 
 async function navWidth(page: Page): Promise<number> {
 	const box = await page.getByRole('navigation', { name: 'Main' }).boundingBox();

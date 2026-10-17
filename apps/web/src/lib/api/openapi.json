@@ -3535,6 +3535,10 @@
           "draft": {
             "$ref": "#/components/schemas/CvContent-Output"
           },
+          "profile_name": {
+            "type": "string",
+            "title": "Profile Name"
+          },
           "ai_model": {
             "$ref": "#/components/schemas/AiModel"
           },
@@ -3550,6 +3554,7 @@
         "required": [
           "upload_id",
           "draft",
+          "profile_name",
           "ai_model",
           "provider",
           "model"

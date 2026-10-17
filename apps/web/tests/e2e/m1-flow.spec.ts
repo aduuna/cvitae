@@ -9,7 +9,11 @@ async function buildProfile(page: Page) {
 	await page.goto('/app/documents');
 	await expect(page.getByText('Start with a profile')).toBeVisible();
 	await page.getByRole('button', { name: 'New profile' }).last().click();
+	await expect(page).toHaveURL(/\/app\/profiles\/new$/);
+	await page.getByRole('tab', { name: 'Enter manually' }).click();
+	await page.getByRole('button', { name: 'Create empty profile' }).click();
 	await expect(page).toHaveURL(/\/app\/profiles\/[\w-]+$/);
+	await expect(page).not.toHaveURL(/\/new$/);
 
 	await page.getByRole('textbox', { name: 'Profile name' }).fill('Data engineering');
 	await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Ama Owusu-Mensah');

@@ -20,7 +20,6 @@
 
 	let profiles = $state<ProfileSummary[] | null>(null);
 	let loadError = $state<string | null>(null);
-	let creating = $state(false);
 	let deleting = $state<ProfileSummary | null>(null);
 	let confirmOpen = $state(false);
 
@@ -45,16 +44,9 @@
 		refreshUsage();
 	});
 
-	async function create() {
-		creating = true;
-		try {
-			const profile = await unwrap(api.POST('/api/v1/profiles', { body: {} }));
-			await goto(resolve('/app/profiles/[id]', { id: profile.id }));
-		} catch (error) {
-			toast.error(errorMessage(error));
-		} finally {
-			creating = false;
-		}
+	/** New profiles start on one page: import a CV (the default) or start from scratch. */
+	function create() {
+		void goto(resolve('/app/profiles/new'));
 	}
 
 	async function run(action: () => Promise<unknown>, done: string) {
@@ -114,12 +106,8 @@
 
 <Page title="Profiles">
 	{#snippet actions()}
-		<Button
-			variant="primary"
-			icon="new"
-			loading={creating}
-			disabled={blocked !== null}
-			onclick={create}>New profile</Button
+		<Button variant="primary" icon="new" disabled={blocked !== null} onclick={create}
+			>New profile</Button
 		>
 	{/snippet}
 
@@ -139,7 +127,7 @@
 			<EmptyState
 				icon="profiles"
 				title="No profiles yet"
-				hint="A profile holds your roles, skills and education. CVs are made from it."
+				hint="A profile holds your roles, skills and education. Import a CV to start one, or fill it in yourself."
 				actionLabel="New profile"
 				actionIcon="new"
 				onaction={create}

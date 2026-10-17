@@ -552,7 +552,7 @@ Base path `/api/v1`. JSON in and out, snake_case. All routes except webhooks, in
 | `GET /me/export` | All user data as JSON |
 | `GET /usage` | Current plan; a meter (`used`, `limit`, `message` once the limit is reached) for AI runs this month, CVs and profiles; the period's start and end; the subscription's status, paid-up date and whether it can be managed yet |
 | `GET/POST /profiles`, `GET/PATCH/DELETE /profiles/{id}`, `POST /profiles/{id}/duplicate` | Profiles |
-| `POST /imports` (multipart: a file, pasted text, or the `upload_id` of an earlier upload; `ai_model`) | Extract a profile draft; returns `{upload_id, draft: CvContent}`. Nothing is saved as a profile: after review the SPA saves the draft with `POST /profiles`. |
+| `POST /imports` (multipart: a file, pasted text, or the `upload_id` of an earlier upload; `ai_model`) | Extract a profile draft; returns `{upload_id, draft: CvContent, profile_name}`, where `profile_name` is the model's suggestion ("Data engineering") or else the CV's headline. Nothing is saved as a profile: after review the SPA saves the draft with `POST /profiles`. |
 | `GET /uploads`, `DELETE /uploads/{id}` | Files the user uploaded for import; deleting removes the object from storage |
 | `GET/POST /jobs`, `GET/DELETE /jobs/{id}` | Saved job descriptions |
 | `POST /tailor` (profile_id, job_id or job text, template_id, ai_model) | Create a tailored CV; returns document, fact report, changes, missing keywords. Regenerating from the review screen deletes the draft CV and calls this again. |

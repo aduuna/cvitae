@@ -252,7 +252,7 @@
 				hint="Tailoring picks from your profile. Import a CV or enter your experience first."
 				actionLabel="Import a CV"
 				actionIcon="import"
-				onaction={() => goto(resolve('/app/import'))}
+				onaction={() => goto(resolve('/app/profiles/new'))}
 			/>
 		</Card>
 	{:else}

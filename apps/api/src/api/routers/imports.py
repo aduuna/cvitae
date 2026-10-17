@@ -30,6 +30,8 @@ class ImportResult(BaseModel):
     """The stored file, for importing again later; None for pasted text."""
     draft: CvContent
     """Not saved: the SPA saves it with POST /profiles after review."""
+    profile_name: str
+    """A suggested name for the profile, for example "Data engineering"; may be empty."""
     ai_model: AiModel
     provider: ProviderName
     model: str
@@ -78,6 +80,7 @@ async def create_import(
     return ImportResult(
         upload_id=result.upload_id,
         draft=result.draft,
+        profile_name=result.profile_name,
         ai_model=result.choice.option.id,
         provider=result.choice.option.provider,
         model=result.model,

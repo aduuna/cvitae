@@ -28,6 +28,8 @@ MAX_TEXT_CHARS = 60_000
 class ImportDraft:
     upload_id: uuid.UUID | None
     draft: CvContent
+    profile_name: str
+    """The model's suggestion, else the CV's headline; empty when neither says anything."""
     choice: ModelChoice
     model: str
     """The model id that answered."""
@@ -94,9 +96,11 @@ async def import_profile(
             )
 
     result = await tasks.extract_profile(choice, runs, text=body, pdf=pdf)
+    content = result.output.content
     return ImportDraft(
         upload_id=upload.id if upload else None,
-        draft=with_fresh_ids(result.output),
+        draft=with_fresh_ids(content),
+        profile_name=result.output.profile_name.strip() or content.basics.headline.strip(),
         choice=choice,
         model=result.model,
     )

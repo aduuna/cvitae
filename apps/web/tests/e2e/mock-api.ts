@@ -364,6 +364,7 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 			return reply(route, 200, {
 				upload_id: upload?.id ?? null,
 				draft: importedDraft(),
+				profile_name: 'Data engineering',
 				ai_model: model,
 				provider: modelInfo(model).provider,
 				model: `fake-${model}`
