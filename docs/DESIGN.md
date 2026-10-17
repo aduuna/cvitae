@@ -176,6 +176,8 @@ No font sizes outside the scale. No italics in the UI (italics belong to CVs). N
 | Documents | `FileText` |
 | Profiles | `UserRound` |
 | Import | `Upload` |
+| Paste a CV | `ClipboardPaste` |
+| Enter manually | `PenLine` |
 | Tailor | `Target` |
 | Templates | `LayoutTemplate` |
 | Settings | `Settings` |

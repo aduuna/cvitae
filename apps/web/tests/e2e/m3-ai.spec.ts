@@ -174,7 +174,7 @@ test.describe('M3 at 1280px', () => {
 		await expect(page.getByText('Imported from Ama CV.pdf.', { exact: false })).toBeVisible();
 		await page.getByRole('button', { name: 'Discard' }).click();
 
-		await expect(page.getByRole('heading', { name: 'Earlier uploads' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Or import an earlier upload' })).toBeVisible();
 		await page.getByLabel('AI model').selectOption({ label: 'Gemini Flash-Lite' });
 		await page.getByRole('button', { name: 'Import again' }).click();
 
@@ -183,6 +183,34 @@ test.describe('M3 at 1280px', () => {
 		).toBeVisible();
 		expect(api.aiCalls.map((call) => call.model)).toEqual(['mimo-flash', 'gemini-flash-lite']);
 		expect(api.uploads).toHaveLength(1);
+	});
+
+	test('lists the 3 newest distinct uploads, and all of them on request', async ({ page, api }) => {
+		const upload = (n: number, filename: string) => ({
+			id: `00000000-0000-4000-8000-00000000000${n}`,
+			filename,
+			mime_type: 'application/pdf',
+			size_bytes: 2048,
+			created_at: new Date(Date.now() - n * 60_000).toISOString()
+		});
+		api.uploads.push(
+			upload(1, 'cv.pdf'),
+			upload(2, 'cv.pdf'),
+			upload(3, 'design.pdf'),
+			upload(4, 'data.pdf'),
+			upload(5, 'old.pdf')
+		);
+		await page.goto('/app/profiles/new');
+		const list = page
+			.getByRole('region', { name: 'Or import an earlier upload' })
+			.getByRole('listitem');
+
+		await expect(list).toHaveCount(3);
+		await expect(list.first()).toContainText('cv.pdf');
+		await page.getByRole('button', { name: 'Show all 5 uploads' }).click();
+		await expect(list).toHaveCount(5);
+		await page.getByRole('tab', { name: 'Paste a CV' }).click();
+		await expect(list).toHaveCount(0);
 	});
 
 	test('tailors a CV, regenerates with another model and opens it', async ({ page, api }) => {

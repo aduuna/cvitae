@@ -36,4 +36,16 @@ describe('Select', () => {
 		expect(select).toHaveAttribute('aria-invalid', 'true');
 		expect(select).toHaveAccessibleDescription('Choose a template.');
 	});
+
+	it('keeps help shown elsewhere in its description, next to its own', () => {
+		render(Select, {
+			label: 'Template',
+			options,
+			help: 'Used for new CVs.',
+			'aria-describedby': 'row-help'
+		});
+		const ids = screen.getByLabelText('Template').getAttribute('aria-describedby')?.split(' ');
+		expect(ids).toHaveLength(2);
+		expect(ids).toContain('row-help');
+	});
 });

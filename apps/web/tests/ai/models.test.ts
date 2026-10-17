@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { importForm, runImport } from '#lib/ai/imports.ts';
+import { importForm, recentUploads, runImport } from '#lib/ai/imports.ts';
 import { modelLabel, modelOptions, otherModels, pickModel } from '#lib/ai/models.ts';
 import type { AiModelInfo } from '#lib/cv/types.ts';
 
@@ -54,6 +54,26 @@ describe('imports', () => {
 		expect([fromText.get('text'), fromText.get('ai_model')]).toEqual(['My CV', 'claude-haiku']);
 		expect(fromUpload.get('upload_id')).toBe('u1');
 		expect(fromUpload.get('file')).toBeNull();
+	});
+
+	it('lists the newest distinct uploads, once each', () => {
+		const upload = (id: string, filename: string, size_bytes = 100) => ({
+			id,
+			filename,
+			size_bytes,
+			mime_type: 'application/pdf',
+			created_at: '2026-10-17T12:00:00Z'
+		});
+		const uploads = [
+			upload('5', 'cv.pdf'),
+			upload('4', 'cv.pdf'),
+			upload('3', 'cv.pdf', 200),
+			upload('2', 'old.pdf'),
+			upload('1', 'older.pdf')
+		];
+
+		expect(recentUploads(uploads).map((u) => u.id)).toEqual(['5', '3', '2']);
+		expect(recentUploads(uploads, 10).map((u) => u.id)).toEqual(['5', '3', '2', '1']);
 	});
 
 	it('posts the form without a JSON content type', async () => {

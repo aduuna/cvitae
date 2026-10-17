@@ -3,7 +3,7 @@
 
 	const tabs = [
 		{ id: 'preview', label: 'Preview' },
-		{ id: 'changes', label: 'Changes' },
+		{ id: 'changes', label: 'Changes', icon: 'versions' as const },
 		{ id: 'gaps', label: 'Gaps' }
 	];
 

@@ -2,6 +2,7 @@
 import Check from '@lucide/svelte/icons/check';
 import ChevronDown from '@lucide/svelte/icons/chevron-down';
 import CircleAlert from '@lucide/svelte/icons/circle-alert';
+import ClipboardPaste from '@lucide/svelte/icons/clipboard-paste';
 import Code from '@lucide/svelte/icons/code';
 import CircleUserRound from '@lucide/svelte/icons/circle-user-round';
 import Copy from '@lucide/svelte/icons/copy';
@@ -16,6 +17,7 @@ import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 import LogOut from '@lucide/svelte/icons/log-out';
 import PanelLeftClose from '@lucide/svelte/icons/panel-left-close';
 import PanelLeftOpen from '@lucide/svelte/icons/panel-left-open';
+import PenLine from '@lucide/svelte/icons/pen-line';
 import Plus from '@lucide/svelte/icons/plus';
 import RotateCcwClock from '@lucide/svelte/icons/rotate-ccw-clock';
 import Settings from '@lucide/svelte/icons/settings';
@@ -33,6 +35,8 @@ export const icons = {
 	documents: FileText,
 	profiles: UserRound,
 	import: Upload,
+	paste: ClipboardPaste,
+	manual: PenLine,
 	tailor: Target,
 	templates: LayoutTemplate,
 	settings: Settings,

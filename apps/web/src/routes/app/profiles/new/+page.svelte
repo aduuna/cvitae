@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { runImport, type ImportSource } from '#lib/ai/imports.ts';
+	import { recentUploads, runImport, type ImportSource } from '#lib/ai/imports.ts';
 	import { modelLabel, pickModel } from '#lib/ai/models.ts';
 	import { api, errorMessage, unwrap } from '#lib/api/client.ts';
 	import { session } from '#lib/auth/session.svelte.ts';
@@ -43,6 +43,8 @@
 	let uploads = $state<UploadSummary[]>([]);
 	let deleting = $state<UploadSummary | null>(null);
 	let deleteOpen = $state(false);
+	let showAllUploads = $state(false);
+	const shownUploads = $derived(showAllUploads ? uploads : recentUploads(uploads));
 
 	let draft = $state<CvContent | null>(null);
 	let sourceName = $state('');
@@ -209,9 +211,9 @@
 			<Tabs
 				label="Start the profile from"
 				tabs={[
-					{ id: 'file', label: 'Upload a CV' },
-					{ id: 'text', label: 'Paste a CV' },
-					{ id: 'manual', label: 'Enter manually' }
+					{ id: 'file', label: 'Upload a CV', icon: 'import' },
+					{ id: 'text', label: 'Paste a CV', icon: 'paste' },
+					{ id: 'manual', label: 'Enter manually', icon: 'manual' }
 				]}
 				bind:value={mode}
 			>
@@ -250,13 +252,6 @@
 										help="Paste the whole CV. Formatting is not needed."
 									/>
 								{/if}
-								<ModelSelect
-									bind:value={model}
-									models={session.aiModels}
-									plan={session.me?.plan}
-									enforced={session.plansEnforced}
-									help="The model that reads your CV and fills in the profile. Pro models are more accurate on long or complex CVs."
-								/>
 								{#if error}
 									<p class="text-sm text-danger" role="alert">{error}</p>
 								{/if}
@@ -268,54 +263,80 @@
 										upgrade={canUpgrade(session.usage, session.billingEnabled)}
 									/>
 								{/if}
-								<div>
-									<Button
-										type="submit"
-										variant="primary"
-										icon="import"
-										disabled={!ready}
-										aria-describedby={blocked ? 'import-blocked' : undefined}>Import CV</Button
-									>
+								<div class="flex flex-col gap-2">
+									<div class="flex flex-wrap items-end gap-3">
+										<div class="w-full sm:w-72">
+											<ModelSelect
+												bind:value={model}
+												models={session.aiModels}
+												plan={session.me?.plan}
+												enforced={session.plansEnforced}
+												aria-describedby="import-help"
+											/>
+										</div>
+										<Button
+											type="submit"
+											variant="primary"
+											icon="import"
+											disabled={!ready}
+											aria-describedby={blocked ? 'import-blocked' : undefined}>Import CV</Button
+										>
+									</div>
+									<p id="import-help" class="text-sm text-fg-muted">
+										The model reads your CV and fills in the profile; Pro models are more accurate
+										on long or complex CVs. You check everything before it is saved.
+									</p>
 								</div>
 							</form>
+							{#if id === 'file' && uploads.length > 0}
+								<section
+									class="mt-6 flex flex-col gap-2 border-t border-line pt-5"
+									aria-labelledby="earlier-uploads"
+								>
+									<h2 id="earlier-uploads" class="text-sm font-medium text-fg">
+										Or import an earlier upload
+									</h2>
+									<ul class="rounded-md border border-line">
+										{#each shownUploads as upload (upload.id)}
+											<li
+												class="flex h-11 items-center gap-3 border-t border-line px-3 first:border-t-0"
+											>
+												<p class="min-w-0 flex-1 truncate text-base text-fg">{upload.filename}</p>
+												<span class="hidden text-sm text-fg-muted sm:inline">
+													{formatBytes(upload.size_bytes)} · {formatRelative(upload.created_at)}
+												</span>
+												<Button
+													size="sm"
+													disabled={!model || blocked !== null}
+													onclick={() => start({ uploadId: upload.id }, upload.filename)}
+												>
+													Import again
+												</Button>
+												<IconButton
+													label="Delete {upload.filename}"
+													icon="delete"
+													onclick={() => {
+														deleting = upload;
+														deleteOpen = true;
+													}}
+												/>
+											</li>
+										{/each}
+									</ul>
+									{#if shownUploads.length < uploads.length}
+										<div>
+											<Button variant="ghost" size="sm" onclick={() => (showAllUploads = true)}>
+												Show all {uploads.length} uploads
+											</Button>
+										</div>
+									{/if}
+								</section>
+							{/if}
 						{/if}
 					</div>
 				{/snippet}
 			</Tabs>
 		</Card>
-
-		{#if mode === 'file' && uploads.length > 0}
-			<Card title="Earlier uploads" padding="none">
-				<ul>
-					{#each uploads as upload (upload.id)}
-						<li class="flex h-12 items-center gap-3 border-t border-line px-5">
-							<div class="min-w-0 flex-1">
-								<p class="truncate text-base text-fg">{upload.filename}</p>
-							</div>
-							<span class="hidden text-sm text-fg-muted sm:inline">
-								<span class="font-mono">{formatBytes(upload.size_bytes)}</span>
-								· {formatRelative(upload.created_at)}
-							</span>
-							<Button
-								size="sm"
-								disabled={!model || blocked !== null}
-								onclick={() => start({ uploadId: upload.id }, upload.filename)}
-							>
-								Import again
-							</Button>
-							<IconButton
-								label="Delete {upload.filename}"
-								icon="delete"
-								onclick={() => {
-									deleting = upload;
-									deleteOpen = true;
-								}}
-							/>
-						</li>
-					{/each}
-				</ul>
-			</Card>
-		{/if}
 	{:else if phase === 'running'}
 		<GenerationProgress
 			steps={STEPS}

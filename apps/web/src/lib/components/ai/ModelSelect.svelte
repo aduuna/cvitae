@@ -12,6 +12,8 @@
 		enforced?: boolean;
 		label?: string;
 		help?: string;
+		/** Help shown elsewhere, for example under a row with the submit button. */
+		'aria-describedby'?: string;
 		disabled?: boolean;
 	}
 
@@ -22,6 +24,7 @@
 		enforced = false,
 		label = 'AI model',
 		help,
+		'aria-describedby': describedby,
 		disabled = false
 	}: Props = $props();
 
@@ -38,6 +41,7 @@
 	<Select
 		{label}
 		{help}
+		aria-describedby={describedby}
 		{options}
 		{disabled}
 		bind:value={() => selected, (next) => (value = (selected = next) as AiModel)}

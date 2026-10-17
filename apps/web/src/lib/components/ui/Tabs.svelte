@@ -1,12 +1,17 @@
 <script lang="ts" module>
+	import type { IconName } from './icons';
+
 	export interface TabItem {
 		id: string;
 		label: string;
+		/** Optional leading icon, for tabs that are choices rather than views. */
+		icon?: IconName;
 	}
 </script>
 
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import Icon from './Icon.svelte';
 	import { nextIndex } from './roving';
 
 	interface Props {
@@ -50,12 +55,13 @@
 				onclick={() => (value = tab.id)}
 				onkeydown={(event) => onkeydown(event, index)}
 				class={[
-					'-mb-px h-9 border-b-2 text-base transition-colors duration-120 ease-out',
+					'-mb-px inline-flex h-9 items-center gap-1.5 border-b-2 text-base transition-colors duration-120 ease-out',
 					selected
 						? 'border-accent font-medium text-fg'
 						: 'border-transparent text-fg-muted hover:text-fg'
 				]}
 			>
+				{#if tab.icon}<Icon name={tab.icon} />{/if}
 				{tab.label}
 			</button>
 		{/each}

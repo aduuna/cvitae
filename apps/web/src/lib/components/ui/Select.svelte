@@ -44,7 +44,9 @@
 				{id}
 				{...rest}
 				aria-invalid={control.invalid || undefined}
-				aria-describedby={control.describedby}
+				aria-describedby={[control.describedby, rest['aria-describedby']]
+					.filter(Boolean)
+					.join(' ') || undefined}
 				class="h-8 appearance-none pr-8 {controlClass(control.invalid)}"
 			>
 				{#each options as option (option.value)}

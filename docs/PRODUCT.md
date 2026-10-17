@@ -77,7 +77,9 @@ and create a second profile from scratch or by duplicating the first.
 - Import is how a new profile starts by default. Every "New profile" button opens
   `/app/profiles/new`: one row of tabs with the three ways to start, as alternatives rather than
   steps: "Upload a CV" (selected), "Paste a CV" and "Enter manually" (an empty profile in the
-  editor). Under "Upload a CV", earlier uploads are listed to import again.
+  editor). The AI model picker sits next to Import CV, with a line saying the user checks
+  everything before it is saved. Under "Upload a CV", "Or import an earlier upload" lists the 3
+  newest distinct files (a file uploaded twice shows once) and "Show all" lists every upload.
 - Inputs: PDF or DOCX up to 10 MB, or pasted text.
 - The selected AI model extracts a structured profile.
 - The model also suggests the profile's name: the kind of work the CV is for, such as "Data

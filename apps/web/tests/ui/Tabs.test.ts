@@ -25,6 +25,12 @@ describe('Tabs', () => {
 		expect(preview).toHaveAttribute('aria-controls', tabpanel.id);
 	});
 
+	it('shows an icon before the label of tabs that have one', () => {
+		const { preview, changes } = setup();
+		expect(changes.querySelector('svg')).not.toBeNull();
+		expect(preview.querySelector('svg')).toBeNull();
+	});
+
 	it('switches on click', async () => {
 		const { gaps } = setup();
 		await userEvent.click(gaps);

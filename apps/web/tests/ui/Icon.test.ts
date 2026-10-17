@@ -49,7 +49,9 @@ describe('Icon', () => {
 			'nav-expand',
 			'placeholder-warning',
 			'code',
-			'form'
+			'form',
+			'paste',
+			'manual'
 		]) {
 			expect(icons).toHaveProperty(name);
 		}
