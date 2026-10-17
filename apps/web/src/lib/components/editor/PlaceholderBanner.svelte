@@ -17,11 +17,17 @@
 
 	let expanded = $state(false);
 	const count = $derived(placeholders.length);
+
+	// Export stopped: the banner may appear above where the user has scrolled the form, so bring it
+	// into view, in danger colours so it reads as a stop rather than a hint.
+	function reveal(node: HTMLElement) {
+		node.scrollIntoView({ block: 'nearest' });
+	}
 </script>
 
-<div role="status" class="rounded-lg border border-line bg-surface p-4">
+<div role="status" class="rounded-lg border border-danger bg-surface p-4" {@attach reveal}>
 	<div class="flex items-start gap-3">
-		<span class="mt-0.5 text-fg"><Icon name="placeholder-warning" /></span>
+		<span class="mt-0.5 text-danger"><Icon name="placeholder-warning" /></span>
 		<div class="min-w-0 flex-1">
 			<p class="text-base font-medium text-fg">
 				Export stopped: this CV has {count}
