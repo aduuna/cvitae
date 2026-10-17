@@ -60,6 +60,15 @@ async function hasHorizontalScroll(page: Page): Promise<boolean> {
 	return page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
 }
 
+/** Imports pasted text and waits for the review screen. */
+async function importPastedText(page: Page) {
+	await page.goto('/app/import');
+	await page.getByRole('tab', { name: 'Paste text' }).click();
+	await page.getByLabel('CV text').fill('Ama Owusu-Mensah, lead data engineer at Northwind.');
+	await page.getByRole('button', { name: 'Import CV' }).click();
+	await expect(page.getByLabel('Profile name')).toHaveValue('Ama Owusu-Mensah');
+}
+
 test.describe('M3 at 1280px', () => {
 	test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -84,6 +93,71 @@ test.describe('M3 at 1280px', () => {
 		await expect(page).toHaveURL(/\/app\/profiles\/[\w-]+$/);
 		expect(api.profiles.map((p) => p.name)).toEqual(['Ama Owusu-Mensah']);
 		expect(api.aiCalls).toEqual([{ task: 'import', model: 'mimo-flash' }]);
+	});
+
+	test('asks to save an unsaved import before leaving, and saves on the way', async ({
+		page,
+		api
+	}) => {
+		await importPastedText(page);
+		const settings = page.getByRole('navigation', { name: 'Main' }).getByRole('link', {
+			name: 'Settings'
+		});
+		const prompt = page.getByRole('dialog', { name: 'Save the imported profile?' });
+
+		await settings.click();
+		await prompt.getByRole('button', { name: 'Keep reviewing' }).click();
+		await expect(prompt).toBeHidden();
+		await expect(page).toHaveURL(/\/app\/import$/);
+		await expect(page.getByLabel('Profile name')).toHaveValue('Ama Owusu-Mensah');
+
+		await settings.click();
+		await prompt.getByRole('button', { name: 'Save profile' }).click();
+		await expect(page).toHaveURL(/\/app\/settings$/);
+		expect(api.profiles.map((p) => p.name)).toEqual(['Ama Owusu-Mensah']);
+		expect(api.aiCalls).toHaveLength(1);
+	});
+
+	test('leaves an unsaved import without saving when asked to discard it', async ({
+		page,
+		api
+	}) => {
+		await importPastedText(page);
+
+		await page
+			.getByRole('navigation', { name: 'Main' })
+			.getByRole('link', { name: 'Tailor' })
+			.click();
+		await page
+			.getByRole('dialog', { name: 'Save the imported profile?' })
+			.getByRole('button', { name: 'Discard' })
+			.click();
+
+		await expect(page).toHaveURL(/\/app\/tailor$/);
+		expect(api.profiles).toEqual([]);
+	});
+
+	test('a long import review scrolls inside the page, never the window', async ({ page }) => {
+		await importPastedText(page);
+		await page.getByRole('main').evaluate((main) => main.scrollTo(0, main.scrollHeight));
+
+		expect(
+			await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)
+		).toBe(0);
+	});
+
+	test('the browser asks before closing a tab with an unsaved import', async ({ page }) => {
+		await importPastedText(page);
+		const asked = new Promise<string>((done) =>
+			page.once('dialog', (dialog) => {
+				done(dialog.type());
+				void dialog.dismiss();
+			})
+		);
+
+		await page.close({ runBeforeUnload: true });
+
+		expect(await asked).toBe('beforeunload');
 	});
 
 	test('imports a file, keeps it, and imports it again with another model', async ({

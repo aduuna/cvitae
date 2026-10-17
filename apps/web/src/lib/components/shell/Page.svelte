@@ -27,7 +27,8 @@
 	{/if}
 </header>
 
-<main id="main" tabindex="-1" class="min-h-0 flex-1 overflow-y-auto focus:outline-none">
+<!-- relative: absolute children (sr-only text) stay inside this scroller instead of stretching the window. -->
+<main id="main" tabindex="-1" class="relative min-h-0 flex-1 overflow-y-auto focus:outline-none">
 	{#if width === 'narrow'}
 		<div class="mx-auto flex w-full max-w-240 flex-col gap-6 px-6 py-6">
 			{@render children?.()}

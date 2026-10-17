@@ -79,6 +79,9 @@ and create a second profile from scratch or by duplicating the first.
 - The selected AI model extracts a structured profile.
 - The user reviews the result in the profile editor before it is saved, with a banner:
   "Imported from <filename>. Check every entry before using it."
+- The draft exists only until it is saved, and it cost AI usage, so leaving the review asks first:
+  "Save the imported profile?" with Keep reviewing, Discard and Save profile (which then goes on to
+  where the user was heading). Closing or reloading the tab gets the browser's own prompt.
 - Extraction must not invent content; empty fields stay empty.
 - The original file is stored so the user can re-run import later, and can be deleted.
 

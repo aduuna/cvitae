@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { runImport, type ImportSource } from '#lib/ai/imports.ts';
 	import { modelLabel, pickModel } from '#lib/ai/models.ts';
@@ -15,6 +15,7 @@
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
 	import ConfirmDialog from '#lib/components/ui/ConfirmDialog.svelte';
+	import Dialog from '#lib/components/ui/Dialog.svelte';
 	import Dropzone from '#lib/components/ui/Dropzone.svelte';
 	import Icon from '#lib/components/ui/Icon.svelte';
 	import IconButton from '#lib/components/ui/IconButton.svelte';
@@ -48,6 +49,26 @@
 	let usedModel = $state<AiModel | null>(null);
 	let profileName = $state('');
 	let saving = $state(false);
+
+	// The draft exists only on this page and cost an AI run, so leaving asks to save it first.
+	let leaveTo = $state<URL | null>(null);
+	let leaveOpen = $state(false);
+	let leaving = false;
+
+	beforeNavigate((navigation) => {
+		if (phase !== 'review' || leaving) return;
+		navigation.cancel();
+		// Closing or reloading the tab gets the browser's own prompt from cancel().
+		if (navigation.type === 'leave' || !navigation.to) return;
+		leaveTo = navigation.to.url;
+		leaveOpen = true;
+	});
+
+	function leave(to: string | URL) {
+		leaving = true;
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved routes or SvelteKit's own target
+		return goto(to);
+	}
 
 	/** An import takes an AI run and makes a profile: set when either limit is reached. */
 	const blocked = $derived(
@@ -116,7 +137,8 @@
 		else if (mode === 'text' && text.trim()) void start({ text: text.trim() }, 'pasted text');
 	}
 
-	async function save() {
+	/** Saves the draft, then opens the new profile or goes where the user was heading. */
+	async function save(to?: URL) {
 		if (!draft) return;
 		saving = true;
 		try {
@@ -126,7 +148,8 @@
 				})
 			);
 			toast.info('Profile saved.');
-			await goto(resolve('/app/profiles/[id]', { id: profile.id }));
+			leaveOpen = false;
+			await leave(to ?? resolve('/app/profiles/[id]', { id: profile.id }));
 		} catch (failure) {
 			toast.error(errorMessage(failure));
 		} finally {
@@ -161,7 +184,7 @@
 	{#snippet actions()}
 		{#if phase === 'review'}
 			<Button onclick={discard}>Discard</Button>
-			<Button variant="primary" loading={saving} onclick={save}>Save profile</Button>
+			<Button variant="primary" loading={saving} onclick={() => save()}>Save profile</Button>
 		{/if}
 	{/snippet}
 
@@ -282,6 +305,22 @@
 		<CvEditor bind:content={draft} />
 	{/if}
 </Page>
+
+<Dialog bind:open={leaveOpen} title="Save the imported profile?">
+	<p>
+		It is not saved yet. If you leave without saving, it is lost and importing again counts toward
+		your AI usage.
+	</p>
+	{#snippet footer()}
+		<Button variant="secondary" onclick={() => (leaveOpen = false)}>Keep reviewing</Button>
+		<Button variant="danger" disabled={saving} onclick={() => leaveTo && leave(leaveTo)}>
+			Discard
+		</Button>
+		<Button variant="primary" loading={saving} onclick={() => save(leaveTo ?? undefined)}>
+			Save profile
+		</Button>
+	{/snippet}
+</Dialog>
 
 <ConfirmDialog
 	bind:open={deleteOpen}
