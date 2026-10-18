@@ -129,6 +129,14 @@ class WireTailoredCv(CvModel):
     )
 
 
+class WireCvEdit(CvModel):
+    reply: str = Field(
+        description="One to three plain sentences to the person: what you changed, the answer "
+        "to their question, or why you made no change."
+    )
+    content: WireCv = Field(description="The whole CV after the change.")
+
+
 # CvContent to wire
 
 

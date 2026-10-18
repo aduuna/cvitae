@@ -30,6 +30,11 @@ class ImportedCv(CvModel):
     )
 
 
+class CvEdit(CvModel):
+    reply: str = Field(description="What the model says back to the person.")
+    content: CvContent = Field(description="The whole CV after the change.")
+
+
 class TailoredCv(CvModel):
     content: CvContent = Field(description="The tailored CV.")
     changes: list[BulletChange] = Field(description="One entry per bullet that was reworded.")

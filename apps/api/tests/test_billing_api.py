@@ -12,12 +12,28 @@ from api.deps import get_billing
 from api.ports.billing import FakePaystackClient
 from api.repositories.subscriptions import SubscriptionRepository
 from api.repositories.users import UserRepository
+from api.settings import Settings
 
 PLAN = "PLN_pro_test"
 
 
 async def user_id(client: AsyncClient) -> uuid.UUID:
     return uuid.UUID((await client.get("/api/v1/me")).json()["id"])
+
+
+async def test_dev_plan_puts_every_local_user_on_it(
+    client: AsyncClient, settings: Settings
+) -> None:
+    settings.dev_plan = "pro"
+
+    usage = (await client.get("/api/v1/usage")).json()
+
+    assert (await client.get("/api/v1/me")).json()["plan"] == "pro"
+    assert (usage["plan"], usage["ai_runs"]["limit"], usage["profiles"]["limit"]) == (
+        "pro",
+        150,
+        10,
+    )
 
 
 async def test_usage_of_a_new_user(client: AsyncClient) -> None:

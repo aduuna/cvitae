@@ -236,6 +236,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/{document_id}/ai-edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ai Edit
+         * @description The CV with the change `message` asks for, checked by the fact guard. Takes one AI run.
+         */
+        post: operations["ai_edit_api_v1_documents__document_id__ai_edit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/templates": {
         parameters: {
             query?: never;
@@ -481,6 +501,32 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AiEditRequest */
+        AiEditRequest: {
+            /** Message */
+            message: string;
+            /** Scope */
+            scope?: string | null;
+            /**
+             * History
+             * @default []
+             */
+            history?: components["schemas"]["ChatTurn"][];
+            ai_model?: components["schemas"]["AiModel"] | null;
+        };
+        /** AiEditResult */
+        AiEditResult: {
+            /** Reply */
+            reply: string;
+            content: components["schemas"]["CvContent-Output"];
+            /** Changed */
+            changed: boolean;
+            /** Issues */
+            issues: components["schemas"]["FactIssue"][];
+            ai_model: components["schemas"]["AiModel"];
+            /** Model */
+            model: string;
+        };
         /**
          * AiModel
          * @enum {string}
@@ -636,6 +682,16 @@ export interface components {
              * @default
              */
             date: string;
+        };
+        /** ChatTurn */
+        ChatTurn: {
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+            /** Text */
+            text: string;
         };
         /** Checkout */
         Checkout: {
@@ -2616,6 +2672,95 @@ export interface operations {
             };
             /** @description Invalid request */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    ai_edit_api_v1_documents__document_id__ai_edit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiEditRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiEditResult"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description A plan limit is reached; the message says which */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description The AI provider failed */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description The AI provider took too long */
+            504: {
                 headers: {
                     [name: string]: unknown;
                 };

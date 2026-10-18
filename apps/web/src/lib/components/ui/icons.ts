@@ -1,6 +1,7 @@
 // The only module that imports from @lucide/svelte. Components use Icon.svelte with a name from here.
 import Check from '@lucide/svelte/icons/check';
 import ChevronDown from '@lucide/svelte/icons/chevron-down';
+import ChevronUp from '@lucide/svelte/icons/chevron-up';
 import CircleAlert from '@lucide/svelte/icons/circle-alert';
 import ClipboardPaste from '@lucide/svelte/icons/clipboard-paste';
 import Code from '@lucide/svelte/icons/code';
@@ -21,11 +22,14 @@ import PanelLeftOpen from '@lucide/svelte/icons/panel-left-open';
 import PenLine from '@lucide/svelte/icons/pen-line';
 import Plus from '@lucide/svelte/icons/plus';
 import RotateCcwClock from '@lucide/svelte/icons/rotate-ccw-clock';
+import Send from '@lucide/svelte/icons/send';
+import Sparkles from '@lucide/svelte/icons/sparkles';
 import Settings from '@lucide/svelte/icons/settings';
 import ShieldCheck from '@lucide/svelte/icons/shield-check';
 import Target from '@lucide/svelte/icons/target';
 import Trash from '@lucide/svelte/icons/trash';
 import Type from '@lucide/svelte/icons/type';
+import Undo2 from '@lucide/svelte/icons/undo-2';
 import Upload from '@lucide/svelte/icons/upload';
 import UserRound from '@lucide/svelte/icons/user-round';
 import X from '@lucide/svelte/icons/x';
@@ -57,6 +61,7 @@ export const icons = {
 	form: ListTree,
 	close: X,
 	'chevron-down': ChevronDown,
+	'chevron-up': ChevronUp,
 	check: Check,
 	loading: LoaderCircle,
 	more: Ellipsis,
@@ -65,7 +70,10 @@ export const icons = {
 	'sign-out': LogOut,
 	facts: ShieldCheck,
 	typeset: Type,
-	model: Cpu
+	model: Cpu,
+	'ai-edit': Sparkles,
+	send: Send,
+	undo: Undo2
 } as const;
 
 export type IconName = keyof typeof icons;

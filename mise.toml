@@ -40,6 +40,10 @@ description = "Run the web app on :5173"
 dir = "apps/web"
 run = "bun run dev"
 
+[tasks.reset]
+description = "Delete all local data (the database and uploads) for a fresh start"
+run = ["docker compose down --volumes", "rm -rf .data/uploads"]
+
 [tasks.dev]
 description = "Start Postgres, api, renderer and web app together"
 depends = ["dev:api", "dev:renderer", "dev:web"]

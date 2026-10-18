@@ -198,6 +198,10 @@ No font sizes outside the scale; the display sizes (`3xl`, `4xl`) appear on the 
 | Plan limit reached | `CircleAlert` |
 | Code mode | `Code` |
 | Form mode | `ListTree` |
+| Edit with AI | `Sparkles` |
+| Send | `Send` |
+| Undo | `Undo2` |
+| Open a docked panel | `ChevronUp` (and `ChevronDown` to close it) |
 | Landing: checked against your facts | `ShieldCheck` |
 | Landing: typeset with Typst | `Type` |
 | Landing: choice of AI model | `Cpu` |
@@ -225,6 +229,16 @@ No font sizes outside the scale; the display sizes (`3xl`, `4xl`) appear on the 
 - **Editor:** full width, split into edit panel (min 360px) and preview panel, with a draggable splitter
   (`border-line-strong`, 4px hit area). Split ratio persists per user in local storage, wrapped in
   try/catch.
+- **Edit with AI panel:** docked at the bottom of the edit panel (not a third column, which would not
+  fit beside the preview at 768px), above `border-line`, on `bg-surface`. Closed, it is a pill button
+  (`rounded-full`, `accent` fill like a primary button, 32px) with the Sparkles icon and "Edit with AI", and a
+  one-line hint beside it, so it is not missed. Open, it is a 40px bar with the icon, the label and a
+  chevron, and the conversation (at most 288px, scrolling) sits over the composer: the part and model
+  selects side by side, then a 2-row textarea with the primary Send button beside it (Enter sends,
+  Shift+Enter is a new line). Requests are right-aligned `bg-muted` bubbles with the part they are
+  limited to above them in `text-xs`; replies are plain `fg` text with fact-guard notes and "Edited
+  with <model>." plus Undo in `text-sm text-fg-muted`.
+  Open or closed is remembered in local storage (`vitae.editor.aiPanel`), wrapped in try/catch.
 - **Preview canvas:** `bg-canvas`, pages are `bg-paper` with `shadow-page`, 24px gap between pages,
   zoom control (fit width, 75%, 100%, 125%) in the panel header. Click to edit: the part under the
   pointer gets one box per line in `paper-mark` (5% fill, 30% outline, radius `sm`) and a pointer
@@ -294,8 +308,10 @@ not by passing class strings from pages.
 - **Generation progress** (Import, Tailor): a card with the current step text, a thin indeterminate
   progress bar (`bg-accent` on `bg-muted`), elapsed seconds in mono, and a cancel button. Announced via
   `aria-live="polite"`.
-- **Review screen** (after tailoring): three tabs on narrow screens, three columns on wide screens:
-  Preview, Changes, Gaps. Changes show source text in `fg-muted` above the new text in `fg`.
+- **Review screen** (after tailoring): the preview, with a 352px "Next steps" column beside it from
+  1024px, or two tabs (Preview, Next steps) below that. Next steps are actions first; the change
+  details sit in a folded `<details>`, where changes show source text in `fg-muted` above the new
+  text in `fg`.
 - **Landing page** (`/`, signed out): the one page outside the app shell, in the spirit of typst.app
   and github.com but in this language. A sticky 56px top bar (`bg-surface/90`, `border-line`): logo and
   name left, "How it works" and a secondary "Sign in" right (a primary "Open app" for signed-in

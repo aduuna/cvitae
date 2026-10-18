@@ -220,15 +220,16 @@ test.describe('M3 at 1280px', () => {
 		await page.getByLabel('Job description').fill(AD);
 		await page.getByRole('button', { name: 'Tailor CV' }).click();
 
-		for (const name of ['Preview', 'Changes (2)', 'Gaps (2)']) {
+		for (const name of ['Preview', 'Next steps']) {
 			await expect(page.getByRole('heading', { level: 2, name })).toBeVisible();
 		}
+		await expect(page.getByText(/^What changed:/)).toBeVisible();
 		await expect(
 			page.getByText('Generated with MiMo Flash for Senior Data Engineer')
 		).toBeVisible();
 		await expect(page.getByRole('img', { name: 'Page 1 of 1' })).toBeVisible();
 		await expect(
-			page.getByText('Only add these if they are true.', { exact: false })
+			page.getByText('Add the ones that are true to your profile', { exact: false })
 		).toBeVisible();
 		expect(await hasHorizontalScroll(page)).toBe(false);
 		await page.screenshot({ path: 'test-results/tailor-review-1280.png' });
@@ -295,7 +296,7 @@ test.describe('M3 at 768px', () => {
 		await page.getByRole('button', { name: 'Tailor CV' }).click();
 
 		await expect(page.getByRole('tab', { name: 'Preview' })).toBeVisible();
-		await page.getByRole('tab', { name: 'Gaps (2)' }).click();
+		await page.getByRole('tab', { name: 'Next steps' }).click();
 		await expect(page.getByText('Snowflake')).toBeVisible();
 		expect(await hasHorizontalScroll(page)).toBe(false);
 		await page.screenshot({ path: 'test-results/tailor-review-768.png' });

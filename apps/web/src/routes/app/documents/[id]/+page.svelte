@@ -3,10 +3,12 @@
 	import { MediaQuery } from 'svelte/reactivity';
 	import { beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
+	import { AiEditChat } from '#lib/ai/edit.svelte.ts';
 	import { api, errorMessage, unwrap } from '#lib/api/client.ts';
 	import { Autosave } from '#lib/autosave.svelte.ts';
 	import CvEditor from '#lib/components/cv/CvEditor.svelte';
 	import SaveStatus from '#lib/components/cv/SaveStatus.svelte';
+	import AiEditPanel from '#lib/components/editor/AiEditPanel.svelte';
 	import PlaceholderBanner from '#lib/components/editor/PlaceholderBanner.svelte';
 	import PreviewPanel from '#lib/components/editor/PreviewPanel.svelte';
 	import VersionsDialog from '#lib/components/editor/VersionsDialog.svelte';
@@ -40,6 +42,7 @@
 	let loadError = $state<string | null>(null);
 	let autosave = $state<Autosave<CvContent> | null>(null);
 	let preview = $state<PreviewState | null>(null);
+	let chat = $state<AiEditChat | null>(null);
 
 	let versionsOpen = $state(false);
 	let exporting = $state(false);
@@ -67,12 +70,18 @@
 			);
 			autosave?.dispose();
 			preview?.dispose();
+			chat?.dispose();
 			autosave = new Autosave<CvContent>(
 				(content) => saveContent(documentId, content),
 				loaded.content,
 				400
 			);
 			preview = new PreviewState(documentId);
+			chat = new AiEditChat(documentId, {
+				content: () => doc?.content ?? loaded.content,
+				save: flush,
+				apply: applyEdit
+			});
 			doc = loaded;
 			void preview.refresh();
 		} catch (error) {
@@ -106,6 +115,7 @@
 	$effect(() => () => {
 		autosave?.dispose();
 		preview?.dispose();
+		chat?.dispose();
 	});
 
 	beforeNavigate(() => {
@@ -151,6 +161,13 @@
 		} finally {
 			exporting = false;
 		}
+	}
+
+	/** An AI edit goes into the form as typing would, and autosave saves it. */
+	function applyEdit(content: CvContent) {
+		if (!doc) return;
+		doc.content = content;
+		placeholders = null;
 	}
 
 	function restored(updated: CvDocument) {
@@ -232,22 +249,23 @@
 		<div class="mx-auto w-full max-w-240 p-6"><Card><Skeleton lines={6} /></Card></div>
 	{:else if wide.current}
 		<div class="flex h-full min-h-0" bind:clientWidth={containerWidth}>
-			<div
-				bind:this={editPanel}
-				class="min-h-0 shrink-0 overflow-y-auto"
-				style:width="{editWidth}px"
-			>
-				<div class="flex flex-col gap-4 p-4">
-					{#if placeholders}
-						<PlaceholderBanner
-							{placeholders}
-							content={doc.content}
-							onfocus={focusPlaceholder}
-							ondismiss={() => (placeholders = null)}
-						/>
-					{/if}
-					<CvEditor bind:content={doc.content} />
+			<div class="flex min-h-0 shrink-0 flex-col" style:width="{editWidth}px">
+				<div bind:this={editPanel} class="min-h-0 flex-1 overflow-y-auto">
+					<div class="flex flex-col gap-4 p-4">
+						{#if placeholders}
+							<PlaceholderBanner
+								{placeholders}
+								content={doc.content}
+								onfocus={focusPlaceholder}
+								ondismiss={() => (placeholders = null)}
+							/>
+						{/if}
+						<CvEditor bind:content={doc.content} />
+					</div>
 				</div>
+				{#if chat && doc.mode === 'structured'}
+					<AiEditPanel {chat} content={doc.content} />
+				{/if}
 			</div>
 			<Splitter
 				bind:value={() => editWidth, (value) => (split = value)}

@@ -79,6 +79,8 @@ is enough. Docker must be running.
 mise install        # bun and uv, at the versions in mise.toml
 mise run setup      # first run: uv sync, bun install, .env from .env.example
 mise run dev        # Postgres, migrations, api, renderer and web app; Ctrl+C stops them
+DEV_PLAN=pro mise run dev   # the same, with you on the Pro plan
+mise run reset      # delete all local data (database and uploads) for a fresh start
 ```
 
 `mise run dev` starts Postgres, waits for it, applies migrations, then runs the api, renderer and
@@ -111,7 +113,8 @@ a deterministic fake. The real calls have their own tests, run by hand because t
 uv run pytest -m live apps/api/tests/test_llm_live.py -s   # prints tokens and cost per run
 ```
 
-Pro models need the Pro plan. To try them locally without Paystack, set `ENFORCE_AI_PLANS=false`.
+Pro models need the Pro plan. To try Pro locally without Paystack, set `DEV_PLAN=pro` (in `.env`, or
+before `mise run dev`): every local user is then on Pro, with its models and limits.
 
 ### Billing
 

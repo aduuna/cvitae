@@ -22,3 +22,6 @@ htmlcov/
 
 # Local file storage (STORAGE_MODE=local)
 .data/
+
+# Claude Code local state and worktrees; never part of the repository
+.claude/

@@ -1,7 +1,16 @@
 import { render, screen, within } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 import ChangesPanel from '#lib/components/tailor/ChangesPanel.svelte';
-import GapsPanel from '#lib/components/tailor/GapsPanel.svelte';
+import NextSteps from '#lib/components/tailor/NextSteps.svelte';
+import type { TailorResult } from '#lib/cv/types.ts';
+
+const mocks = vi.hoisted(() => ({ goto: vi.fn() }));
+vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
+vi.mock('$app/paths', () => ({
+	resolve: (route: string, params: Record<string, string> = {}) =>
+		route.replace(/\[(\w+)\]/g, (_, key: string) => params[key] ?? '')
+}));
 
 const changes = [
 	{
@@ -67,26 +76,65 @@ describe('ChangesPanel', () => {
 	});
 });
 
-describe('GapsPanel', () => {
-	it('lists placeholders and missing keywords with the honesty note', () => {
-		render(GapsPanel, {
-			placeholders: [{ text: 'number of analysts', bullet_id: 'b' }],
-			missingKeywords: ['Snowflake', 'Kubernetes']
-		});
+function result(overrides: Partial<TailorResult> = {}): TailorResult {
+	return {
+		document: { id: 'd1', profile_id: 'p1' },
+		job: { id: 'j1', title: 'Data engineer', company: 'Agoda' },
+		ai_model: 'mimo-flash',
+		provider: 'mimo',
+		model: 'mimo-v2.6-flash',
+		issues: [{ kind: 'new_skill', message: 'Removed Kubernetes: it is not in your profile.' }],
+		changes,
+		dropped: [{ source_id: 'b9', entry: 'Data engineer, Brightline', text: 'Old bullet.' }],
+		placeholders: [
+			{ text: 'number of analysts', bullet_id: 'b1' },
+			{ text: 'latency', bullet_id: 'b3' }
+		],
+		missing_keywords: Array.from({ length: 12 }, (_, i) => `Keyword ${i + 1}`),
+		...overrides
+	} as unknown as TailorResult;
+}
 
-		expect(screen.getByText('number of analysts')).toHaveClass('bg-placeholder');
-		expect(screen.getByText(/Only add these if they are true\./)).toBeVisible();
-		expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
-			'number of analysts',
-			'Snowflake',
-			'Kubernetes'
-		]);
+describe('NextSteps', () => {
+	it('puts the gaps first, then the missing keywords, and folds the details away', async () => {
+		const user = userEvent.setup();
+		render(NextSteps, { result: result() });
+
+		// The first headings; jsdom does not hide what a closed <details> holds.
+		expect(
+			screen
+				.getAllByRole('heading')
+				.map((h) => h.textContent?.trim())
+				.slice(0, 2)
+		).toEqual(['Fill in 2 gaps', 'Not in your profile (12)']);
+		await user.click(screen.getByRole('button', { name: 'Fill in the editor' }));
+		expect(mocks.goto).toHaveBeenLastCalledWith('/app/documents/d1');
+
+		const keywords = () =>
+			within(screen.getByRole('list', { name: 'Job keywords not in your profile' })).getAllByRole(
+				'listitem'
+			);
+		expect(keywords()).toHaveLength(10);
+		await user.click(screen.getByRole('button', { name: 'Show all 12' }));
+		expect(keywords()).toHaveLength(12);
+		await user.click(screen.getByRole('button', { name: 'Edit profile' }));
+		expect(mocks.goto).toHaveBeenLastCalledWith('/app/profiles/p1');
+
+		const details = screen.getByText(/^What changed:/).closest('details');
+		expect(details).not.toHaveAttribute('open');
+		expect(screen.getByText(/^What changed:/)).toHaveTextContent(
+			'What changed: 2 reworded, 1 kept as written, 1 left out, 1 corrected by the fact check'
+		);
 	});
 
-	it('says when there is nothing to do', () => {
-		render(GapsPanel, { placeholders: [], missingKeywords: [] });
+	it('says when there is nothing to fill in, and leaves out what does not apply', () => {
+		render(NextSteps, { result: result({ placeholders: [], missing_keywords: [], issues: [] }) });
 
-		expect(screen.getByText('Nothing to fill in.')).toBeVisible();
-		expect(screen.getByText("Your profile covers the job's keywords.")).toBeVisible();
+		expect(screen.getByRole('heading', { name: 'Nothing to fill in' })).toBeVisible();
+		expect(screen.queryByRole('button', { name: 'Fill in the editor' })).toBeNull();
+		expect(screen.queryByText(/Not in your profile/)).toBeNull();
+		expect(screen.getByText(/^What changed:/)).toHaveTextContent(
+			'What changed: 2 reworded, 1 kept as written, 1 left out'
+		);
 	});
 });

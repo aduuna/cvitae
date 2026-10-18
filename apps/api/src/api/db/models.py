@@ -127,7 +127,7 @@ class AiRun(UserOwned):
     __tablename__ = "ai_runs"
     __table_args__ = (
         Index("ix_ai_runs_user_id_created_at", "user_id", text("created_at DESC")),
-        CheckConstraint("task IN ('import', 'analyze_job', 'tailor')", name="task"),
+        CheckConstraint("task IN ('import', 'analyze_job', 'tailor', 'edit')", name="task"),
         CheckConstraint("provider IN ('claude', 'gemini', 'mimo')", name="provider"),
         CheckConstraint("status IN ('succeeded', 'failed')", name="status"),
     )

@@ -5,13 +5,14 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from api.ai.prompts import edit_cv as edit_prompt
 from api.ai.prompts import tailor_cv as tailor_prompt
 from api.ports.llm.base import LLMRequest, LLMResult, ProviderName
 from cvcore.ai import JobAnalysis
 from cvcore.models import CvContent
 from cvcore.render import iter_bullets
 from cvcore.richtext import plain_text
-from cvcore.wire import WireImportedCv, WireTailoredCv, to_wire
+from cvcore.wire import WireCvEdit, WireImportedCv, WireTailoredCv, to_wire
 
 type Responder = Callable[[LLMRequest[Any]], BaseModel]
 
@@ -60,8 +61,8 @@ KNOWN_TERMS = [
 def default_responders(sample_profile: CvContent) -> dict[str, Responder]:
     """Plausible, deterministic answers in the providers' wire shape: import returns the sample
     profile (the content of templates/fixtures/sample-cv.pdf), job analysis reads the ad's first
-    lines and known terms, and tailoring returns the profile it was given with every bullet traced
-    to its source."""
+    lines and known terms, tailoring returns the profile it was given with every bullet traced
+    to its source, and an edit returns the CV it was given unchanged."""
 
     def extract(_: LLMRequest[Any]) -> BaseModel:
         return WireImportedCv(content=to_wire(sample_profile), profile_name="Data engineering")
@@ -95,4 +96,8 @@ def default_responders(sample_profile: CvContent) -> dict[str, Responder]:
         ]
         return WireTailoredCv(content=to_wire(profile), changes=[], missing_keywords=missing)
 
-    return {"import": extract, "analyze_job": analyze, "tailor": tailor}
+    def edit(request: LLMRequest[Any]) -> BaseModel:
+        cv = edit_prompt.cv_from(request.user_text)
+        return WireCvEdit(reply="I made no change.", content=to_wire(cv))
+
+    return {"import": extract, "analyze_job": analyze, "tailor": tailor, "edit": edit}

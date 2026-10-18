@@ -1,14 +1,28 @@
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Response, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from api.deps import CurrentUser, Documents, Profiles, Renderer, UserPlan, Versions
-from api.errors import ERROR_RESPONSES, QUOTA_RESPONSES, ErrorEnvelope
+from api.ai.models import AiModel
+from api.ai.prompts.edit_cv import Turn
+from api.deps import (
+    AiRuns,
+    AppSettings,
+    CurrentUser,
+    Documents,
+    Profiles,
+    Providers,
+    Renderer,
+    UserPlan,
+    Versions,
+)
+from api.errors import AI_ERROR_RESPONSES, ERROR_RESPONSES, QUOTA_RESPONSES, ErrorEnvelope
+from api.services import ai_edits, rendering, versions
 from api.services import documents as service
-from api.services import rendering, versions
+from api.services.ai_models import choose_model
+from cvcore.factguard import FactIssue
 from cvcore.models import CvContent
 from cvcore.rendering import SvgPages
 
@@ -45,6 +59,33 @@ class DocumentUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=200)
     template_id: str | None = None
     content: CvContent | None = None
+
+
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)]
+
+
+class AiEditRequest(BaseModel):
+    message: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
+    scope: str | None = Field(None, max_length=64)
+    """The only part that may change: None for the whole CV, "summary", or a section id."""
+    history: list[ChatTurn] = Field([], max_length=12)
+    """Earlier messages of the conversation, oldest first."""
+    ai_model: AiModel | None = None
+    """Defaults to the user's chosen model."""
+
+
+class AiEditResult(BaseModel):
+    reply: str
+    content: CvContent
+    """The whole CV after the edit; nothing is saved until the editor saves it."""
+    changed: bool
+    issues: list[FactIssue]
+    """What the fact guard corrected."""
+    ai_model: AiModel
+    model: str
+    """The provider's model id that answered."""
 
 
 class Version(BaseModel):
@@ -167,3 +208,48 @@ async def restore_version(
 ) -> Document:
     row = await versions.restore_version(documents, versions_repo, document_id, number)
     return Document.model_validate(row)
+
+
+@router.post(
+    "/{document_id}/ai-edit",
+    responses={**AI_ERROR_RESPONSES, 409: {"model": ErrorEnvelope}},
+)
+async def ai_edit(
+    document_id: uuid.UUID,
+    body: AiEditRequest,
+    user: CurrentUser,
+    plan: UserPlan,
+    providers: Providers,
+    settings: AppSettings,
+    runs: AiRuns,
+    documents: Documents,
+    versions_repo: Versions,
+) -> AiEditResult:
+    """The CV with the change `message` asks for, checked by the fact guard. Takes one AI run."""
+    choice = choose_model(
+        providers,
+        user,
+        body.ai_model,
+        default=settings.default_ai_model,
+        enforce_plans=settings.enforce_ai_plans,
+        plan=plan,
+    )
+    result = await ai_edits.edit_document(
+        choice,
+        runs,
+        documents,
+        versions_repo,
+        document_id,
+        message=body.message,
+        history=[Turn(role=turn.role, text=turn.text) for turn in body.history],
+        scope=body.scope,
+        plan=plan,
+    )
+    return AiEditResult(
+        reply=result.reply,
+        content=result.content,
+        changed=result.changed,
+        issues=result.issues,
+        ai_model=result.choice.option.id,
+        model=result.model,
+    )

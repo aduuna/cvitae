@@ -14,7 +14,7 @@ from api.errors import ProviderError, ProviderTimeout
 
 logger = logging.getLogger(__name__)
 
-AiTask = Literal["import", "analyze_job", "tailor"]
+AiTask = Literal["import", "analyze_job", "tailor", "edit"]
 Effort = Literal["low", "medium", "high"]
 
 

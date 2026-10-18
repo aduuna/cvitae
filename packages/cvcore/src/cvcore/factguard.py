@@ -3,9 +3,11 @@
 `check(source, tailored)` compares a tailored CV with the profile it came from and returns the
 content with every violation corrected, plus a report of what was corrected:
 
-- `new_claim`: a bullet without a known `source_id`, or one moved to a different employer, becomes a
-  placeholder holding its text. Entries (roles, clients, projects, degrees, certifications) that are
-  not in the source are removed.
+- `new_claim`: a bullet that cannot be traced to a source bullet of the same entry, or one moved to
+  a different employer, becomes a placeholder holding its text. Tracing uses `source_id`; when it
+  is missing or unknown (weaker models drop it), the bullet's own id if a source bullet has it,
+  else clearly shared wording with one source bullet of the same entry. Entries (roles, clients,
+  projects, degrees, certifications) that are not in the source are removed.
 - `new_number`: a number in a bullet that is not in its source bullet becomes
   `[[check this number: <n>]]`. The summary is checked against every number in the source; a
   headline with a new number reverts to the source headline (`changed_fact`).
@@ -13,7 +15,7 @@ content with every violation corrected, plus a report of what was corrected:
   and certification details, and contact details revert to the source.
 - `new_skill`: skills and stack entries that are not in the source are removed. A skill counts as
   in the source when it is a source skill or stack entry, or is mentioned in any source text; a
-  stack entry must belong to the same role in the source.
+  stack entry must be in the same role's source stack or mentioned in that role's own bullets.
 
 Entries are matched by id, then by name (for example organisation and role), so a model that
 rewrites ids still lines up. The guard is deterministic and has no I/O.
@@ -90,6 +92,20 @@ def _mentioned(term: str, text: str) -> bool:
     return re.search(rf"(?<!\w){re.escape(term.casefold())}(?!\w)", text) is not None
 
 
+# Words that say little about what a bullet is about, left out when comparing wording.
+_FILLER = frozenset(
+    {"the", "and", "for", "with", "from", "into", "that", "this", "using", "across"}
+)
+
+TRACE_OVERLAP = 0.6
+"""Share of the shorter bullet's words found in the other for a bullet to trace to it."""
+
+
+def _words(text: str) -> set[str]:
+    words = re.findall(r"[a-z0-9]+", plain_text(text).casefold())
+    return {word for word in words if len(word) > 2 and word not in _FILLER}
+
+
 def as_placeholder(text: str) -> str:
     """The text, without markers, as one placeholder."""
     plain = plain_text(text).replace(OPEN, "[ [").replace(CLOSE, "] ]").strip()
@@ -144,13 +160,31 @@ class _Source:
             return items[item.id]
         return next((known for known in items.values() if key(known) == key(item)), None)
 
+    def trace(self, bullet_id: str, text: str, owner: str) -> tuple[Bullet, str] | None:
+        """The source bullet of entry `owner` that a bullet without a usable source_id comes
+        from: the one it kept the id of, else the one whose wording it clearly shares."""
+        own = [known for known in self.bullets.values() if known[1] == owner]
+        same_id = next((known for known in own if known[0].id == bullet_id), None)
+        if same_id is not None:
+            return same_id
+        words = _words(text)
+        best, best_overlap = None, 0.0
+        for known in own:
+            theirs = _words(known[0].text)
+            if words and theirs:
+                overlap = len(words & theirs) / min(len(words), len(theirs))
+                if overlap > best_overlap:
+                    best, best_overlap = known, overlap
+        return best if best_overlap >= TRACE_OVERLAP else None
+
     def has_skill(self, skill: str) -> bool:
         return skill.casefold() in self.skills or _mentioned(skill, self.text)
 
 
 class _Guard:
-    def __init__(self, source: CvContent) -> None:
+    def __init__(self, source: CvContent, where: str) -> None:
         self.source = _Source(source)
+        self.where = where
         self.issues: list[FactIssue] = []
         self.bullet_ids: set[str] = set()
 
@@ -169,7 +203,7 @@ class _Guard:
         before, after = getattr(source, field), getattr(tailored, field)
         if before != after:
             setattr(tailored, field, before)
-            self.issue("changed_fact", f"Kept the {label} from your profile.", value=str(after))
+            self.issue("changed_fact", f"Kept the {label} from {self.where}.", value=str(after))
 
     # Text
 
@@ -189,7 +223,7 @@ class _Guard:
                 spans.append(Span(t=f"check this number: {match[0]}", b=span.b, p=True))
                 self.issue(
                     "new_number",
-                    f"The number {match[0]} is not in your profile. Check it before using this CV.",
+                    f"The number {match[0]} is not in {self.where}. Check it before using this CV.",
                     bullet_id=bullet_id,
                     value=match[0],
                 )
@@ -201,12 +235,15 @@ class _Guard:
     def bullets(self, bullets: Iterable[Bullet], owner: str) -> list[Bullet]:
         kept: list[Bullet] = []
         for bullet in bullets:
+            known = self.source.bullets.get(bullet.source_id or "")
+            if known is None:
+                known = self.source.trace(bullet.id, bullet.text, owner)
+                bullet.source_id = known[0].id if known else None
             if not bullet.id or bullet.id in self.bullet_ids:
                 bullet.id = new_id()
             self.bullet_ids.add(bullet.id)
-            known = self.source.bullets.get(bullet.source_id or "")
             if known is None or known[1] != owner:
-                reason = "is not in your profile" if known is None else "comes from another entry"
+                reason = f"is not in {self.where}" if known is None else "comes from another entry"
                 bullet.text = as_placeholder(bullet.text)
                 bullet.source_id = None
                 self.issue(
@@ -229,7 +266,7 @@ class _Guard:
             if allowed(entry):
                 kept.append(entry)
             else:
-                self.issue("new_skill", f"Removed {entry}: it is not in your profile.", value=entry)
+                self.issue("new_skill", f"Removed {entry}: it is not in {self.where}.", value=entry)
         return kept
 
     # Entries
@@ -239,7 +276,7 @@ class _Guard:
         if source is None:
             self.issue(
                 "new_claim",
-                f"Removed {item.role} at {item.org}: it is not in your profile.",
+                f"Removed {item.role} at {item.org}: it is not in {self.where}.",
                 value=f"{item.role}, {item.org}",
             )
             return None
@@ -248,7 +285,12 @@ class _Guard:
             self.revert(label, item, source, field)
         self.revert("dates", item, source, "dates")
         own_stack = {entry.casefold() for entry in source.stack}
-        item.stack = self.skills(item.stack, lambda entry: entry.casefold() in own_stack)
+        own_bullets = [*source.bullets, *(b for e in source.engagements for b in e.bullets)]
+        own_text = " ".join(plain_text(b.text) for b in own_bullets).casefold()
+        item.stack = self.skills(
+            item.stack,
+            lambda entry: entry.casefold() in own_stack or _mentioned(entry, own_text),
+        )
         owner = f"experience:{source.id}"
         item.bullets = self.bullets(item.bullets, owner)
         item.engagements = [
@@ -268,7 +310,7 @@ class _Guard:
         if source is None:
             self.issue(
                 "new_claim",
-                f"Removed {engagement.name}: it is not a client of {parent.org} in your profile.",
+                f"Removed {engagement.name}: it is not a client of {parent.org} in {self.where}.",
                 value=engagement.name,
             )
             return None
@@ -287,7 +329,7 @@ class _Guard:
         source = self.source.match(self.source.projects, item, lambda it: _key(it.name))
         if source is None:
             self.issue(
-                "new_claim", f"Removed {item.name}: it is not in your profile.", value=item.name
+                "new_claim", f"Removed {item.name}: it is not in {self.where}.", value=item.name
             )
             return None
         item.id = source.id
@@ -308,7 +350,7 @@ class _Guard:
         if source is None:
             self.issue(
                 "new_claim",
-                f"Removed {item.degree} at {item.institution}: it is not in your profile.",
+                f"Removed {item.degree} at {item.institution}: it is not in {self.where}.",
                 value=f"{item.degree}, {item.institution}",
             )
             return None
@@ -326,7 +368,7 @@ class _Guard:
         source = self.source.match(self.source.certifications, item, lambda it: _key(it.name))
         if source is None:
             self.issue(
-                "new_claim", f"Removed {item.name}: it is not in your profile.", value=item.name
+                "new_claim", f"Removed {item.name}: it is not in {self.where}.", value=item.name
             )
             return None
         item.id = source.id
@@ -343,8 +385,10 @@ class _Guard:
         return group if group.items else None
 
 
-def check(source: CvContent, tailored: CvContent) -> FactReport:
-    guard = _Guard(source)
+def check(source: CvContent, tailored: CvContent, *, where: str = "your profile") -> FactReport:
+    """`where` names the source in issue messages: "your profile" when tailoring, "your CV" when
+    an AI edit is checked against the CV it changed."""
+    guard = _Guard(source, where)
     content = tailored.model_copy(deep=True)
 
     for label, field in [

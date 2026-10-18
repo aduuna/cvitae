@@ -61,6 +61,20 @@ def test_dev_auth_is_allowed_locally(env: Literal["local", "test"]) -> None:
     assert Settings(env=env, auth_mode="dev", database_url=DB).auth_mode == "dev"
 
 
+def test_dev_plan_needs_dev_auth() -> None:
+    with pytest.raises(ValidationError, match="DEV_PLAN needs AUTH_MODE=dev"):
+        Settings(
+            env="local",
+            auth_mode="firebase",
+            database_url=DB,
+            firebase_project_id="p",
+            firebase_api_key="k",
+            firebase_auth_domain="d",
+            firebase_app_id="a",
+            dev_plan="pro",
+        )
+
+
 def test_firebase_auth_needs_the_web_config() -> None:
     with pytest.raises(ValidationError, match="FIREBASE_API_KEY, FIREBASE_APP_ID"):
         Settings(

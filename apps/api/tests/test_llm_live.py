@@ -1,4 +1,4 @@
-"""Real calls to Claude and Gemini (the M3 done-when check). Never part of the default run.
+"""Real calls to the AI providers (the M3 done-when check, and AI edits). Never run by default.
 
 uv run pytest -m live apps/api/tests/test_llm_live.py -s
 
@@ -126,3 +126,29 @@ async def test_tailoring_leaves_no_unflagged_violations(model: AiModel) -> None:
     assert all(
         b.source_id in sources or b.text.startswith("[[") for b in iter_bullets(guarded.content)
     )
+
+
+@pytest.mark.parametrize("model", list(AiModel))
+async def test_an_edit_changes_only_what_was_asked(model: AiModel) -> None:
+    choice, runs = make_choice(model), MemoryRuns()
+
+    edit = (
+        await tasks.edit_cv(
+            choice,
+            runs,
+            cv=SAMPLE,
+            request="Shorten the summary to one sentence.",
+            focus="the summary",
+        )
+    ).output
+    guarded = factguard.check(SAMPLE, edit.content, where="your CV")
+
+    report(runs)
+    print(f"reply: {edit.reply}\nfact guard corrected {[i.kind for i in guarded.issues]}")
+    assert edit.reply
+    assert len(plain_text(edit.content.summary)) < len(plain_text(SAMPLE.summary))
+    # Everything else comes back as it was, ids included.
+    assert [(b.id, words(b.text)) for b in iter_bullets(edit.content)] == [
+        (b.id, words(b.text)) for b in iter_bullets(SAMPLE)
+    ]
+    assert roles(edit.content) == roles(SAMPLE)

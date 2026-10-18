@@ -7,20 +7,22 @@ Prompts and outputs are never logged.
 import logging
 import time
 import uuid
+from collections.abc import Sequence
 from typing import Any, Protocol
 
 from pydantic import BaseModel
 
 from api.ai.pricing import cost_usd
 from api.ai.prompts import analyze_job as analyze_prompt
+from api.ai.prompts import edit_cv as edit_prompt
 from api.ai.prompts import extract_profile as extract_prompt
 from api.ai.prompts import tailor_cv as tailor_prompt
 from api.errors import ProviderError, ProviderTimeout
 from api.ports.llm.base import LLMProvider, LLMRequest, LLMResult
 from api.services.ai_models import ModelChoice
-from cvcore.ai import BulletChange, ImportedCv, JobAnalysis, TailoredCv
+from cvcore.ai import BulletChange, CvEdit, ImportedCv, JobAnalysis, TailoredCv
 from cvcore.models import CvContent
-from cvcore.wire import WireImportedCv, WireTailoredCv, from_wire
+from cvcore.wire import WireCvEdit, WireImportedCv, WireTailoredCv, from_wire
 
 logger = logging.getLogger(__name__)
 
@@ -169,3 +171,27 @@ async def tailor_cv(
         missing_keywords=wire.missing_keywords,
     )
     return _with_output(result, tailored)
+
+
+async def edit_cv(
+    choice: ModelChoice,
+    runs: RunRecorder,
+    *,
+    cv: CvContent,
+    request: str,
+    history: Sequence[edit_prompt.Turn] = (),
+    focus: str | None = None,
+) -> LLMResult[CvEdit]:
+    llm_request = LLMRequest(
+        task="edit",
+        system=edit_prompt.SYSTEM,
+        user_text=edit_prompt.build(cv, request, history, focus),
+        output_model=WireCvEdit,
+        model=choice.option.model,
+        effort="low",
+    )
+    result = await run(choice.provider, runs, llm_request, edit_prompt.PROMPT_VERSION)
+    wire = result.output
+    # The reply is shown as plain text; models sometimes quote the CV's bold markers in it.
+    reply = wire.reply.replace("**", "").strip()
+    return _with_output(result, CvEdit(reply=reply, content=from_wire(wire.content)))

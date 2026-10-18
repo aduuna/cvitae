@@ -155,9 +155,9 @@ SubscriptionsFor = Annotated[billing.SubscriptionsFor, Depends(get_subscriptions
 Webhooks = Annotated[WebhookRepository, Depends(get_webhooks)]
 
 
-async def get_plan(user: CurrentUser, subscriptions: Subscriptions) -> Plan:
-    """The plan the signed-in user is on now."""
-    return await billing.current_plan(user, subscriptions)
+async def get_plan(user: CurrentUser, subscriptions: Subscriptions, settings: AppSettings) -> Plan:
+    """The plan the signed-in user is on now; DEV_PLAN overrides it on a local stack."""
+    return settings.dev_plan or await billing.current_plan(user, subscriptions)
 
 
 UserPlan = Annotated[Plan, Depends(get_plan)]

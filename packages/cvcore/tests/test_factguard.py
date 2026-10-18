@@ -183,6 +183,55 @@ def test_bullets_without_a_known_source_become_placeholders(
     assert "not in your profile" in report.issues[0].message
 
 
+def test_a_bullet_that_kept_its_profile_id_is_traced_without_a_source_id(
+    source: CvContent,
+) -> None:
+    def edit(content: CvContent) -> None:
+        # Weaker models copy the profile bullet's id and leave source_id empty.
+        reworded = bullet(content, "b-bl-2")
+        reworded.source_id = None
+        reworded.text = "Cut cloud costs by **$4,800** a month, and by **30%** overall."
+
+    report = check(source, tailor(source, edit))
+
+    traced = bullet(report.content, "b-bl-2")
+    assert traced.source_id == "b-bl-2"
+    # Traced means reworded, not unchecked: the new number still becomes a placeholder.
+    assert "**$4,800**" in traced.text
+    assert "[[check this number: 30%]]" in traced.text
+    assert kinds(report) == ["new_number"]
+
+
+def test_a_reworded_bullet_is_traced_by_its_wording_within_its_own_entry(source: CvContent) -> None:
+    text = "Consolidated **12** source systems into the first BigQuery warehouse."
+
+    def edit(content: CvContent) -> None:
+        experience(content, "exp-brightline").bullets[0] = Bullet(id="x1", text=text)
+        # The same wording under another employer is not traced: bullets never change employer.
+        experience(content, "exp-kente").bullets.append(Bullet(id="x2", text=text))
+
+    report = check(source, tailor(source, edit))
+
+    assert bullet(report.content, "x1").source_id == "b-bl-1"
+    assert bullet(report.content, "x1").text == text
+    assert bullet(report.content, "x2").text.startswith("[[Consolidated 12")
+    assert [(i.kind, i.bullet_id) for i in report.issues] == [("new_claim", "x2")]
+
+
+def test_a_bullet_that_shares_only_a_few_words_is_not_traced(source: CvContent) -> None:
+    def edit(content: CvContent) -> None:
+        experience(content, "exp-brightline").bullets.append(
+            Bullet(
+                id="x", text="Built a real-time fraud platform on the warehouse for **40** banks."
+            )
+        )
+
+    report = check(source, tailor(source, edit))
+
+    assert bullet(report.content, "x").source_id is None
+    assert kinds(report) == ["new_claim"]
+
+
 def test_a_bullet_moved_to_another_employer_is_a_new_claim(source: CvContent) -> None:
     def edit(content: CvContent) -> None:
         moved = experience(content, "exp-northwind").bullets.pop()
@@ -237,6 +286,19 @@ def test_changed_facts_revert(source: CvContent) -> None:
     assert role.message == "Kept the role from your profile."
 
 
+def test_messages_name_the_source_they_were_checked_against(source: CvContent) -> None:
+    def edit(content: CvContent) -> None:
+        experience(content, "exp-brightline").role = "Senior data engineer"
+        bullet(content, "b-bl-3").text = "Mentored 4 graduate engineers through their first year."
+
+    report = check(source, tailor(source, edit), where="your CV")
+
+    assert [issue.message for issue in report.issues] == [
+        "Kept the role from your CV.",
+        "The number 4 is not in your CV. Check it before using this CV.",
+    ]
+
+
 def test_entries_with_rewritten_ids_are_matched_by_name(source: CvContent) -> None:
     def edit(content: CvContent) -> None:
         item = experience(content, "exp-kente")
@@ -275,6 +337,19 @@ def test_stack_entries_must_belong_to_the_same_role(source: CvContent) -> None:
 
     assert experience(report.content, "exp-kente").stack == ["Java", "mysql"]
     assert [(i.kind, i.value) for i in report.issues] == [("new_skill", "Spark")]
+
+
+def test_stack_entries_mentioned_in_the_roles_own_bullets_are_kept(source: CvContent) -> None:
+    def edit(content: CvContent) -> None:
+        # Brightline's bullets mention BigQuery; Kente's do not.
+        experience(content, "exp-brightline").stack = ["Python", "BigQuery"]
+        experience(content, "exp-kente").stack = ["Java", "BigQuery"]
+
+    report = check(source, tailor(source, edit))
+
+    assert experience(report.content, "exp-brightline").stack == ["Python", "BigQuery"]
+    assert experience(report.content, "exp-kente").stack == ["Java"]
+    assert [(i.kind, i.value) for i in report.issues] == [("new_skill", "BigQuery")]
 
 
 def test_skills_must_be_in_the_profile(source: CvContent) -> None:

@@ -86,7 +86,7 @@ apps/api/src/api/
     base.py          UserScopedRepository[T]: get/list/create/update/delete, always filtered by user_id
     users.py profiles.py documents.py jobs.py uploads.py ai_runs.py subscriptions.py webhooks.py
   services/
-    users.py profiles.py documents.py versions.py jobs.py imports.py tailoring.py
+    users.py profiles.py documents.py versions.py jobs.py imports.py tailoring.py ai_edits.py
     rendering.py billing.py quotas.py account.py
   ports/             Protocols (interfaces) + implementations for external systems
     llm/
@@ -195,7 +195,7 @@ in Python.
 | `documents` | `user_id`, `profile_id` null, `job_id` null, `name`, `template_id`, `mode` (`structured`/`ejected`), `content` jsonb, `source_files` jsonb null, `page_count` | `source_files` holds `{"main.typ": "...", "data.json": "..."}` once ejected. |
 | `document_versions` | `document_id`, `number`, `reason` (`tailor`/`manual`/`restore`/`autosave`), `content` jsonb, `source_files` jsonb null | Autosave versions older than 7 days are pruned by a daily Cloud Scheduler call. |
 | `uploads` | `user_id`, `storage_key`, `filename`, `mime_type`, `size_bytes` | File itself in GCS. |
-| `ai_runs` | `user_id`, `task` (`import`/`analyze_job`/`tailor`), `provider`, `model`, `prompt_version`, `status`, `error_code`, `input_tokens`, `output_tokens`, `cost_usd` numeric(10,6), `duration_ms` | No prompt or output content. Drives quotas and cost reporting. |
+| `ai_runs` | `user_id`, `task` (`import`/`analyze_job`/`tailor`/`edit`), `provider`, `model`, `prompt_version`, `status`, `error_code`, `input_tokens`, `output_tokens`, `cost_usd` numeric(10,6), `duration_ms` | No prompt or output content. Drives quotas and cost reporting. |
 | `subscriptions` | `user_id` unique, `paystack_customer_code`, `paystack_subscription_code` null, `plan_code`, `status` (`active`/`non_renewing`/`attention`/`cancelled`), `current_period_end` null | Mirrors Paystack state. The subscription code arrives with `subscription.create`; `current_period_end` is the next payment date Paystack last reported, so the date the user has paid up to. |
 | `webhook_events` | `provider`, `event_key` unique, `event_type`, `processed_at` | Idempotency for webhooks. No payload is stored. |
 
@@ -316,8 +316,12 @@ conversion.
 
 `check(source: CvContent, tailored: CvContent) -> FactReport`:
 
-1. Every tailored bullet must have a `source_id` that exists in the source profile. Bullets without one are
-   reported as `new_claim` and converted to a placeholder span containing the original text.
+1. Every tailored bullet must trace to a source bullet of the same entry: by `source_id`, or, when that
+   is missing or unknown (weaker models drop it), by its own id if a source bullet has it, else by
+   clearly shared wording (at least 60% of the shorter bullet's words, filler words aside) with one
+   source bullet of that entry. A traced bullet gets that `source_id` and the number check below.
+   Bullets that cannot be traced are reported as `new_claim` and converted to a placeholder span
+   containing the original text.
 2. Numbers in a tailored bullet (regex for digits with optional separators, decimals, `%`, `+`, `k`, `m`,
    `M`, `x`) must appear in the source bullet's text. Any that do not are replaced with
    `[[check this number: <n>]]` and reported as `new_number`.
@@ -325,7 +329,8 @@ conversion.
    mismatches are reverted to the source value and reported as `changed_fact`.
 4. Skills and stack entries must exist in the source (case-insensitive); others are removed and reported
    as `new_skill`. A skill exists when it is a source skill or stack entry or is mentioned in any source
-   text; a stack entry must belong to the same role in the source.
+   text; a stack entry must be in the same role's source stack or mentioned in that role's own
+   bullets.
 
 Also: a bullet may move between a role and its own client engagements, but a bullet moved to another
 employer or project is a `new_claim`. Entries are matched by id, then by name (organisation and role,
@@ -365,7 +370,7 @@ class ProviderName(StrEnum):
 
 @dataclass(frozen=True)
 class LLMRequest(Generic[T]):
-    task: Literal["import", "analyze_job", "tailor"]
+    task: Literal["import", "analyze_job", "tailor", "edit"]
     system: str
     user_text: str
     output_model: type[T]            # Pydantic model; the provider must return a valid instance
@@ -424,9 +429,29 @@ Prompts, schemas, validation and the fact guard are shared. Adapters only transl
 | `extract_profile` | PDF bytes, or text extracted from DOCX (python-docx) or pasted text | `CvContent` | default |
 | `analyze_job` | job description text | `JobAnalysis` (title, company, seniority, must_have[], nice_to_have[], keywords[], summary) | fast |
 | `tailor_cv` | profile `CvContent`, `JobAnalysis`, job text, template constraints (target pages) | `TailoredCv` (content: CvContent, changes: list of {source_id, rationale} keyed by the profile bullet, missing_keywords[]) | default |
+| `edit_cv` | the CV's `CvContent` (without profile links), the request, up to 12 earlier messages, the part it may change | `CvEdit` (reply, content: the whole CV) | default, low effort |
 
 Each task: check quota, build the request from the prompt module, call the provider via the registry,
-validate, run the fact guard (tailor only), record an `ai_runs` row (success or failure), return.
+validate, run the fact guard (tailor and edit), record an `ai_runs` row (success or failure), return.
+
+### AI edits (services/ai_edits.py)
+
+`POST /documents/{id}/ai-edit` changes one structured CV as the user asks in words, under the same
+rules as tailoring, and saves nothing: the editor puts the returned content into its form and
+autosave saves it, so Undo works like any other edit.
+
+- The model reads the CV through the wire shape with every `source_id` cleared and is told to keep
+  ids. A bullet that kept its id is checked against that bullet of the CV, so the fact guard runs
+  with the CV as the source (`check(cv, edited, where="your CV")`, which also words its messages
+  for a CV). Afterwards each bullet gets back the link to the profile bullet its CV bullet had.
+- `scope` (`null`, `"summary"` or a section id) limits the change, enforced on the server: everything
+  outside it is taken from the CV as it was. A scoped section the model leaves out is removed; one
+  whose kind it changed is kept as it was.
+- `changed` is false when the guarded answer equals the CV, for example when the user asked a
+  question; the reply answers it. When it is true and the CV differs from its latest version, the
+  content before the edit is kept as an `autosave` version first.
+- Ejected CVs are refused with 409. The conversation lives in the editor only; the request carries
+  the earlier messages (at most 12, 4,000 characters each; the request itself at most 2,000).
 
 ### Quotas (services/quotas.py)
 
@@ -435,8 +460,9 @@ work it guards, so a refused request calls no model, stores no upload and saves 
 
 - **AI runs** count per calendar month in UTC. Free counts every `ai_runs` row, failed ones included,
   so failing calls cannot be used to spend tokens for free; Pro counts succeeded runs only. Import
-  needs one run. Tailoring needs two when the job has no analysis yet (analysis and tailoring) and
-  one when it has, and checks both up front so it never stops halfway.
+  needs one run, and so does each AI edit request. Tailoring needs two when the job has no analysis
+  yet (analysis and tailoring) and one when it has, and checks both up front so it never stops
+  halfway.
 - **CVs and profiles** are checked on create and duplicate. Tailoring also needs room for a CV, and
   import room for a profile, since its draft is saved as one. After a downgrade, existing ones stay
   readable, editable and exportable; only new ones are blocked.
@@ -572,6 +598,7 @@ Base path `/api/v1`. JSON in and out, snake_case. All routes except webhooks, in
 | `POST /documents/{id}/duplicate` | Copy a CV |
 | `POST /documents/{id}/eject` | Switch to Typst mode (one-way) |
 | `POST /documents/{id}/preview` | SVG pages or diagnostics |
+| `POST /documents/{id}/ai-edit` (message, scope, history, ai_model) | The CV with the requested change, checked by the fact guard; returns `{reply, content, changed, issues, ai_model, model}` and saves nothing. One AI run; 409 for ejected CVs |
 | `GET /documents/{id}/export.pdf` | Stream PDF; 409 if placeholders remain unless `?force=true` |
 | `GET /documents/{id}/versions`, `POST /documents/{id}/versions`, `POST /documents/{id}/versions/{n}/restore` | Version history |
 | `GET /templates` | Template metadata (proxied from the renderer, cached in memory) |

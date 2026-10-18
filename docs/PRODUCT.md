@@ -29,6 +29,7 @@ and Europe, which is why payments go through Paystack.
 | Template | A Typst design that renders any CV. Five ship in v1. |
 | Placeholder | Highlighted text in a CV that the user must replace, for example "[[number of users]]". |
 | Tailoring | Creating a CV from a profile plus a job, using AI under the no-new-facts rule. |
+| AI edit | A change to one CV asked for in words in the editor's "Edit with AI" panel, under the same rule. |
 | Ejected CV | A CV whose Typst source and data file the user edits directly. AI tailoring no longer applies to it. |
 | AI model | What runs an AI task: MiMo Flash, Claude Haiku or Gemini Flash-Lite on every plan; MiMo Pro, Gemini Flash or Claude Sonnet on Pro. |
 
@@ -113,11 +114,15 @@ bullets match the source, and the user can accept or discard it.
 - Form: job description (required, pasted text), job title, company, URL (optional), base profile,
   template, AI model (a select, defaulting to the user's setting).
 - Jobs are saved and listed on the Tailor page so the user can tailor again or see what was sent.
-- Generation produces a new CV and opens a review screen with three panels:
-  1. **Preview** of the tailored CV.
-  2. **Changes**: each bullet shows its source bullet and the rewritten version; dropped items are listed.
-  3. **Gaps**: placeholders the user must fill, and job keywords not covered by the profile, with the note
-     "Only add these if they are true."
+- Generation produces a new CV and opens a review screen: the **Preview** of the tailored CV, with
+  **Next steps** beside it, kept short and actionable:
+  1. **Fill in N gaps**: placeholders are highlighted in the preview, so they are counted, not listed;
+     "Fill in the editor" opens the CV.
+  2. **Not in your profile**: job keywords the profile does not cover (10 shown, "Show all" for the
+     rest), "Add the ones that are true to your profile, then tailor again", and "Edit profile".
+  3. **What changed**: one folded line ("4 reworded, 2 kept as written, 8 left out, 1 corrected by the
+     fact check") that opens the details: each bullet with its source, left-out bullets and every
+     fact-check correction.
 - The fact guard flags any rewritten bullet that contains a number not present in its source; flagged
   numbers are turned into placeholders automatically.
 - The user can accept (opens the editor), regenerate with another model, or discard.
@@ -147,6 +152,16 @@ the model and regenerating works.
   field it comes from (a bullet, a role or other item, a section heading, the summary or the header),
   scrolled into view, focused and briefly ringed. Exported PDFs carry no such links. Form-mode CVs
   only; a CV edited as Typst has no form to open.
+- Edit with AI: a collapsible panel docked at the bottom of the edit panel (form-mode CVs on wide
+  screens; it remembers being open or closed in this browser). The user writes a change in plain words
+  ("Shorten the summary to two sentences") and can limit it to the summary or one section, which the
+  server enforces; the model picker defaults to the user's setting. The edit goes straight into the
+  form and preview, autosave saves it, and Undo puts the CV back while nothing else has changed.
+  Edits follow the no-new-facts rule: the fact guard checks them against the CV as it was, so a new
+  number or claim (even one the user typed in the request) comes back as a placeholder to check, and
+  the reply lists what the guard corrected. The model may also just answer a question about the CV.
+  If the user edits the form while a request runs, the edit waits behind "Apply anyway". The content
+  before an edit is kept as an autosave version. The conversation lasts while the editor is open.
 - Placeholders render highlighted in preview. Export is blocked while placeholders remain, with a clear
   message and a "Show placeholders" action. (Export with placeholders is still possible from a
   secondary menu, labelled "Export anyway".)
@@ -201,8 +216,9 @@ changes elsewhere.
 | Free | 0 | 4 | 2 | 20 |
 | Pro | Set in Paystack dashboard (monthly) | 100 | 10 | 150 |
 
-- An AI run is one import, one job analysis or one tailoring, regardless of model. Tailoring for a new
-  job takes two runs (the analysis and the tailoring); tailoring a saved job again takes one.
+- An AI run is one import, one job analysis, one tailoring or one AI edit request, regardless of
+  model. Tailoring for a new job takes two runs (the analysis and the tailoring); tailoring a saved
+  job again takes one.
 - AI runs count per calendar month (UTC). On Free every attempt counts, failed ones included; on Pro
   only successful runs count.
 - Free plans use the free models (MiMo Flash, Claude Haiku, Gemini Flash-Lite); Pro adds MiMo Pro,

@@ -7,6 +7,7 @@ from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from api.ai.models import AiModel
+from api.billing.plans import Plan
 
 _REPO = Path(__file__).resolve().parents[4]
 
@@ -62,6 +63,8 @@ class Settings(DatabaseSettings):
     """For users who have not chosen one."""
     enforce_ai_plans: bool = True
     """Pro models need the Pro plan."""
+    dev_plan: Plan | None = None
+    """Local only (AUTH_MODE=dev): every user is on this plan, to try Pro without Paystack."""
     llm_timeout_seconds: float = 90
     mimo_timeout_seconds: float = 180
     """MiMo thinks before answering; an import takes 50 to 80 seconds."""
@@ -89,6 +92,8 @@ class Settings(DatabaseSettings):
     def _consistent(self) -> Self:
         if self.auth_mode == "dev" and self.env in ("dev", "prod"):
             raise ValueError(f"AUTH_MODE=dev is not allowed when ENV={self.env}")
+        if self.dev_plan is not None and self.auth_mode != "dev":
+            raise ValueError("DEV_PLAN needs AUTH_MODE=dev")
         if self.auth_mode == "firebase":
             firebase = {
                 "FIREBASE_PROJECT_ID": self.firebase_project_id,
