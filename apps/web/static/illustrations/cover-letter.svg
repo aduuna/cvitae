@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="150" viewBox="0 0 240 150" fill="none" stroke="#0a0a0a" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+<!-- Line art in the logo's style: a cover letter signed with a chameleon-tail flourish, its envelope and a pen. -->
+<rect x="112" y="40" width="100" height="68" rx="8" fill="#fff"/>
+<path d="M112 47L162 80L212 47"/>
+<rect x="34" y="16" width="102" height="124" rx="8" fill="#fff"/>
+<path d="M50 36H88" stroke-width="4.5"/>
+<path d="M50 54H122M50 66H116M50 78H120M50 90H98" stroke-width="3"/>
+<path d="M52 118C58 106 66 106 68 114C70 122 78 122 82 112C86 102 100 104 100 114C100 122 90 122 91 115C92 110 97 111 96 114"/>
+<g transform="translate(150 128) rotate(-38)">
+<path d="M0 -7H58a7 7 0 0 1 7 7v0a7 7 0 0 1-7 7H0Z" fill="#fff"/>
+<path d="M0 -7L-18 0L0 7Z" fill="#fff"/>
+<path d="M-9 -3.5L-18 0L-9 3.5Z" fill="#0a0a0a" stroke="none"/>
+<path d="M44 -7V7" stroke-width="3"/>
+</g>
+</svg>

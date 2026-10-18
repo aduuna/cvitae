@@ -8,8 +8,9 @@ export default defineConfig({
 	plugins: [
 		tailwindcss(),
 		sveltekit({
-			// SPA: the api serves build/ and falls back to index.html for client-side routes.
-			adapter: adapter({ fallback: 'index.html' })
+			// SPA: the api serves build/ and falls back to spa.html for client-side routes.
+			// index.html is the landing page, prerendered so search engines can read it.
+			adapter: adapter({ fallback: 'spa.html' })
 		}),
 		svelteTesting()
 	],

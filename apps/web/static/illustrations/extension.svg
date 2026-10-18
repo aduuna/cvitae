@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="150" viewBox="0 0 240 150" fill="none" stroke="#0a0a0a" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+<!-- Line art in the logo's style: a careers site form in the browser, filled in from the CV beside it. -->
+<rect x="18" y="12" width="204" height="128" rx="10" fill="#fff"/>
+<path d="M18 36H222"/>
+<circle cx="32" cy="24" r="2.8" fill="#0a0a0a" stroke="none"/>
+<circle cx="43" cy="24" r="2.8" fill="#0a0a0a" stroke="none"/>
+<circle cx="54" cy="24" r="2.8" fill="#0a0a0a" stroke="none"/>
+<rect x="68" y="18" width="112" height="12" rx="6" stroke-width="2.5"/>
+<path d="M195 19H199A3 3 0 0 1 205 19H209V23A3 3 0 0 1 209 29V31H195Z" fill="#0a0a0a" stroke-width="2"/>
+<path d="M34 50H62" stroke-width="3"/>
+<rect x="34" y="56" width="112" height="16" rx="5"/>
+<path d="M42 64H112" stroke-width="3"/>
+<path d="M34 82H56" stroke-width="3"/>
+<rect x="34" y="88" width="112" height="16" rx="5"/>
+<path d="M42 96H86" stroke-width="3"/>
+<rect x="34" y="116" width="46" height="14" rx="5" fill="#0a0a0a"/>
+<path d="M96 92V110L101 105L105 113L109 111L105 103H112Z" fill="#fff" stroke-width="2.5"/>
+<rect x="170" y="52" width="38" height="50" rx="5" fill="#fff"/>
+<path d="M177 62H197" stroke-width="3.5"/>
+<path d="M177 74H201M177 82H197M177 90H200" stroke-width="2.5"/>
+<path d="M164 78H152" stroke-width="3" stroke-dasharray="1 6"/>
+<path d="M156 73L151 78L156 83" stroke-width="3"/>
+</svg>

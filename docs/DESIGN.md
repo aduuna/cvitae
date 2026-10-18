@@ -75,6 +75,9 @@ Tailwind palette is removed so non-token colors cannot be used by accident.
   --text-lg: 16px;   --text-lg--line-height: 24px;
   --text-xl: 20px;   --text-xl--line-height: 28px;
   --text-2xl: 24px;  --text-2xl--line-height: 32px;
+  /* Display sizes: the landing page only */
+  --text-3xl: 32px;  --text-3xl--line-height: 40px;
+  --text-4xl: 48px;  --text-4xl--line-height: 56px;
 
   /* Shape */
   --radius-sm: 4px;
@@ -156,8 +159,10 @@ exception, below) and there is no `dark:` variant.
 | Secondary text, table meta | `text-sm text-fg-muted` | 400 |
 | Captions, badges, shortcuts | `text-xs` | 500 |
 | Code, Typst editor, stacks, file sizes | `font-mono text-sm` | 400 |
+| Landing page headline (one) | `text-3xl`, `text-4xl` from 1024px, `tracking-tight` | 600 |
+| Landing page section heading | `text-2xl`, `text-3xl` from 640px, `tracking-tight` | 600 |
 
-No font sizes outside the scale. No italics in the UI (italics belong to CVs). Numbers in tables use
+No font sizes outside the scale; the display sizes (`3xl`, `4xl`) appear on the landing page only. No italics in the UI (italics belong to CVs). Numbers in tables use
 `tabular-nums`.
 
 ## Icons
@@ -165,7 +170,7 @@ No font sizes outside the scale. No italics in the UI (italics belong to CVs). N
 - Library: `@lucide/svelte`, only via `$lib/components/ui/Icon.svelte`.
 - Defaults: 16px, stroke width 1.5, `currentColor`. Use 20px only in empty states.
 - Icons accompany labels; icon-only buttons need a tooltip and an `aria-label`.
-- The logo and third-party marks are images, not icons. The logo is `apps/web/static/logo.svg`
+- The logo, the landing page's line drawings and third-party marks are images, not icons. The logo is `apps/web/static/logo.svg`
   (also the favicon; PNG sizes beside it), shown through `$lib/components/shell/Logo.svelte`.
   Third-party marks live in `apps/web/static/brand/`. The Google mark on "Continue with Google" keeps
   Google's colours, as Google's sign-in branding requires; it is the only colour in the chrome besides
@@ -192,6 +197,9 @@ No font sizes outside the scale. No italics in the UI (italics belong to CVs). N
 | Plan limit reached | `CircleAlert` |
 | Code mode | `Code` |
 | Form mode | `ListTree` |
+| Landing: checked against your facts | `ShieldCheck` |
+| Landing: typeset with Typst | `Type` |
+| Landing: choice of AI model | `Cpu` |
 
 ## Layout
 
@@ -230,6 +238,7 @@ not by passing class strings from pages.
 | Component | Variants and sizes | Notes |
 |---|---|---|
 | `Button` | `primary` (accent bg, accent-fg text), `secondary` (surface bg, line-strong border), `ghost` (no border, subtle on hover), `danger` (danger text, danger border on hover). Sizes `sm` 28px, `md` 32px, `lg` 40px. | Optional leading icon. Loading state replaces the icon with a spinner and keeps width. |
+| `LinkButton` | Same variants and sizes as `Button` | An `<a>` that looks like a Button, for actions that navigate ("Sign in", "Get started"). Shares Button's class maps, which use `not-disabled:` so they apply to links too. |
 | `IconButton` | `ghost`, `secondary`; square 28/32px | Requires `label` prop for aria-label and tooltip. |
 | `Input`, `Textarea` | One style; sizes `md` 32px | `bg-surface`, `border-line-strong`, radius `md`, focus ring accent. Error state: danger border and message below. |
 | `Select`, `Combobox` | Same as Input | Menu uses `shadow-pop`. |
@@ -284,6 +293,29 @@ not by passing class strings from pages.
   `aria-live="polite"`.
 - **Review screen** (after tailoring): three tabs on narrow screens, three columns on wide screens:
   Preview, Changes, Gaps. Changes show source text in `fg-muted` above the new text in `fg`.
+- **Landing page** (`/`, signed out): the one page outside the app shell, in the spirit of typst.app
+  and github.com but in this language. A sticky 56px top bar (`bg-surface/90`, `border-line`): logo and
+  name left, "How it works" and a secondary "Sign in" right (a primary "Open app" for signed-in
+  users, who see the same page; the hero's and closing "Get started" become "Open app" too). The hero is left-aligned, not centred:
+  the display headline, one paragraph, a primary "Get started" and a plain "See how it works" link,
+  with a line drawing beside it from 768px (below it on phones). No pill badge, background pattern or
+  second large button. Then a `bg-canvas` band with a picture of the CV editor, the flow (numbered
+  steps joined by a 1px `line` thread with each step's icon in a circle on it; text left, picture
+  right from 1024px, stacked below), a three-column principles band, a "Beyond the CV" band (cover
+  letters, the Chrome extension, the ATS score: cards with a small line drawing on `bg-canvas`), a
+  `bg-canvas` closing band with a second line drawing and a second "Get started", and a footer.
+  Content is 1120px wide with 16px gutters (24px from 640px). The line drawings are monochrome
+  cartoons in the logo's style (black strokes, white fills, the chameleon), in
+  `apps/web/static/illustrations/` and shown through `$lib/components/landing/Cartoon.svelte`, which
+  inverts them on the dark theme as the logo does. The pictures of the app are drawn from its
+  own primitives and tokens (`$lib/components/landing/`), marked `role="img"` with a description and
+  not operable. The CV pages in them are copies of `templates/<id>/preview.png` in
+  `apps/web/static/landing/` (the api image builds the SPA from `apps/web` alone); a test fails when
+  a copy no longer matches its template's preview.
+  The page is prerendered (its `+page.ts`) so search engines read it without running the app; its
+  title, description and structured data come from `$lib/site.ts`. The link-preview image
+  `static/og.png` (1200 by 630) is a screenshot of `apps/web/scripts/og-image.html`; the command to
+  regenerate it is at the top of that file.
 
 ## Copy
 

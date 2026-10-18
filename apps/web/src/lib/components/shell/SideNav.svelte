@@ -67,10 +67,13 @@
 		]}
 	>
 		{#if !collapsed}
-			<span class="flex items-center gap-2 text-base font-semibold text-fg">
+			<a
+				href={resolve('/')}
+				class="flex items-center gap-2 rounded-md text-base font-semibold text-fg"
+			>
 				<Logo />
 				Chameleon vitae
-			</span>
+			</a>
 		{/if}
 		{#if wide.current}
 			<IconButton

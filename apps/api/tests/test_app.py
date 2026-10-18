@@ -250,7 +250,8 @@ def test_export_openapi_prints_without_a_path(capsys: pytest.CaptureFixture[str]
 
 
 async def test_serves_the_spa_with_a_client_route_fallback(tmp_path: Path) -> None:
-    (tmp_path / "index.html").write_text("<!doctype html><title>app</title>")
+    (tmp_path / "index.html").write_text("<!doctype html><title>landing</title>")
+    (tmp_path / "spa.html").write_text("<!doctype html><title>app</title>")
     (tmp_path / "app.js").write_text("console.log(1)")
     settings = Settings(env="test", auth_mode="dev", database_url=DB, static_dir=tmp_path)
     app = create_app(settings)
@@ -263,7 +264,7 @@ async def test_serves_the_spa_with_a_client_route_fallback(tmp_path: Path) -> No
             await c.get("/api/v1/missing"),
         )
 
-    assert "<title>app</title>" in index.text
+    assert "<title>landing</title>" in index.text
     assert asset.text == "console.log(1)"
     assert "<title>app</title>" in deep.text
     assert api.status_code == 404

@@ -51,7 +51,9 @@ bunx playwright install chromium         # once, for the end-to-end tests
 
 Locally the api runs with `AUTH_MODE=dev` and trusts an `X-Dev-User: <email>` header instead of a
 Firebase token. The web app asks the api how to sign in (`GET /api/v1/client-config`) and, in dev
-mode, sends that header for you (`VITE_DEV_USER`, default `dev@localhost`). The api refuses to start
+mode, sends that header for you (`VITE_DEV_USER`, default `dev@localhost`). You start signed in;
+"Sign out" shows the landing page (remembered in this browser), and "Continue with Google" on
+`/login` signs you back in as the dev user. The api refuses to start
 in dev auth mode when `ENV` is `dev` or `prod`. Uploaded files go to `.data/uploads/`
 (`STORAGE_MODE=local`).
 

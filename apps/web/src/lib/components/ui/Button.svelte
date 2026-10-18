@@ -1,11 +1,13 @@
 <script lang="ts" module>
+	// not-disabled rather than enabled: the same for buttons, and it also matches LinkButton's <a>.
 	export const buttonVariants = {
-		primary: 'bg-accent text-accent-fg enabled:hover:bg-accent/85 enabled:active:bg-accent/75',
+		primary:
+			'bg-accent text-accent-fg not-disabled:hover:bg-accent/85 not-disabled:active:bg-accent/75',
 		secondary:
-			'border border-line-strong bg-surface text-fg enabled:hover:border-fg-muted enabled:active:bg-muted',
-		ghost: 'text-fg enabled:hover:bg-subtle enabled:active:bg-muted',
+			'border border-line-strong bg-surface text-fg not-disabled:hover:border-fg-muted not-disabled:active:bg-muted',
+		ghost: 'text-fg not-disabled:hover:bg-subtle not-disabled:active:bg-muted',
 		danger:
-			'border border-line-strong bg-surface text-danger enabled:hover:border-danger enabled:active:bg-muted'
+			'border border-line-strong bg-surface text-danger not-disabled:hover:border-danger not-disabled:active:bg-muted'
 	} as const;
 
 	export const buttonSizes = {
@@ -13,6 +15,10 @@
 		md: 'h-8 gap-2 px-3',
 		lg: 'h-10 gap-2 px-4'
 	} as const;
+
+	/** Shared by Button, LinkButton and the landing page's pictures of the app. */
+	export const buttonBase =
+		'inline-flex shrink-0 items-center justify-center rounded-md text-base font-medium whitespace-nowrap transition-colors duration-120 ease-out select-none';
 
 	export type ButtonVariant = keyof typeof buttonVariants;
 	export type ButtonSize = keyof typeof buttonSizes;
@@ -57,7 +63,7 @@
 	data-variant={variant}
 	data-size={size}
 	class={[
-		'inline-flex shrink-0 items-center justify-center rounded-md text-base font-medium whitespace-nowrap transition-colors duration-120 ease-out select-none',
+		buttonBase,
 		buttonVariants[variant],
 		buttonSizes[size],
 		disabled && 'cursor-not-allowed opacity-40',

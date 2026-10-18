@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthError, DEV_USER } from '#lib/api/client.ts';
 import { authErrorFrom, devProvider, firebaseProvider } from '#lib/auth/provider.ts';
 
@@ -40,7 +40,10 @@ vi.mock('firebase/auth', () => {
 const CONFIG = { api_key: 'key', auth_domain: 'p.firebaseapp.com', project_id: 'p', app_id: 'a' };
 
 describe('devProvider', () => {
-	it('is always signed in as the dev user', async () => {
+	beforeEach(() => localStorage.clear());
+	afterEach(() => vi.restoreAllMocks());
+
+	it('starts signed in as the dev user', async () => {
 		const provider = devProvider();
 		const seen: (string | null)[] = [];
 
@@ -49,8 +52,49 @@ describe('devProvider', () => {
 		expect(seen).toEqual([DEV_USER]);
 		expect(await provider.headers()).toEqual({ 'X-Dev-User': DEV_USER });
 		expect(provider.isEmailLink('http://x/?oobCode=1')).toBe(false);
-		await expect(provider.signOut()).resolves.toBeUndefined();
-		await expect(provider.signInWithGoogle()).rejects.toBeInstanceOf(AuthError);
+	});
+
+	it('signs out until Continue with Google, across reloads', async () => {
+		const provider = devProvider();
+		const seen: (string | null)[] = [];
+		provider.watch((email) => seen.push(email));
+
+		await provider.signOut();
+
+		expect(seen).toEqual([DEV_USER, null]);
+		expect(await provider.headers()).toEqual({});
+		// A reload makes a new provider; it remembers the sign-out.
+		const reloaded = devProvider();
+		const afterReload: (string | null)[] = [];
+		reloaded.watch((email) => afterReload.push(email));
+		expect(afterReload).toEqual([null]);
+
+		await reloaded.signInWithGoogle();
+
+		expect(afterReload).toEqual([null, DEV_USER]);
+		expect(await reloaded.headers()).toEqual({ 'X-Dev-User': DEV_USER });
+		expect(localStorage.length).toBe(0);
+	});
+
+	it('signs out for the page when storage is blocked', async () => {
+		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+			throw new DOMException('blocked', 'SecurityError');
+		});
+		const provider = devProvider();
+		const seen: (string | null)[] = [];
+		provider.watch((email) => seen.push(email));
+
+		await provider.signOut();
+
+		expect(seen).toEqual([DEV_USER, null]);
+	});
+
+	it('does not send email links', async () => {
+		const provider = devProvider();
+
+		await expect(provider.sendEmailLink('ada@example.com', 'http://x')).rejects.toThrow(
+			new AuthError('Email links are not sent in local development. Use Continue with Google.')
+		);
 	});
 });
 
