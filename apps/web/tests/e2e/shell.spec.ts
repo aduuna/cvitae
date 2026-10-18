@@ -16,13 +16,13 @@ test.describe('app shell at 1280px', () => {
 	test.use({ viewport: { width: 1280, height: 800 } });
 
 	test('lands on Documents with the full side nav and top bar', async ({ page }) => {
-		await page.goto('/');
-		await expect(page).toHaveURL(/\/app\/documents$/);
+		await page.goto('/app/documents');
 		await expect(page.getByRole('heading', { level: 1, name: 'Documents' })).toBeVisible();
 		await expect(page).toHaveTitle('Documents - Chameleon vitae');
 
 		const nav = page.getByRole('navigation', { name: 'Main' });
-		await expect(nav.getByRole('link')).toHaveText(sections);
+		await expect(nav.getByRole('link', { name: 'Chameleon vitae' })).toHaveAttribute('href', '/');
+		await expect(nav.getByRole('list').getByRole('link')).toHaveText(sections);
 		expect(await navWidth(page)).toBe(240);
 		const topBar = await page.getByRole('banner').boundingBox();
 		expect(Math.round(topBar?.height ?? 0)).toBe(48);
@@ -55,6 +55,8 @@ test.describe('app shell at 1280px', () => {
 		await expect(page.getByRole('heading', { level: 1, name: 'Documents' })).toBeVisible();
 		await page.keyboard.press('Tab');
 		await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
+		await page.keyboard.press('Tab');
+		await expect(page.getByRole('link', { name: 'Chameleon vitae' })).toBeFocused();
 		await page.keyboard.press('Tab');
 		await expect(page.getByRole('button', { name: 'Collapse side nav' })).toBeFocused();
 		await page.keyboard.press('Tab');

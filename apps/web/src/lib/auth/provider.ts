@@ -14,19 +14,54 @@ export interface AuthProvider {
 	signOut(): Promise<void>;
 }
 
-/** Local development (AUTH_MODE=dev): always signed in as DEV_USER. */
+const DEV_SIGNED_OUT_KEY = 'vitae.devSignedOut';
+
+/** Whether the dev user signed out in this browser, so a reload keeps them signed out. */
+const devSignedOut = {
+	get(): boolean {
+		try {
+			return localStorage.getItem(DEV_SIGNED_OUT_KEY) === 'true';
+		} catch {
+			return false;
+		}
+	},
+	set(signedOut: boolean): void {
+		try {
+			if (signedOut) localStorage.setItem(DEV_SIGNED_OUT_KEY, 'true');
+			else localStorage.removeItem(DEV_SIGNED_OUT_KEY);
+		} catch {
+			// Without storage, signing out lasts until the page reloads.
+		}
+	}
+};
+
+/**
+ * Local development (AUTH_MODE=dev): signed in as DEV_USER until they sign out, so the landing
+ * and sign-in pages can be seen. "Continue with Google" signs back in as DEV_USER; no email is sent.
+ */
 export function devProvider(email = DEV_USER): AuthProvider {
+	let signedIn = !devSignedOut.get();
+	const watchers = new Set<(email: string | null) => void>();
+	const current = () => (signedIn ? email : null);
+	const change = (next: boolean) => {
+		signedIn = next;
+		devSignedOut.set(!next);
+		for (const watcher of watchers) watcher(current());
+	};
 	const unsupported = async () => {
-		throw new AuthError('Sign-in is not used in local development.');
+		throw new AuthError('Email links are not sent in local development. Use Continue with Google.');
 	};
 	return {
-		watch: (callback) => callback(email),
-		headers: async () => ({ 'X-Dev-User': email }),
-		signInWithGoogle: unsupported,
+		watch: (callback) => {
+			watchers.add(callback);
+			callback(current());
+		},
+		headers: async (): Promise<Record<string, string>> => (signedIn ? { 'X-Dev-User': email } : {}),
+		signInWithGoogle: async () => change(true),
 		sendEmailLink: unsupported,
 		isEmailLink: () => false,
 		completeEmailLink: unsupported,
-		signOut: async () => {}
+		signOut: async () => change(false)
 	};
 }
 

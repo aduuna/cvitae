@@ -46,8 +46,12 @@ class Health(BaseModel):
     status: Literal["ok"] = "ok"
 
 
+# The SPA shell for client-side routes. index.html is the landing page, prerendered for `/`.
+SPA_FALLBACK = "spa.html"
+
+
 class SpaStaticFiles(StaticFiles):
-    """Serves the built SPA; unknown paths get index.html so client-side routes work on reload."""
+    """Serves the built SPA; unknown paths get the shell so client-side routes work on reload."""
 
     async def get_response(self, path: str, scope: Scope) -> Response:
         try:
@@ -55,7 +59,7 @@ class SpaStaticFiles(StaticFiles):
         except HTTPException as exc:
             if exc.status_code != 404 or path.startswith("api/"):
                 raise
-            return await super().get_response("index.html", scope)
+            return await super().get_response(SPA_FALLBACK, scope)
 
 
 def build_auth_verifier(settings: Settings) -> AuthVerifier:

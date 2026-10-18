@@ -59,6 +59,11 @@
 	--text-xl--line-height: 28px;
 	--text-2xl: 24px;
 	--text-2xl--line-height: 32px;
+	/* Display sizes: the landing page only (docs/DESIGN.md, Typography). */
+	--text-3xl: 32px;
+	--text-3xl--line-height: 40px;
+	--text-4xl: 48px;
+	--text-4xl--line-height: 56px;
 
 	/* Spacing: a fixed 4px step (p-1 = 4px). Tailwind's default is 0.25rem, which the 14px root
 	   font size above would shrink to 3.5px. */

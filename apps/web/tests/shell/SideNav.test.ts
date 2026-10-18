@@ -46,9 +46,18 @@ describe('SideNav', () => {
 		vi.restoreAllMocks();
 	});
 
+	it('links the brand to the landing page', () => {
+		render(SideNav);
+
+		expect(within(nav()).getByRole('link', { name: 'Chameleon vitae' })).toHaveAttribute(
+			'href',
+			'/'
+		);
+	});
+
 	it('lists the six sections in order with their routes', () => {
 		render(SideNav);
-		const links = within(nav()).getAllByRole('link');
+		const links = within(within(nav()).getByRole('list')).getAllByRole('link');
 		expect(links.map((link) => [link.textContent?.trim(), link.getAttribute('href')])).toEqual([
 			['Documents', '/app/documents'],
 			['Profiles', '/app/profiles'],

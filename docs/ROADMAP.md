@@ -19,8 +19,8 @@ Scaffold the repository and the design system, with nothing user-facing beyond t
 
 - uv workspace (`apps/api`, `apps/renderer`, `packages/cvcore`) with ruff, ty and pytest configured
   (`docs/BACKEND.md`, "uv workspace").
-- SvelteKit app in `apps/web` with bun: Svelte 5, adapter-static SPA (`fallback: "index.html"`,
-  `ssr = false` in the root layout), Tailwind v4 via `@tailwindcss/vite`, Geist fonts, `@lucide/svelte`,
+- SvelteKit app in `apps/web` with bun: Svelte 5, adapter-static SPA (`fallback: "spa.html"`,
+  `ssr = false` in the root layout; only the landing page at `/` is prerendered), Tailwind v4 via `@tailwindcss/vite`, Geist fonts, `@lucide/svelte`,
   eslint, prettier, svelte-check, vitest, Playwright.
 - `app.css` with the full token set and the token enforcement test (`docs/DESIGN.md`).
 - UI primitives: Button, IconButton, Icon, Input, Textarea, Select, SegmentedControl, Tabs, Dialog,

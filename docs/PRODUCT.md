@@ -53,7 +53,19 @@ The editor for a single CV lives at `/app/documents/[id]` and keeps the side nav
 
 - Sign in with Google, or with an email link (passwordless). Firebase Auth.
 - First sign-in creates the user record.
-- Signed-out users see a minimal landing page at `/` with a sign-in button; all `/app/*` routes require auth.
+- Signed-out users see a landing page at `/` that shows what the app does before asking them to sign
+  in: a hero with a line drawing of the chameleon tailoring a CV, a picture of the CV editor, then the
+  flow in five steps (import a CV, keep a profile per direction, tailor to a job, edit the CV, export
+  the PDF), each with a picture of that step in the app, then cover letters in the user's tone, the
+  Chrome extension that fills in application forms, and the ATS score. "Sign in" sits in the top
+  bar; "Get started" sits in the hero and at the bottom. Both open the sign-in page at `/login`.
+  Signed-in users see the same page with "Open app" in their place, and the logo in the side nav
+  links back to it.
+- The landing page is the one public, indexed page: prerendered to static HTML with its title,
+  description, canonical URL, link-preview image and schema.org data naming the site "Chameleon
+  vitae" with alternate names "cvitae" and "Chameleon CV" (`apps/web/src/lib/site.ts`).
+  `robots.txt` keeps crawlers out of `/app/`, `/auth/` and `/api/`; `sitemap.xml` lists `/`.
+- All `/app/*` routes require auth; signed-out visitors to them go to `/`.
 
 Done when: a new user can sign in with either method, lands on an empty Documents page with an onboarding
 prompt, and signing out returns to `/`.

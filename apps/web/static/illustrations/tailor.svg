@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="420" viewBox="0 0 560 420" fill="none" stroke="#0a0a0a" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+<!-- Line art in the logo's style: the chameleon picks a bullet that fits the pinned job and places it in the CV. -->
+<rect x="62" y="34" width="196" height="268" rx="12" fill="#fff"/>
+<rect x="30" y="64" width="196" height="268" rx="12" fill="#fff"/>
+<path d="M60 104H150" stroke-width="9"/>
+<path d="M60 126H118" stroke-width="4"/>
+<path d="M60 152H196" stroke-width="3"/>
+<circle cx="64" cy="176" r="3.5" fill="#0a0a0a" stroke="none"/>
+<path d="M78 176H186" stroke-width="4"/>
+<circle cx="64" cy="198" r="3.5" fill="#0a0a0a" stroke="none"/>
+<path d="M78 198H164" stroke-width="4"/>
+<rect x="56" y="214" width="146" height="28" rx="8" stroke-width="3" stroke-dasharray="1 9"/>
+<circle cx="64" cy="264" r="3.5" fill="#0a0a0a" stroke="none"/>
+<path d="M78 264H178" stroke-width="4"/>
+<circle cx="64" cy="286" r="3.5" fill="#0a0a0a" stroke="none"/>
+<path d="M78 286H142" stroke-width="4"/>
+<g transform="rotate(5 472 78)">
+<rect x="410" y="34" width="124" height="88" rx="10" fill="#fff"/>
+<rect x="426" y="62" width="30" height="22" rx="4"/>
+<path d="M434 62V58a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v4"/>
+<path d="M468 62H514M468 76H500" stroke-width="4"/>
+<path d="M426 102H514" stroke-width="3"/>
+<circle cx="472" cy="34" r="7" fill="#0a0a0a"/>
+</g>
+<path d="M402 74C360 36 306 28 272 40" stroke-width="3.5" stroke-dasharray="1 10"/>
+<path d="M284 30L270 41L286 48" stroke-width="3.5"/>
+<g transform="translate(268 128) scale(2.3)">
+<path d="M98 74C110 72 117 80 116 89C115 98 106 103 99 99C93 96 94 88 100 88C104 88 105 93 102 94" stroke-width="15" vector-effect="non-scaling-stroke"/>
+<path d="M98 74C110 72 117 80 116 89C115 98 106 103 99 99C93 96 94 88 100 88C104 88 105 93 102 94" stroke="#fff" stroke-width="6" vector-effect="non-scaling-stroke"/>
+</g>
+<path d="M286 372H530a8 8 0 0 1 8 8v6a8 8 0 0 1-8 8H286" fill="#fff"/>
+<path d="M286 372L248 383L286 394Z" fill="#fff"/>
+<path d="M261 379.3L248 383L261 386.7Z" fill="#0a0a0a"/>
+<path d="M506 372V394M516 372V394" stroke-width="3"/>
+<path d="M294 383H496" stroke-width="2.5"/>
+<g transform="translate(268 128) scale(2.3)">
+<path d="M46 76L38 92L45 105M72 80L79 94L72 105" stroke-width="15" vector-effect="non-scaling-stroke"/>
+<path d="M46 76L38 92L45 105M72 80L79 94L72 105" stroke="#fff" stroke-width="6" vector-effect="non-scaling-stroke"/>
+<path d="M102 70C102 42 78 28 54 31C46 32 40 28 34 18L27 38C17 44 11 54 13 63C20 72 32 74 40 73C50 82 66 86 80 85C93 84 102 79 102 70Z" fill="#fff" vector-effect="non-scaling-stroke"/>
+<path d="M33 67C48 74 72 77 94 71" stroke-width="3" vector-effect="non-scaling-stroke"/>
+<circle cx="62" cy="48" r="2.2" fill="#0a0a0a" stroke="none"/>
+<circle cx="75" cy="44" r="2.2" fill="#0a0a0a" stroke="none"/>
+<circle cx="87" cy="52" r="2.2" fill="#0a0a0a" stroke="none"/>
+<circle cx="68" cy="59" r="2.2" fill="#0a0a0a" stroke="none"/>
+<circle cx="81" cy="63" r="2.2" fill="#0a0a0a" stroke="none"/>
+<circle cx="30" cy="48" r="9" fill="#fff" vector-effect="non-scaling-stroke"/>
+<circle cx="26" cy="46" r="3.6" fill="#0a0a0a" stroke="none"/>
+<path d="M14 62Q21 66 29 64" stroke-width="3.5" vector-effect="non-scaling-stroke"/>
+</g>
+<g transform="rotate(-7 194 205)">
+<rect x="128" y="190" width="132" height="30" rx="8" fill="#fff"/>
+<circle cx="144" cy="205" r="3.5" fill="#0a0a0a" stroke="none"/>
+<path d="M158 205H238" stroke-width="4"/>
+</g>
+<path d="M298 268C282 280 262 256 262 212" stroke-width="13"/>
+<path d="M298 268C282 280 262 256 262 212" stroke="#fff" stroke-width="5"/>
+<circle cx="262" cy="203" r="10" fill="#fff"/>
+</svg>

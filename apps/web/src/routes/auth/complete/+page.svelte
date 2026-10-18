@@ -61,7 +61,7 @@
 		{#if invalidLink}
 			<h1 class="text-lg font-semibold">This link cannot sign you in</h1>
 			<p class="text-base text-fg-muted">Request a new sign-in link and open it in this browser.</p>
-			<Button variant="primary" onclick={() => goto(resolve('/'))}>Back to sign in</Button>
+			<Button variant="primary" onclick={() => goto(resolve('/login'))}>Back to sign in</Button>
 		{:else if needsEmail}
 			<h1 class="text-lg font-semibold">Confirm your email</h1>
 			<p class="text-base text-fg-muted">Enter the email address the sign-in link was sent to.</p>

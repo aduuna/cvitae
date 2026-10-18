@@ -174,7 +174,7 @@ A single exception handler maps them. Pydantic validation errors are converted t
 | `PAYSTACK_SECRET_KEY`, `PAYSTACK_PRO_PLAN_CODE`, `PAYSTACK_CALLBACK_URL` | Billing; upgrades are offered only when all three are set. The callback is the SPA's `/app/settings?tab=billing` |
 | `PUBLIC_BASE_URL` | The api's public URL (OIDC audience for internal routes, CSP) |
 | `SCHEDULER_SA_EMAIL` | Only this service account may call `/internal/*` routes |
-| `STATIC_DIR` | Built SPA directory served at `/` (unset in local dev, where Vite serves the SPA) |
+| `STATIC_DIR` | Built SPA directory served at `/`: `index.html` is the prerendered landing page and other unknown paths get the SPA shell `spa.html` (unset in local dev, where Vite serves the SPA) |
 
 Model IDs are configuration, not code. Before release, confirm current IDs on the Claude models page and
 the Gemini models page; Gemini Pro models were preview-only when this spec was written, so the defaults

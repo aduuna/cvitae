@@ -77,6 +77,6 @@ describe('email link completion', () => {
 			await screen.findByRole('heading', { name: 'This link cannot sign you in' })
 		).toBeVisible();
 		await userEvent.click(screen.getByRole('button', { name: 'Back to sign in' }));
-		expect(mocks.goto).toHaveBeenCalledWith('/');
+		expect(mocks.goto).toHaveBeenCalledWith('/login');
 	});
 });

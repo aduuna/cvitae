@@ -6,6 +6,7 @@ import ClipboardPaste from '@lucide/svelte/icons/clipboard-paste';
 import Code from '@lucide/svelte/icons/code';
 import CircleUserRound from '@lucide/svelte/icons/circle-user-round';
 import Copy from '@lucide/svelte/icons/copy';
+import Cpu from '@lucide/svelte/icons/cpu';
 import Download from '@lucide/svelte/icons/download';
 import Ellipsis from '@lucide/svelte/icons/ellipsis';
 import File from '@lucide/svelte/icons/file';
@@ -21,8 +22,10 @@ import PenLine from '@lucide/svelte/icons/pen-line';
 import Plus from '@lucide/svelte/icons/plus';
 import RotateCcwClock from '@lucide/svelte/icons/rotate-ccw-clock';
 import Settings from '@lucide/svelte/icons/settings';
+import ShieldCheck from '@lucide/svelte/icons/shield-check';
 import Target from '@lucide/svelte/icons/target';
 import Trash from '@lucide/svelte/icons/trash';
+import Type from '@lucide/svelte/icons/type';
 import Upload from '@lucide/svelte/icons/upload';
 import UserRound from '@lucide/svelte/icons/user-round';
 import X from '@lucide/svelte/icons/x';
@@ -59,7 +62,10 @@ export const icons = {
 	more: Ellipsis,
 	file: File,
 	account: CircleUserRound,
-	'sign-out': LogOut
+	'sign-out': LogOut,
+	facts: ShieldCheck,
+	typeset: Type,
+	model: Cpu
 } as const;
 
 export type IconName = keyof typeof icons;

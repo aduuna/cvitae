@@ -1,0 +1,80 @@
+<!doctype html>
+<!--
+	Source of static/og.png, the link-preview image. Regenerate from apps/web with:
+	bunx playwright screenshot --viewport-size=1200,630 "file://$PWD/scripts/og-image.html" static/og.png
+-->
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<style>
+			@font-face {
+				font-family: 'Geist';
+				src: url('../node_modules/@fontsource-variable/geist/files/geist-latin-wght-normal.woff2')
+					format('woff2');
+				font-weight: 100 900;
+			}
+			html,
+			body {
+				margin: 0;
+				width: 1200px;
+				height: 630px;
+				background: #ffffff;
+				color: #18181b;
+				font-family: 'Geist', sans-serif;
+			}
+			main {
+				box-sizing: border-box;
+				display: flex;
+				align-items: center;
+				gap: 48px;
+				width: 100%;
+				height: 100%;
+				padding: 72px 80px;
+				border-bottom: 12px solid #18181b;
+			}
+			.text {
+				display: flex;
+				flex: 1;
+				flex-direction: column;
+				gap: 28px;
+			}
+			.brand {
+				display: flex;
+				align-items: center;
+				gap: 14px;
+				font-size: 30px;
+				font-weight: 600;
+			}
+			.brand img {
+				width: 52px;
+				height: 52px;
+			}
+			h1 {
+				margin: 0;
+				font-size: 56px;
+				line-height: 62px;
+				white-space: nowrap;
+				font-weight: 600;
+				letter-spacing: -0.02em;
+			}
+			p {
+				margin: 0;
+				font-size: 26px;
+				color: #71717a;
+			}
+			.art {
+				width: 480px;
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<div class="text">
+				<div class="brand"><img src="../static/logo.svg" alt="" />Chameleon vitae</div>
+				<h1>One career,<br />a CV for every job</h1>
+				<p>cvitae.aduuna.dev</p>
+			</div>
+			<img class="art" src="../static/illustrations/tailor.svg" alt="" />
+		</main>
+	</body>
+</html>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="150" viewBox="0 0 240 150" fill="none" stroke="#0a0a0a" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+<!-- Line art in the logo's style: a CV next to a score dial, with the job's keywords it covers and one it misses. -->
+<rect x="24" y="14" width="96" height="124" rx="8" fill="#fff"/>
+<path d="M40 34H86" stroke-width="4.5"/>
+<path d="M40 50H70" stroke-width="3"/>
+<path d="M40 68H106M40 80H100M40 92H104M40 104H90M40 116H98" stroke-width="3"/>
+<path d="M108 100A54 54 0 0 1 216 100Z" fill="#fff"/>
+<path d="M117 100A45 45 0 0 1 207 100" stroke-width="2.5" stroke-dasharray="1 9"/>
+<path d="M162 100L194 72" stroke-width="4"/>
+<circle cx="162" cy="100" r="6" fill="#0a0a0a"/>
+<rect x="112" y="112" width="30" height="13" rx="6.5" fill="#0a0a0a" stroke-width="2.5"/>
+<rect x="147" y="112" width="30" height="13" rx="6.5" fill="#0a0a0a" stroke-width="2.5"/>
+<rect x="182" y="112" width="30" height="13" rx="6.5" stroke-width="2.5" stroke-dasharray="1 5"/>
+</svg>

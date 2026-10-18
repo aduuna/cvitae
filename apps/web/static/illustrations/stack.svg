@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="290" height="410" viewBox="0 0 290 410" fill="none" stroke="#0a0a0a" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+<!-- Line art in the logo's style: the chameleon on a stack of CVs, one for each job. -->
+<rect x="76" y="168" width="176" height="200" rx="12" fill="#fff"/>
+<rect x="50" y="184" width="176" height="200" rx="12" fill="#fff"/>
+<rect x="24" y="200" width="176" height="200" rx="12" fill="#fff"/>
+<path d="M70 236H154" stroke-width="9"/>
+<path d="M88 256H136" stroke-width="4"/>
+<path d="M48 280H176" stroke-width="3"/>
+<circle cx="52" cy="302" r="3.5" fill="#0a0a0a" stroke="none"/>
+<path d="M66 302H168" stroke-width="4"/>
+<circle cx="52" cy="324" r="3.5" fill="#0a0a0a" stroke="none"/>
+<path d="M66 324H148" stroke-width="4"/>
+<circle cx="52" cy="346" r="3.5" fill="#0a0a0a" stroke="none"/>
+<path d="M66 346H160" stroke-width="4"/>
+<circle cx="52" cy="368" r="3.5" fill="#0a0a0a" stroke="none"/>
+<path d="M66 368H128" stroke-width="4"/>
+<g transform="translate(30 -10.5) scale(1.7)">
+<path d="M46 76L38 92L45 105M72 80L79 94L72 105" stroke-width="13" vector-effect="non-scaling-stroke"/>
+<path d="M46 76L38 92L45 105M72 80L79 94L72 105" stroke="#fff" stroke-width="5" vector-effect="non-scaling-stroke"/>
+<path d="M102 70C102 42 78 28 54 31C46 32 40 28 34 18L27 38C17 44 11 54 13 63C20 72 32 74 40 73C50 82 66 86 80 85C93 84 102 79 102 70Z" fill="#fff" vector-effect="non-scaling-stroke"/>
+<path d="M98 74C114 70 128 80 130 100C132 118 131 134 124 142C117 150 107 146 108 138C109 131 117 131 118 137" stroke-width="14" vector-effect="non-scaling-stroke"/>
+<path d="M98 74C114 70 128 80 130 100C132 118 131 134 124 142C117 150 107 146 108 138C109 131 117 131 118 137" stroke="#fff" stroke-width="5" vector-effect="non-scaling-stroke"/>
+<path d="M33 67C48 74 72 77 94 71" stroke-width="3" vector-effect="non-scaling-stroke"/>
+<circle cx="62" cy="48" r="2.2" fill="#0a0a0a" stroke="none"/>
+<circle cx="75" cy="44" r="2.2" fill="#0a0a0a" stroke="none"/>
+<circle cx="87" cy="52" r="2.2" fill="#0a0a0a" stroke="none"/>
+<circle cx="68" cy="59" r="2.2" fill="#0a0a0a" stroke="none"/>
+<circle cx="81" cy="63" r="2.2" fill="#0a0a0a" stroke="none"/>
+<circle cx="30" cy="48" r="9" fill="#fff" vector-effect="non-scaling-stroke"/>
+<circle cx="27" cy="50" r="3.6" fill="#0a0a0a" stroke="none"/>
+<path d="M14 61Q21 67 30 64" stroke-width="3.5" vector-effect="non-scaling-stroke"/>
+</g>
+</svg>
