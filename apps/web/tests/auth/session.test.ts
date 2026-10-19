@@ -114,6 +114,17 @@ describe('Session', () => {
 		expect(session.status).toBe('signed-in');
 	});
 
+	it('signs in with a password', async () => {
+		const { session, provider } = sessionWith();
+		await session.start();
+
+		await session.signInWithPassword('review@example.com', 'secret');
+
+		expect(provider.signInWithPassword).toHaveBeenCalledWith('review@example.com', 'secret');
+		expect(session.status).toBe('signed-in');
+		expect(session.email).toBe('review@example.com');
+	});
+
 	it('loads me once and keeps updates', async () => {
 		const { session } = sessionWith('ada@example.com');
 		const fetch = vi.fn(async (request: Request) =>

@@ -68,6 +68,16 @@ describe('landing page', () => {
 		);
 	});
 
+	it('links the privacy policy from the footer', () => {
+		render(Landing);
+
+		const footer = screen.getByRole('navigation', { name: 'Footer' });
+		expect(within(footer).getByRole('link', { name: 'Privacy' })).toHaveAttribute(
+			'href',
+			'/privacy'
+		);
+	});
+
 	it('pictures the real template renders and the line drawings', () => {
 		const { container } = render(Landing);
 
@@ -89,7 +99,7 @@ describe('landing page', () => {
 		);
 	});
 
-	it('presents cover letters, the Chrome extension and the ATS score', () => {
+	it('presents cover letters, the browser extension and the ATS score', () => {
 		render(Landing);
 
 		const more = screen.getByRole('region', { name: 'More help with every application' });

@@ -2396,6 +2396,536 @@
           }
         }
       }
+    },
+    "/api/v1/extension/connections": {
+      "get": {
+        "tags": [
+          "extension"
+        ],
+        "summary": "List Connections",
+        "operationId": "list_connections_api_v1_extension_connections_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExtensionConnectionInfo"
+                  },
+                  "type": "array",
+                  "title": "Response List Connections Api V1 Extension Connections Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "extension"
+        ],
+        "summary": "Create Connection",
+        "operationId": "create_connection_api_v1_extension_connections_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtensionConnectionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionConnectionCreated"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/extension/connections/{connection_id}": {
+      "delete": {
+        "tags": [
+          "extension"
+        ],
+        "summary": "Delete Connection",
+        "operationId": "delete_connection_api_v1_extension_connections__connection_id__delete",
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Connection Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/extension/session": {
+      "get": {
+        "tags": [
+          "extension"
+        ],
+        "summary": "Get Session",
+        "operationId": "get_session_api_v1_extension_session_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSession"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "extension"
+        ],
+        "summary": "End Session",
+        "description": "Disconnect this browser: its token stops working.",
+        "operationId": "end_session_api_v1_extension_session_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/extension/profiles/{profile_id}/application": {
+      "get": {
+        "tags": [
+          "extension"
+        ],
+        "summary": "Profile Application",
+        "operationId": "profile_application_api_v1_extension_profiles__profile_id__application_get",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Profile Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationData"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/extension/documents/{document_id}/application": {
+      "get": {
+        "tags": [
+          "extension"
+        ],
+        "summary": "Document Application",
+        "operationId": "document_application_api_v1_extension_documents__document_id__application_get",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationData"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/extension/documents/{document_id}/cv.pdf": {
+      "get": {
+        "tags": [
+          "extension"
+        ],
+        "summary": "Document Pdf",
+        "operationId": "document_pdf_api_v1_extension_documents__document_id__cv_pdf_get",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The CV as a PDF",
+            "content": {
+              "application/pdf": {}
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Placeholders remain; `details` lists them",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/extension/jobs": {
+      "post": {
+        "tags": [
+          "extension"
+        ],
+        "summary": "Save Job",
+        "operationId": "save_job_api_v1_extension_jobs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedJob"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2526,6 +3056,94 @@
           "plan"
         ],
         "title": "AiModelInfo"
+      },
+      "ApplicationData": {
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/NameParts"
+          },
+          "headline": {
+            "type": "string",
+            "title": "Headline"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "phone": {
+            "type": "string",
+            "title": "Phone"
+          },
+          "location": {
+            "$ref": "#/components/schemas/Place"
+          },
+          "links": {
+            "$ref": "#/components/schemas/Links"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "current_company": {
+            "type": "string",
+            "title": "Current Company"
+          },
+          "current_title": {
+            "type": "string",
+            "title": "Current Title"
+          },
+          "experience": {
+            "items": {
+              "$ref": "#/components/schemas/Role"
+            },
+            "type": "array",
+            "title": "Experience"
+          },
+          "education": {
+            "items": {
+              "$ref": "#/components/schemas/Education"
+            },
+            "type": "array",
+            "title": "Education"
+          },
+          "skills": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Skills"
+          },
+          "certifications": {
+            "items": {
+              "$ref": "#/components/schemas/Certification"
+            },
+            "type": "array",
+            "title": "Certifications"
+          },
+          "placeholders": {
+            "type": "integer",
+            "title": "Placeholders"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "headline",
+          "email",
+          "phone",
+          "location",
+          "links",
+          "summary",
+          "current_company",
+          "current_title",
+          "experience",
+          "education",
+          "skills",
+          "certifications",
+          "placeholders"
+        ],
+        "title": "ApplicationData"
       },
       "Basics-Input": {
         "properties": {
@@ -2771,6 +3389,30 @@
           "rationale"
         ],
         "title": "BulletDiff"
+      },
+      "Certification": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "issuer": {
+            "type": "string",
+            "title": "Issuer"
+          },
+          "date": {
+            "type": "string",
+            "title": "Date"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "issuer",
+          "date"
+        ],
+        "title": "Certification"
       },
       "CertificationItem-Input": {
         "properties": {
@@ -3321,6 +3963,75 @@
         ],
         "title": "DroppedBullet"
       },
+      "Education": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "institution": {
+            "type": "string",
+            "title": "Institution"
+          },
+          "degree": {
+            "type": "string",
+            "title": "Degree"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "",
+              "high_school",
+              "associate",
+              "bachelor",
+              "master",
+              "doctorate"
+            ],
+            "title": "Level"
+          },
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "location": {
+            "type": "string",
+            "title": "Location"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/YearMonth"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "end": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/YearMonth"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "institution",
+          "degree",
+          "level",
+          "field",
+          "location",
+          "start",
+          "end"
+        ],
+        "title": "Education"
+      },
       "EducationItem-Input": {
         "properties": {
           "id": {
@@ -3641,6 +4352,149 @@
           "engagements"
         ],
         "title": "ExperienceItem"
+      },
+      "ExtensionConnectionCreate": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Label",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "ExtensionConnectionCreate"
+      },
+      "ExtensionConnectionCreated": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "created_at",
+          "last_used_at",
+          "token"
+        ],
+        "title": "ExtensionConnectionCreated"
+      },
+      "ExtensionConnectionInfo": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "created_at",
+          "last_used_at"
+        ],
+        "title": "ExtensionConnectionInfo",
+        "description": "A browser the extension is connected in."
+      },
+      "ExtensionSession": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "profiles": {
+            "items": {
+              "$ref": "#/components/schemas/SourceProfile"
+            },
+            "type": "array",
+            "title": "Profiles"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/SourceDocument"
+            },
+            "type": "array",
+            "title": "Documents"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/JobSummary"
+            },
+            "type": "array",
+            "title": "Jobs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "display_name",
+          "profiles",
+          "documents",
+          "jobs"
+        ],
+        "title": "ExtensionSession"
       },
       "FactIssue": {
         "properties": {
@@ -4019,6 +4873,59 @@
         ],
         "title": "Link"
       },
+      "Links": {
+        "properties": {
+          "linkedin": {
+            "type": "string",
+            "title": "Linkedin",
+            "default": ""
+          },
+          "github": {
+            "type": "string",
+            "title": "Github",
+            "default": ""
+          },
+          "gitlab": {
+            "type": "string",
+            "title": "Gitlab",
+            "default": ""
+          },
+          "twitter": {
+            "type": "string",
+            "title": "Twitter",
+            "default": ""
+          },
+          "stackoverflow": {
+            "type": "string",
+            "title": "Stackoverflow",
+            "default": ""
+          },
+          "website": {
+            "type": "string",
+            "title": "Website",
+            "default": ""
+          },
+          "other": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Other"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "linkedin",
+          "github",
+          "gitlab",
+          "twitter",
+          "stackoverflow",
+          "website",
+          "other"
+        ],
+        "title": "Links"
+      },
       "ManageLink": {
         "properties": {
           "url": {
@@ -4165,6 +5072,85 @@
           "message"
         ],
         "title": "Meter"
+      },
+      "NameParts": {
+        "properties": {
+          "full": {
+            "type": "string",
+            "title": "Full"
+          },
+          "first": {
+            "type": "string",
+            "title": "First"
+          },
+          "middle": {
+            "type": "string",
+            "title": "Middle"
+          },
+          "last": {
+            "type": "string",
+            "title": "Last"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "full",
+          "first",
+          "middle",
+          "last"
+        ],
+        "title": "NameParts"
+      },
+      "Place": {
+        "properties": {
+          "full": {
+            "type": "string",
+            "title": "Full"
+          },
+          "city": {
+            "type": "string",
+            "title": "City"
+          },
+          "region": {
+            "type": "string",
+            "title": "Region"
+          },
+          "region_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Region Names"
+          },
+          "country": {
+            "type": "string",
+            "title": "Country"
+          },
+          "country_code": {
+            "type": "string",
+            "title": "Country Code"
+          },
+          "country_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Country Names"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "full",
+          "city",
+          "region",
+          "region_names",
+          "country",
+          "country_code",
+          "country_names"
+        ],
+        "title": "Place"
       },
       "PlaceholderRef": {
         "properties": {
@@ -4494,6 +5480,92 @@
         "type": "object",
         "title": "Received"
       },
+      "Role": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "company": {
+            "type": "string",
+            "title": "Company"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "location": {
+            "type": "string",
+            "title": "Location"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/YearMonth"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "end": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/YearMonth"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "current": {
+            "type": "boolean",
+            "title": "Current"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "stack": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Stack"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "company",
+          "title",
+          "location",
+          "start",
+          "end",
+          "current",
+          "description",
+          "stack"
+        ],
+        "title": "Role"
+      },
+      "SavedJob": {
+        "properties": {
+          "job": {
+            "$ref": "#/components/schemas/JobSummary"
+          },
+          "created": {
+            "type": "boolean",
+            "title": "Created"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job",
+          "created"
+        ],
+        "title": "SavedJob"
+      },
       "Section-Input": {
         "properties": {
           "id": {
@@ -4688,6 +5760,79 @@
           "items"
         ],
         "title": "SkillGroup"
+      },
+      "SourceDocument": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "placeholders": {
+            "type": "integer",
+            "title": "Placeholders"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "job_id",
+          "placeholders",
+          "updated_at"
+        ],
+        "title": "SourceDocument"
+      },
+      "SourceProfile": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "is_default": {
+            "type": "boolean",
+            "title": "Is Default"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "is_default",
+          "updated_at"
+        ],
+        "title": "SourceProfile"
       },
       "SubscriptionInfo": {
         "properties": {
@@ -5102,6 +6247,32 @@
           "created_at"
         ],
         "title": "Version"
+      },
+      "YearMonth": {
+        "properties": {
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "month": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Month"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "year",
+          "month"
+        ],
+        "title": "YearMonth"
       }
     }
   }

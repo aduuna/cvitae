@@ -13,6 +13,7 @@ export function sessionMock() {
 		sendEmailLink: vi.fn(async () => {}),
 		isEmailLink: vi.fn(() => true),
 		completeEmailLink: vi.fn(async () => {}),
+		signInWithPassword: vi.fn(async () => {}),
 		signOut: vi.fn(async () => {}),
 		loadMe: vi.fn(async () => ({})),
 		refreshMe: vi.fn(async () => ({})),

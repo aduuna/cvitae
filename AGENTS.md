@@ -23,6 +23,9 @@ one meets its "done when" list and all checks pass.
 - Frontend: SvelteKit (Svelte 5 runes, SPA mode via adapter-static), Tailwind CSS v4, `@lucide/svelte`,
   Geist and Geist Mono via `@fontsource-variable/geist` and `@fontsource-variable/geist-mono`,
   CodeMirror 6 for the Typst editor, Firebase Auth (client SDK).
+- Browser extension: Manifest V3 for Chrome and Firefox, a Svelte 5 side panel built with Vite that
+  reuses `apps/web`'s tokens, components and generated API types (`@web`), plain TypeScript content
+  scripts. See `docs/PRODUCT.md`, 8.
 - Backend: Python 3.13, FastAPI (`fastapi[standard]`), Pydantic v2, pydantic-settings, SQLAlchemy 2 (async) with psycopg 3,
   Alembic, firebase-admin, anthropic, google-genai, httpx.
 - Rendering: Typst through the `typst` Python package, in a separate `renderer` service.
@@ -37,7 +40,8 @@ one meets its "done when" list and all checks pass.
 3. **Colors come from semantic tokens only** (`bg-surface`, `text-fg`, `border-line`, ...). Never use raw
    palette utilities (`gray-500`, `black`, hex values) inside components. See `docs/DESIGN.md`.
 4. **Icons only through `$lib/components/ui/Icon.svelte`**, which wraps `@lucide/svelte` with the
-   standard size and stroke. No other icon sets, no inline SVG icons.
+   standard size and stroke (the extension imports the same file). No other icon sets, no inline SVG
+   icons.
 5. **Backend layering is strict:** routers call services, services call repositories and ports
    (LLM, storage, renderer, billing, auth). Routers never touch the database. Repositories hold no
    business logic. See `docs/BACKEND.md`.
@@ -65,6 +69,7 @@ apps/
   web/                  SvelteKit SPA (bun)
   api/                  FastAPI app: REST API + serves the built SPA (uv)
   renderer/             FastAPI app: sandboxed Typst compile service (uv)
+  extension/            browser extension for Chrome and Firefox (bun; builds on apps/web)
 packages/
   cvcore/               shared Pydantic models, rich-text parser, fact guard (uv)
 templates/
@@ -102,6 +107,20 @@ bun run test           # vitest
 bun run test:e2e       # playwright
 bun run gen:api        # regenerate src/lib/api/schema.d.ts from apps/api OpenAPI
 bun run build
+```
+
+Browser extension (from `apps/extension`; needs `bun install` in `apps/web` too):
+
+```
+bun install
+bun run build          # dist/chrome and dist/firefox; VITE_APP_URL sets the app (default :5173)
+bun run package        # store zips in releases/, for the live app (docs/INFRA.md)
+bun run store:assets   # store screenshots and promo tiles in store/
+bun run check          # svelte-check
+bun run lint           # eslint + prettier --check
+bun run lint:firefox   # web-ext lint on dist/firefox
+bun run test           # vitest
+bun run test:e2e       # playwright with the built extension (bunx playwright install chromium)
 ```
 
 ## Definition of done (every change)

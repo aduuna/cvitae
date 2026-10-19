@@ -30,7 +30,7 @@ Domain: `cvitae.aduuna.dev` (a CNAME to `ghs.googlehosted.com` at the DNS host) 
 | GCS bucket | `<project>-uploads` | Uniform access, public access prevention enforced, versioning off, lifecycle: none (user deletes remove objects). `api-sa` has `roles/storage.objectAdmin` on this bucket only. |
 | Secret Manager | `anthropic-api-key`, `gemini-api-key`, `mimo-api-key`, `paystack-secret-key`, `database-url`, `database-url-direct` | `api-sa` can access all except `database-url-direct`; the CI deployer can access `database-url-direct` for migrations. |
 | Cloud Scheduler | `prune-versions` (daily 03:00 UTC) | Calls `POST /api/v1/internal/prune-versions` on `api` with an OIDC token from `scheduler-sa`. |
-| Firebase Auth | project-level | Firebase was added and the Google provider enabled in the console (its OAuth client secret stays out of OpenTofu state). OpenTofu owns the web app (`google_firebase_web_app`, whose config the api serves to the SPA) and the Auth config, adopted with an `import` block: email sign-in without a password (email link), and authorized domains `localhost`, the Firebase domains, the Cloud Run URL and the custom domain. |
+| Firebase Auth | project-level | Firebase was added and the Google provider enabled in the console (its OAuth client secret stays out of OpenTofu state). OpenTofu owns the web app (`google_firebase_web_app`, whose config the api serves to the SPA) and the Auth config, adopted with an `import` block: email sign-in (email link; Firebase also accepts a password for an account made with one, which only the store review account is), and authorized domains `localhost`, the Firebase domains, the Cloud Run URL and the custom domain. |
 | Domain mapping | `app.<domain>` -> `api` | Cloud Run domain mapping (free). Move to a load balancer only if needed later. |
 | Budget alert | billing account | Alerts at $10, $25, $50 per month. |
 
@@ -154,8 +154,53 @@ Jobs run in parallel:
    job fails if the committed API types are stale.
 3. **templates**: renderer golden tests (every template x every fixture), uploads preview PNGs as artifacts.
 4. **e2e**: Playwright against the built SPA and a mocked API.
-5. **infra**: `opentofu/setup-opentofu`, `tofu fmt -check -recursive`, and `tofu validate` for every
+5. **extension**: `bun install --frozen-lockfile` in `apps/web` (the extension builds on its tokens,
+   components and generated API types) and `apps/extension`, then `bun run check`, `bun run lint`,
+   `bun run test`, `bun run build`, `bun run lint:firefox` (Mozilla's `web-ext lint`), and
+   `bun run test:e2e` with full Chromium (`bunx playwright install --with-deps chromium`; extensions
+   do not load in the headless shell).
+6. **infra**: `opentofu/setup-opentofu`, `tofu fmt -check -recursive`, and `tofu validate` for every
    stack. (A `tofu plan` for `dev` posted on pull requests, with a read-only WIF role, is still to come.)
+
+### Browser extension
+
+The extension needs no cloud resources: it calls the api on the app's own origin. Builds are per
+browser and per environment, because the app's address is part of the manifest (host permission,
+connect page) and of the code. For the stores:
+
+```sh
+cd apps/extension
+bun run package    # releases/cvitae-{chrome,firefox,source}-<version>.zip
+```
+
+It builds both browsers for `VITE_APP_URL` (default `https://cvitae.aduuna.dev`; local addresses
+are refused) and zips each with `manifest.json` at the root. The source zip (`apps/extension` and
+`apps/web` as they are, without ignored files) is what Mozilla asks for with bundled code; to
+rebuild from it: `bun install` in both folders, then `bun run build` in `apps/extension`. Nothing
+is minified. Bump `version` in `apps/extension/package.json` for each upload.
+
+Publishing is by hand: upload the Chrome zip in the Chrome Web Store Developer Dashboard and the
+Firefox zip (with the source zip) on addons.mozilla.org. The listing's text and answers are in
+`apps/extension/store/listing.md`; its screenshots and promo tiles come from
+`bun run store:assets` (the real extension against a mock account), which rewrites
+`apps/extension/store/*.jpg`. The Firefox add-on id is
+`extension@cvitae.aduuna.dev`. Once a listing is live, set its address in
+`apps/web/src/lib/extension/stores.ts` so the Extension page links to it. The privacy policy for
+the listings is `https://cvitae.aduuna.dev/privacy`.
+
+Store reviewers sign in with a password account, `cvitae-review` (`cvitae-review@aduuna.dev`), at
+`/login?password`. `apps/api/scripts/review_account.py` creates it in Firebase with a verified
+email, or gives it a new password, and prints the password:
+
+```sh
+gcloud auth application-default login
+gcloud auth application-default set-quota-project cvitae-511214
+uv run --package api python apps/api/scripts/review_account.py --project-id cvitae-511214
+```
+
+It needs a project owner's Google credentials, not the database: the account's `users` row is
+created at its first sign-in. Sign in as it once to add a profile, a CV and a tailored CV, then
+give the email and password to the stores (see `listing.md`).
 
 ### `deploy.yml`
 

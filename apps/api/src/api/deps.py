@@ -8,21 +8,23 @@ from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.billing.plans import Plan
+from api.db.base import utcnow
 from api.db.models import User
 from api.errors import ServiceUnavailable
-from api.ports.auth import AuthVerifier
+from api.ports.auth import AuthVerifier, bearer_token
 from api.ports.llm.registry import ProviderRegistry
 from api.ports.renderer import RendererClient
 from api.ports.storage import Storage
 from api.repositories.ai_runs import AiRunRepository
 from api.repositories.documents import DocumentRepository, DocumentVersionRepository
+from api.repositories.extension_tokens import ExtensionTokenLookup, ExtensionTokenRepository
 from api.repositories.jobs import JobRepository
 from api.repositories.profiles import ProfileRepository
 from api.repositories.subscriptions import SubscriptionRepository
 from api.repositories.uploads import UploadRepository
 from api.repositories.users import UserRepository
 from api.repositories.webhooks import WebhookRepository
-from api.services import billing
+from api.services import billing, extension
 from api.services.users import ensure_user
 from api.settings import Settings
 
@@ -144,6 +146,10 @@ def get_webhooks(session: Session) -> WebhookRepository:
     return WebhookRepository(session)
 
 
+def get_extension_tokens(session: Session, user: CurrentUser) -> ExtensionTokenRepository:
+    return ExtensionTokenRepository(session, user.id)
+
+
 Profiles = Annotated[ProfileRepository, Depends(get_profiles)]
 Documents = Annotated[DocumentRepository, Depends(get_documents)]
 Versions = Annotated[DocumentVersionRepository, Depends(get_versions)]
@@ -153,6 +159,7 @@ AiRuns = Annotated[AiRunRepository, Depends(get_ai_runs)]
 Subscriptions = Annotated[SubscriptionRepository, Depends(get_subscriptions)]
 SubscriptionsFor = Annotated[billing.SubscriptionsFor, Depends(get_subscriptions_for)]
 Webhooks = Annotated[WebhookRepository, Depends(get_webhooks)]
+ExtensionTokens = Annotated[ExtensionTokenRepository, Depends(get_extension_tokens)]
 
 
 async def get_plan(user: CurrentUser, subscriptions: Subscriptions, settings: AppSettings) -> Plan:
@@ -161,3 +168,46 @@ async def get_plan(user: CurrentUser, subscriptions: Subscriptions, settings: Ap
 
 
 UserPlan = Annotated[Plan, Depends(get_plan)]
+
+
+# The browser extension authenticates with its own token, not a Firebase session, and only on the
+# extension routes. These repositories are scoped to the user the token belongs to.
+
+
+def get_extension_lookup(session: Session) -> ExtensionTokenLookup:
+    return ExtensionTokenLookup(session)
+
+
+async def extension_connection(
+    request: Request, lookup: Annotated[ExtensionTokenLookup, Depends(get_extension_lookup)]
+) -> extension.Connection:
+    return await extension.authenticate(lookup, bearer_token(request), utcnow())
+
+
+ExtensionConnection = Annotated[extension.Connection, Depends(extension_connection)]
+
+
+def get_extension_profiles(session: Session, connection: ExtensionConnection) -> ProfileRepository:
+    return ProfileRepository(session, connection.user.id)
+
+
+def get_extension_documents(
+    session: Session, connection: ExtensionConnection
+) -> DocumentRepository:
+    return DocumentRepository(session, connection.user.id)
+
+
+def get_extension_jobs(session: Session, connection: ExtensionConnection) -> JobRepository:
+    return JobRepository(session, connection.user.id)
+
+
+def get_own_extension_tokens(
+    session: Session, connection: ExtensionConnection
+) -> ExtensionTokenRepository:
+    return ExtensionTokenRepository(session, connection.user.id)
+
+
+ExtensionProfiles = Annotated[ProfileRepository, Depends(get_extension_profiles)]
+ExtensionDocuments = Annotated[DocumentRepository, Depends(get_extension_documents)]
+ExtensionJobs = Annotated[JobRepository, Depends(get_extension_jobs)]
+OwnExtensionTokens = Annotated[ExtensionTokenRepository, Depends(get_own_extension_tokens)]

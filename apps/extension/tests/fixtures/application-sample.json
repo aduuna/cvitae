@@ -1,0 +1,142 @@
+{
+	"name": {
+		"full": "Ama Owusu-Mensah",
+		"first": "Ama",
+		"middle": "",
+		"last": "Owusu-Mensah"
+	},
+	"headline": "Senior data engineer",
+	"email": "ama@example.com",
+	"phone": "+44 20 7946 0958",
+	"location": {
+		"full": "London, UK",
+		"city": "London",
+		"region": "",
+		"region_names": [],
+		"country": "United Kingdom",
+		"country_code": "GB",
+		"country_names": [
+			"United Kingdom",
+			"GB",
+			"UK",
+			"U.K.",
+			"Great Britain",
+			"Britain",
+			"England",
+			"Scotland",
+			"Wales",
+			"Northern Ireland",
+			"United Kingdom of Great Britain and Northern Ireland"
+		]
+	},
+	"links": {
+		"linkedin": "https://www.linkedin.com/in/example",
+		"github": "https://github.com/example",
+		"gitlab": "",
+		"twitter": "",
+		"stackoverflow": "",
+		"website": "",
+		"other": []
+	},
+	"summary": "Data engineer with 9 years of experience building batch and streaming platforms for banks and retailers. Comfortable owning pipelines end to end, from ingestion to the dashboards people use every day.",
+	"current_company": "Northwind Consulting",
+	"current_title": "Lead data engineer",
+	"experience": [
+		{
+			"id": "exp-northwind",
+			"company": "Northwind Consulting",
+			"title": "Lead data engineer",
+			"location": "London, UK",
+			"start": {
+				"year": 2021,
+				"month": 3
+			},
+			"end": null,
+			"current": true,
+			"description": "- Lead a team of 5 engineers delivering data platforms for financial-services clients.\n\nClient: Harbour Bank, London, UK\n- Migrated 140 nightly batch jobs from on-premise Hadoop to Spark on EMR, cutting runtime by 62%.\n- Built a streaming fraud-signal pipeline on Kafka that serves [[number of analysts]] analysts.\n\nClient: Meridian Retail, Manchester, UK\n- Designed a dbt project of 300+ models with tests and documentation that analysts now extend themselves.",
+			"stack": ["Python", "Spark", "Airflow", "dbt", "AWS"]
+		},
+		{
+			"id": "exp-brightline",
+			"company": "Brightline Analytics",
+			"title": "Data engineer",
+			"location": "Accra, Ghana",
+			"start": {
+				"year": 2017,
+				"month": 9
+			},
+			"end": {
+				"year": 2021,
+				"month": 2
+			},
+			"current": false,
+			"description": "- Built the company's first warehouse on BigQuery, consolidating 12 source systems.\n- Reduced monthly cloud spend by $4,800 by partitioning and clustering the largest tables.\n- Mentored 3 graduate engineers through their first year.",
+			"stack": ["Python", "PostgreSQL", "Airflow", "GCP"]
+		},
+		{
+			"id": "exp-kente",
+			"company": "Kente Labs",
+			"title": "Software engineer",
+			"location": "Kumasi, Ghana",
+			"start": {
+				"year": 2015,
+				"month": 6
+			},
+			"end": {
+				"year": 2017,
+				"month": 8
+			},
+			"current": false,
+			"description": "- Shipped payment reconciliation services processing 1.2M mobile-money transactions a month.",
+			"stack": ["Java", "MySQL"]
+		}
+	],
+	"education": [
+		{
+			"id": "edu-ug",
+			"institution": "University of Ghana",
+			"degree": "BSc Computer Science",
+			"level": "bachelor",
+			"field": "Computer Science",
+			"location": "Legon, Ghana",
+			"start": {
+				"year": 2011,
+				"month": 9
+			},
+			"end": {
+				"year": 2015,
+				"month": 6
+			}
+		}
+	],
+	"skills": [
+		"Python",
+		"SQL",
+		"Scala",
+		"C#",
+		"Spark",
+		"Kafka",
+		"dbt",
+		"Airflow",
+		"BigQuery",
+		"AWS",
+		"GCP",
+		"Terraform",
+		"PostgreSQL",
+		"Java",
+		"MySQL"
+	],
+	"certifications": [
+		{
+			"name": "Professional Data Engineer",
+			"issuer": "Google Cloud",
+			"date": "2023-04"
+		},
+		{
+			"name": "Solutions Architect Associate",
+			"issuer": "Amazon Web Services",
+			"date": "2022"
+		}
+	],
+	"placeholders": 1
+}

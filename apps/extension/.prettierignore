@@ -1,0 +1,8 @@
+dist
+dist-e2e
+dist-release
+releases
+node_modules
+test-results
+playwright-report
+bun.lock

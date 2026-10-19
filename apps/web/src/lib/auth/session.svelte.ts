@@ -126,6 +126,10 @@ export class Session {
 		pendingEmail.set(null);
 	}
 
+	signInWithPassword(email: string, password: string): Promise<void> {
+		return this.provider.signInWithPassword(email, password);
+	}
+
 	signOut(): Promise<void> {
 		return this.provider.signOut();
 	}

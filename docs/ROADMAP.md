@@ -99,10 +99,29 @@ Done when: a production deploy is live on the custom domain, an ejected CV compi
 deletion leaves no rows or objects behind, and Lighthouse accessibility scores 95 or higher on Documents,
 the editor and Settings.
 
+## M6: Browser extension
+
+Built ahead of M5 on a branch, as an exploration (`docs/PRODUCT.md`, 8).
+
+- `cvcore`: `application.py` and `places.py` with tests.
+- `extension_tokens` table and migration; connection routes for the web app and token routes for the
+  extension, with API tests for scoping, revocation and the token working on extension routes only.
+- Web app: the Extension page (`/app/extension`, in the side nav), the privacy policy (`/privacy`),
+  `?job=` on Tailor, return to the page after sign-in, the `Checkbox` primitive.
+- `apps/extension`: Manifest V3 for Chrome and Firefox; background script, connect script, content
+  script (field detection, filling, the fill offer, job ad reading), side panel; unit tests on form
+  fixtures from the main job platforms, Playwright tests with the built extension; CI job.
+
+Done when: the checks in `docs/PRODUCT.md`, 8 pass in Chrome and Firefox against `dev`, `web-ext lint`
+reports no errors, and both store listings are drafted (privacy text: what is read, when, and that
+nothing is stored or sent elsewhere).
+
 ---
 
 ## Later (not scheduled)
 
 Cover letters from the same profile and job, DOCX export, in-browser Typst preview via WASM to cut
 renderer calls, bring-your-own API key, shareable read-only CV links, OpenAI models as a fourth
-provider.
+provider. For the extension: AI drafts for free-text application questions (under the
+no-new-facts rule, counted as AI usage), filling custom list widgets (Workday's, react-select), and
+remembering per site which fields the user corrected.

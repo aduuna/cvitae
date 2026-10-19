@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { modelLabel, otherModels, pickModel } from '#lib/ai/models.ts';
 	import { api, errorMessage, unwrap } from '#lib/api/client.ts';
 	import { session } from '#lib/auth/session.svelte.ts';
@@ -80,6 +81,9 @@
 			]);
 			profiles = profileList;
 			jobs = jobList;
+			// ?job=<id>: a job saved elsewhere (the browser extension) to tailor for.
+			const wanted = page.url.searchParams.get('job');
+			savedJob = jobList.find((job) => job.id === wanted) ?? null;
 			profileId = (profileList.find((p) => p.is_default) ?? profileList[0])?.id ?? '';
 			templateId = me.default_template_id ?? DEFAULT_TEMPLATE_ID;
 			model = pickModel(me.preferred_ai_model, session.aiModels, session.defaultAiModel);

@@ -497,6 +497,130 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/extension/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Connections */
+        get: operations["list_connections_api_v1_extension_connections_get"];
+        put?: never;
+        /** Create Connection */
+        post: operations["create_connection_api_v1_extension_connections_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/extension/connections/{connection_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Connection */
+        delete: operations["delete_connection_api_v1_extension_connections__connection_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/extension/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Session */
+        get: operations["get_session_api_v1_extension_session_get"];
+        put?: never;
+        post?: never;
+        /**
+         * End Session
+         * @description Disconnect this browser: its token stops working.
+         */
+        delete: operations["end_session_api_v1_extension_session_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/extension/profiles/{profile_id}/application": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Profile Application */
+        get: operations["profile_application_api_v1_extension_profiles__profile_id__application_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/extension/documents/{document_id}/application": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Document Application */
+        get: operations["document_application_api_v1_extension_documents__document_id__application_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/extension/documents/{document_id}/cv.pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Document Pdf */
+        get: operations["document_pdf_api_v1_extension_documents__document_id__cv_pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/extension/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save Job */
+        post: operations["save_job_api_v1_extension_jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -543,6 +667,34 @@ export interface components {
              * @enum {string}
              */
             plan: "free" | "pro";
+        };
+        /** ApplicationData */
+        ApplicationData: {
+            name: components["schemas"]["NameParts"];
+            /** Headline */
+            headline: string;
+            /** Email */
+            email: string;
+            /** Phone */
+            phone: string;
+            location: components["schemas"]["Place"];
+            links: components["schemas"]["Links"];
+            /** Summary */
+            summary: string;
+            /** Current Company */
+            current_company: string;
+            /** Current Title */
+            current_title: string;
+            /** Experience */
+            experience: components["schemas"]["Role"][];
+            /** Education */
+            education: components["schemas"]["Education"][];
+            /** Skills */
+            skills: string[];
+            /** Certifications */
+            certifications: components["schemas"]["Certification"][];
+            /** Placeholders */
+            placeholders: number;
         };
         /** Basics */
         "Basics-Input": {
@@ -654,6 +806,15 @@ export interface components {
             text: string;
             /** Rationale */
             rationale: string | null;
+        };
+        /** Certification */
+        Certification: {
+            /** Name */
+            name: string;
+            /** Issuer */
+            issuer: string;
+            /** Date */
+            date: string;
         };
         /** CertificationItem */
         "CertificationItem-Input": {
@@ -860,6 +1021,26 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** Education */
+        Education: {
+            /** Id */
+            id: string;
+            /** Institution */
+            institution: string;
+            /** Degree */
+            degree: string;
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "" | "high_school" | "associate" | "bachelor" | "master" | "doctorate";
+            /** Field */
+            field: string;
+            /** Location */
+            location: string;
+            start: components["schemas"]["YearMonth"] | null;
+            end: components["schemas"]["YearMonth"] | null;
+        };
         /** EducationItem */
         "EducationItem-Input": {
             /** Id */
@@ -1019,6 +1200,66 @@ export interface components {
              * @default []
              */
             engagements: components["schemas"]["Engagement-Output"][];
+        };
+        /** ExtensionConnectionCreate */
+        ExtensionConnectionCreate: {
+            /**
+             * Label
+             * @default
+             */
+            label?: string;
+        };
+        /** ExtensionConnectionCreated */
+        ExtensionConnectionCreated: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Last Used At */
+            last_used_at: string | null;
+            /** Token */
+            token: string;
+        };
+        /**
+         * ExtensionConnectionInfo
+         * @description A browser the extension is connected in.
+         */
+        ExtensionConnectionInfo: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Last Used At */
+            last_used_at: string | null;
+        };
+        /** ExtensionSession */
+        ExtensionSession: {
+            /** Email */
+            email: string;
+            /** Display Name */
+            display_name: string | null;
+            /** Profiles */
+            profiles: components["schemas"]["SourceProfile"][];
+            /** Documents */
+            documents: components["schemas"]["SourceDocument"][];
+            /** Jobs */
+            jobs: components["schemas"]["JobSummary"][];
         };
         /** FactIssue */
         FactIssue: {
@@ -1187,6 +1428,41 @@ export interface components {
              */
             url: string;
         };
+        /** Links */
+        Links: {
+            /**
+             * Linkedin
+             * @default
+             */
+            linkedin: string;
+            /**
+             * Github
+             * @default
+             */
+            github: string;
+            /**
+             * Gitlab
+             * @default
+             */
+            gitlab: string;
+            /**
+             * Twitter
+             * @default
+             */
+            twitter: string;
+            /**
+             * Stackoverflow
+             * @default
+             */
+            stackoverflow: string;
+            /**
+             * Website
+             * @default
+             */
+            website: string;
+            /** Other */
+            other: string[];
+        };
         /** ManageLink */
         ManageLink: {
             /** Url */
@@ -1228,6 +1504,34 @@ export interface components {
             limit: number;
             /** Message */
             message: string | null;
+        };
+        /** NameParts */
+        NameParts: {
+            /** Full */
+            full: string;
+            /** First */
+            first: string;
+            /** Middle */
+            middle: string;
+            /** Last */
+            last: string;
+        };
+        /** Place */
+        Place: {
+            /** Full */
+            full: string;
+            /** City */
+            city: string;
+            /** Region */
+            region: string;
+            /** Region Names */
+            region_names: string[];
+            /** Country */
+            country: string;
+            /** Country Code */
+            country_code: string;
+            /** Country Names */
+            country_names: string[];
         };
         /** PlaceholderRef */
         PlaceholderRef: {
@@ -1376,6 +1680,31 @@ export interface components {
              */
             status?: "ok";
         };
+        /** Role */
+        Role: {
+            /** Id */
+            id: string;
+            /** Company */
+            company: string;
+            /** Title */
+            title: string;
+            /** Location */
+            location: string;
+            start: components["schemas"]["YearMonth"] | null;
+            end: components["schemas"]["YearMonth"] | null;
+            /** Current */
+            current: boolean;
+            /** Description */
+            description: string;
+            /** Stack */
+            stack: string[];
+        };
+        /** SavedJob */
+        SavedJob: {
+            job: components["schemas"]["JobSummary"];
+            /** Created */
+            created: boolean;
+        };
         /**
          * Section
          * @description One list per kind; only the list matching `kind` is filled.
@@ -1474,6 +1803,42 @@ export interface components {
             label: string;
             /** Items */
             items: string[];
+        };
+        /** SourceDocument */
+        SourceDocument: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Job Id */
+            job_id: string | null;
+            /** Placeholders */
+            placeholders: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** SourceProfile */
+        SourceProfile: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Is Default */
+            is_default: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** SubscriptionInfo */
         SubscriptionInfo: {
@@ -1621,6 +1986,13 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** YearMonth */
+        YearMonth: {
+            /** Year */
+            year: number;
+            /** Month */
+            month: number | null;
         };
     };
     responses: never;
@@ -3580,6 +3952,459 @@ export interface operations {
             };
             /** @description Billing is not set up */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_connections_api_v1_extension_connections_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionConnectionInfo"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    create_connection_api_v1_extension_connections_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtensionConnectionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionConnectionCreated"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    delete_connection_api_v1_extension_connections__connection_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                connection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_session_api_v1_extension_session_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionSession"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    end_session_api_v1_extension_session_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    profile_application_api_v1_extension_profiles__profile_id__application_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationData"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    document_application_api_v1_extension_documents__document_id__application_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationData"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    document_pdf_api_v1_extension_documents__document_id__cv_pdf_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The CV as a PDF */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": unknown;
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Placeholders remain; `details` lists them */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    save_job_api_v1_extension_jobs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedJob"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

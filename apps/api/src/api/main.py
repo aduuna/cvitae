@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 
+import anyio
 from fastapi import APIRouter, FastAPI
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -29,6 +30,7 @@ from api.routers import (
     billing,
     client_config,
     documents,
+    extension,
     imports,
     jobs,
     me,
@@ -51,7 +53,8 @@ SPA_FALLBACK = "spa.html"
 
 
 class SpaStaticFiles(StaticFiles):
-    """Serves the built SPA; unknown paths get the shell so client-side routes work on reload."""
+    """Serves the built SPA. A prerendered page is `<path>.html` (the privacy policy is
+    `privacy.html`); other unknown paths get the shell so client-side routes work on reload."""
 
     async def get_response(self, path: str, scope: Scope) -> Response:
         try:
@@ -59,7 +62,9 @@ class SpaStaticFiles(StaticFiles):
         except HTTPException as exc:
             if exc.status_code != 404 or path.startswith("api/"):
                 raise
-            return await super().get_response(SPA_FALLBACK, scope)
+        page = f"{path.rstrip('/')}.html"
+        _, found = await anyio.to_thread.run_sync(self.lookup_path, page)
+        return await super().get_response(page if found else SPA_FALLBACK, scope)
 
 
 def build_auth_verifier(settings: Settings) -> AuthVerifier:
@@ -161,6 +166,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         tailor,
         billing,
         webhooks,
+        extension,
     ):
         v1.include_router(module.router)
     app.include_router(v1)

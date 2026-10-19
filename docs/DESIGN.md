@@ -197,7 +197,10 @@ No font sizes outside the scale; the display sizes (`3xl`, `4xl`) appear on the 
 | Placeholder warning | `CircleAlert` |
 | Plan limit reached | `CircleAlert` |
 | Code mode | `Code` |
-| Form mode | `ListTree` |
+| Form mode, Fill form (extension) | `ListTree` |
+| Browser extension, Connect extension | `Puzzle` |
+| Copy a detail (extension) | `Copy` |
+| Attach CV (extension) | `File` |
 | Edit with AI | `Sparkles` |
 | Send | `Send` |
 | Undo | `Undo2` |
@@ -366,3 +369,30 @@ They must still:
 - Render placeholders with the same yellow (`#ffe58a`) used by the UI token.
 - Keep body text at 9 to 11pt, margins at least 1.2cm, and single-column body flow.
 - Use fonts bundled with the renderer (see `docs/BACKEND.md`).
+
+## The browser extension
+
+The extension (`apps/extension`) is part of the same product and looks it. In the app, the
+Extension page (`/app/extension`) is a form page of three cards: what the extension does (with
+store links once published), This browser (connect) and Connected browsers. The privacy policy
+(`/privacy`) is a public page like the landing page: a 720px column of headings and plain text.
+
+- **Side panel** (Chrome's side panel, Firefox's sidebar): one column of cards on `bg-canvas`, 12px
+  around and between them, the logo and name at the top. Cards in order: Fill from (a `Select` of
+  profiles and CVs, with why it was chosen as help text), Fill this application, Job ad, Copy your
+  details, Settings. It imports `app.css` and the primitives from `apps/web/src/lib` (`@web`), so
+  there is one set of tokens and components; the theme follows the device.
+- **Review before filling:** each field is a `Checkbox` with the page's label, and its value under it
+  (an `Input`, a `Textarea` for long text, plain text for lists and boxes), grouped under
+  `text-sm font-medium text-fg-muted` headings. `Badge` (outline) marks "Has a value", "Pick from
+  list" and "Shortened". The primary action names the count: "Fill 16 fields".
+- **The offer inside job sites** is drawn in a shadow root the site's CSS cannot reach: a 320px card
+  in the bottom right corner (16px from the edges), `surface`, `line` border, radius `lg`,
+  `shadow-pop`, title, one line of text and two buttons ("Close", then the primary "Fill fields").
+  No icons. A site's CSS variables are not ours, so `apps/extension/src/content/tokens.ts` copies the
+  token values it needs, for light and dark (by `prefers-color-scheme`); the extension's token test
+  fails if they differ from `app.css`. It is the only extension file allowed raw colours.
+- **Filled fields** in the page get a 2px `accent` outline with a 4px `placeholder` halo, visible on
+  light and dark sites, until the user types in or clicks the field.
+- Copy follows the rules above. The extension says plainly that it never submits a form and that
+  the user checks every field.

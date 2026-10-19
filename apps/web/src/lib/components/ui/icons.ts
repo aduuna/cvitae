@@ -20,6 +20,7 @@ import LogOut from '@lucide/svelte/icons/log-out';
 import PanelLeftClose from '@lucide/svelte/icons/panel-left-close';
 import PanelLeftOpen from '@lucide/svelte/icons/panel-left-open';
 import PenLine from '@lucide/svelte/icons/pen-line';
+import Puzzle from '@lucide/svelte/icons/puzzle';
 import Plus from '@lucide/svelte/icons/plus';
 import RotateCcwClock from '@lucide/svelte/icons/rotate-ccw-clock';
 import Send from '@lucide/svelte/icons/send';
@@ -73,7 +74,8 @@ export const icons = {
 	model: Cpu,
 	'ai-edit': Sparkles,
 	send: Send,
-	undo: Undo2
+	undo: Undo2,
+	extension: Puzzle
 } as const;
 
 export type IconName = keyof typeof icons;

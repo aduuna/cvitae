@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { findRawColors, scanDirectories } from './token-scan';
+import { darkAliases, findRawColors, scanDirectories, themeColors } from './token-scan';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
@@ -62,14 +62,14 @@ describe('design tokens', () => {
 	});
 
 	it('the dark theme redefines every theme-dependent token from the raw scale', () => {
-		const dark = themeColors('dark');
+		const dark = themeColors(css, 'dark');
 		const expected = SEMANTIC.filter((name) => !THEME_INDEPENDENT.includes(name));
-		expect(Object.keys(darkBlock()).sort()).toEqual(expected.sort());
+		expect(Object.keys(darkAliases(css)).sort()).toEqual(expected.sort());
 		for (const name of SEMANTIC) expect(dark[name]).toMatch(/^#[0-9a-f]{6}$/);
 	});
 
 	describe.each(['light', 'dark'] as const)('%s theme contrast (WCAG 2.2 AA)', (mode) => {
-		const colors = themeColors(mode);
+		const colors = themeColors(css, mode);
 		it.each([
 			['fg', 'surface', 4.5],
 			['fg', 'canvas', 4.5],
@@ -109,34 +109,6 @@ const SEMANTIC = [
 
 /** The CV keeps its print colors in both themes. */
 const THEME_INDEPENDENT = ['placeholder', 'placeholder-fg', 'paper', 'paper-mark'];
-
-const DARK_SELECTOR = ":root[data-theme='dark']";
-
-/** `--color-name: var(--color-raw);` declarations in a block of CSS, as { name: raw }. */
-function aliases(block: string): Record<string, string> {
-	const pairs = block.matchAll(/--color-([a-z-]+): var\(--color-([a-z0-9-]+)\);/g);
-	return Object.fromEntries([...pairs].map(([, name = '', raw = '']) => [name, raw]));
-}
-
-/** The light theme: the declarations in `@theme`, before the dark block. */
-function lightBlock(): Record<string, string> {
-	return aliases(css.split(DARK_SELECTOR)[0] ?? '');
-}
-
-function darkBlock(): Record<string, string> {
-	const block = /:root\[data-theme='dark'\] \{([^}]*)\}/.exec(css);
-	if (!block?.[1]) throw new Error(`app.css has no ${DARK_SELECTOR} block`);
-	return aliases(block[1]);
-}
-
-/** Every semantic token resolved to its hex value in one theme. */
-function themeColors(mode: 'light' | 'dark'): Record<string, string> {
-	const raw = Object.fromEntries(
-		[...css.matchAll(/--color-([a-z0-9-]+): (#[0-9a-f]{6});/g)].map(([, name, hex]) => [name, hex])
-	);
-	const semantic = { ...lightBlock(), ...(mode === 'dark' ? darkBlock() : {}) };
-	return Object.fromEntries(Object.entries(semantic).map(([name, alias]) => [name, raw[alias]]));
-}
 
 function luminance(hex: string | undefined): number {
 	if (!hex) throw new Error('unknown color token');

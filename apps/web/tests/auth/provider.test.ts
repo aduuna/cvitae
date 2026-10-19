@@ -9,6 +9,7 @@ const firebase = vi.hoisted(() => ({
 	signInWithPopup: vi.fn(async () => {}),
 	sendSignInLinkToEmail: vi.fn(async () => {}),
 	signInWithEmailLink: vi.fn(async () => {}),
+	signInWithEmailAndPassword: vi.fn(async () => {}),
 	signOut: vi.fn(async () => {}),
 	setCustomParameters: vi.fn()
 }));
@@ -33,6 +34,7 @@ vi.mock('firebase/auth', () => {
 		sendSignInLinkToEmail: firebase.sendSignInLinkToEmail,
 		isSignInWithEmailLink: (_: unknown, url: string) => url.includes('oobCode='),
 		signInWithEmailLink: firebase.signInWithEmailLink,
+		signInWithEmailAndPassword: firebase.signInWithEmailAndPassword,
 		signOut: firebase.signOut
 	};
 });
@@ -96,6 +98,14 @@ describe('devProvider', () => {
 			new AuthError('Email links are not sent in local development. Use Continue with Google.')
 		);
 	});
+
+	it('does not take passwords', async () => {
+		const provider = devProvider();
+
+		await expect(provider.signInWithPassword('ada@example.com', 'secret')).rejects.toThrow(
+			new AuthError('Passwords are not used in local development. Use Continue with Google.')
+		);
+	});
 });
 
 describe('authErrorFrom', () => {
@@ -108,6 +118,7 @@ describe('authErrorFrom', () => {
 			'auth/expired-action-code',
 			'This sign-in link has expired or was already used. Request a new one.'
 		],
+		['auth/invalid-credential', 'The email or password is wrong. Check both and try again.'],
 		['auth/unknown-thing', 'Sign-in failed. Try again.']
 	])('explains %s', (code, message) => {
 		expect(authErrorFrom({ code }).message).toBe(message);
@@ -177,6 +188,18 @@ describe('firebaseProvider', () => {
 
 		await provider.signOut();
 		expect(firebase.signOut).toHaveBeenCalledOnce();
+	});
+
+	it('signs in with a password', async () => {
+		const provider = await firebaseProvider(CONFIG);
+
+		await provider.signInWithPassword('review@example.com', 'secret');
+
+		expect(firebase.signInWithEmailAndPassword).toHaveBeenCalledWith(
+			expect.anything(),
+			'review@example.com',
+			'secret'
+		);
 	});
 
 	it('turns Firebase errors into messages', async () => {

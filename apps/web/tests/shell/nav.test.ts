@@ -8,6 +8,7 @@ describe('navItems', () => {
 			['Profiles', '/app/profiles', 'profiles'],
 			['Tailor', '/app/tailor', 'tailor'],
 			['Templates', '/app/templates', 'templates'],
+			['Extension', '/app/extension', 'extension'],
 			['Settings', '/app/settings', 'settings']
 		]);
 	});

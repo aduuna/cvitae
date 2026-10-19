@@ -1,15 +1,23 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { signInPath } from '#lib/auth/next.ts';
 	import { session } from '#lib/auth/session.svelte.ts';
 	import SideNav from '#lib/components/shell/SideNav.svelte';
 	import Toast from '#lib/components/ui/Toast.svelte';
 
 	let { children } = $props();
 
-	// Signed-out visitors (or anyone who signs out) go to the sign-in page.
+	// Anyone who signs out goes to the home page. A visitor who arrives signed out goes to sign in,
+	// and comes back to this page afterwards (the extension's connect page, for one).
+	let signedIn = false;
 	$effect(() => {
-		if (session.status === 'signed-out') void goto(resolve('/'), { replaceState: true });
+		if (session.status === 'signed-in') signedIn = true;
+		if (session.status !== 'signed-out') return;
+		if (signedIn) void goto(resolve('/'), { replaceState: true });
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- sign-in with ?next=, from signInPath
+		else void goto(signInPath(page.url), { replaceState: true });
 	});
 </script>
 

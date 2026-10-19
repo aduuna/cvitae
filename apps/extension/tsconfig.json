@@ -1,0 +1,23 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"lib": ["ES2023", "DOM", "DOM.Iterable"],
+		"types": ["chrome", "node", "vite/client"],
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"allowImportingTsExtensions": true,
+		"verbatimModuleSyntax": true,
+		"isolatedModules": true,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"jsx": "react-jsx",
+		"resolveJsonModule": true,
+		"paths": {
+			"@web/*": ["../web/src/lib/*"],
+			"$app/paths": ["./src/sidepanel/app-paths.ts"]
+		}
+	},
+	"include": ["src", "tests", "scripts", "*.ts", "*.js"]
+}

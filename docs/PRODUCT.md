@@ -44,15 +44,22 @@ Icons are Lucide, listed in `docs/DESIGN.md`.
 | 2 | Profiles | `/app/profiles` | Enter and edit work experience and other career data. New profiles start at `/app/profiles/new`: import a CV (the default) or start from scratch. |
 | 3 | Tailor | `/app/tailor` | Paste a job description and generate a tailored CV. Lists saved jobs. |
 | 4 | Templates | `/app/templates` | Browse the 5 templates with previews; set a default. |
-| 5 | Settings | `/app/settings` | Account, AI model, billing, data export and deletion. |
+| 5 | Extension | `/app/extension` | The browser extension: what it does, where to get it, connect this browser, connected browsers. |
+| 6 | Settings | `/app/settings` | Account, AI model, billing, data export and deletion. |
 
 The editor for a single CV lives at `/app/documents/[id]` and keeps the side nav visible (collapsible).
+A signed-out user sent to the sign-in page from an app page returns to that page after signing in.
+The privacy policy is a public page, `/privacy`, linked from the landing page's footer, the sign-in
+page, the Extension page and the extension.
 
 ## Features and acceptance criteria
 
 ### 1. Authentication
 
 - Sign in with Google, or with an email link (passwordless). Firebase Auth.
+- `/login?password`, linked from nowhere, has an email and password form in place of the email
+  link, for the store review account (`cvitae-review`, made by `apps/api/scripts/review_account.py`).
+  There is no sign-up with a password.
 - First sign-in creates the user record.
 - Signed-out users see a landing page at `/` that shows what the app does before asking them to sign
   in: a hero with a line drawing of the chameleon tailoring a CV, a picture of the CV editor, then the
@@ -114,6 +121,8 @@ bullets match the source, and the user can accept or discard it.
 - Form: job description (required, pasted text), job title, company, URL (optional), base profile,
   template, AI model (a select, defaulting to the user's setting).
 - Jobs are saved and listed on the Tailor page so the user can tailor again or see what was sent.
+  `/app/tailor?job=<id>` opens with that saved job chosen; the browser extension links there after
+  saving a job ad.
 - Generation produces a new CV and opens a review screen: the **Preview** of the tailored CV, with
   **Next steps** beside it, kept short and actionable:
   1. **Fill in N gaps**: placeholders are highlighted in the preview, so they are counted, not listed;
@@ -206,6 +215,62 @@ the fixture CV fits one page in `classic` and `compact`.
 Done when: changing the default model changes the preselected model on Import and Tailor, and
 account deletion removes all user data from Postgres and GCS (verified by a test).
 
+### 8. Browser extension
+
+Applying is the step after tailoring. The Chameleon vitae extension for Chrome and Firefox fills job
+application forms from the user's profiles and CVs, attaches a tailored CV as a PDF, and saves the
+job ad the user is reading to Tailor. It lives in `apps/extension`.
+
+- **The Extension page** (`/app/extension`, in the side nav) says what the extension does and what
+  it can and cannot read, links to the browser stores once it is published there (until then it says
+  it is not in the stores yet), and has two cards: This browser, and Connected browsers ("Chrome on
+  macOS", connected and last used, with Disconnect).
+- **Connect.** Installing opens the Extension page (a signed-out user signs in first and comes back
+  to it). "Connect extension" makes a connection for this browser and hands its token to the
+  extension, which checks it before keeping it. The extension's own Disconnect, and Disconnect on the
+  Extension page, both revoke the token.
+- **What it may do.** Read profiles and form-mode CVs, export a CV as PDF, and save jobs. It cannot
+  change or delete anything and runs no AI, so it uses no AI usage.
+- **Fill from** a profile or a CV, in a list. On the page of a saved job's ad or application form,
+  the CV tailored for that job is chosen ("The CV you tailored for Data engineer at Harbour Bank");
+  otherwise the user's last choice; otherwise the default profile.
+- **Side panel.** The toolbar button opens it and lets the extension read that tab. Fill form reads
+  the form in every frame (forms are often embedded) and shows a review: each field and the value it
+  gets, grouped as Your details, Links, Role 1: <company>, School 1: <school>. Text values can be
+  changed first; fields that have a value already are listed unticked. Notes say when the form has
+  room for fewer roles than the profile ("Add another role in the form, then fill again"), which
+  fields offer a list as you type, which texts were shortened to a field's length limit, and how many
+  placeholders the source still has. Fill writes the ticked fields and marks them in the page until
+  the user edits them; Undo fill puts the old values back.
+- **Fill offer.** On known job platforms (Greenhouse, Lever, Workday, Ashby, SmartRecruiters,
+  Workable and others) and on sites the user allowed from the panel, a small offer appears in the
+  page's corner when an application form shows up, once per page or step: "Fill this application
+  from your <source>? Nothing is sent until you submit it yourself." Nothing is read from the account
+  until the user chooses Fill fields, and clicks made by the page's own scripts are ignored. The
+  panel has a setting to turn the offer off.
+- **Never** submits a form. Never fills equal opportunity questions (gender, race, veteran or
+  disability status), work eligibility or sponsorship, pay, referrals, "how did you hear about us",
+  cover letters, dates of birth or passwords, and never answers free-text questions. Never fills a
+  text field the user cannot see (hidden, transparent, tiny or off the page), so a page cannot
+  collect more than it shows. It adds
+  nothing: a date the CV gives as a year fills only year fields, a missing middle name stays empty,
+  and placeholders stay visible in their brackets.
+- **Attach CV.** With a CV chosen, Attach CV puts its PDF into the form's CV upload, named
+  `<Name>-CV-<Company>.pdf` when the CV was tailored for a job. Refused while the CV has placeholders,
+  with an "Open in editor" action.
+- **Save job ad.** Reads the ad from the page's job posting data (schema.org `JobPosting`), else the
+  text the user selected, else the page. The user checks the title and company; Tailor a CV then
+  opens Tailor with the job chosen (`/app/tailor?job=<id>`). Saving the same ad again keeps one job.
+- **Copy your details.** Every detail with a copy button, for fields the extension cannot fill
+  (custom lists and widgets).
+- The browser keeps only the token, the account's email, the last choice and the offer setting.
+  Profile and CV data is fetched when a form is filled and not stored.
+
+Done when: in Chrome and Firefox a user installs the extension, connects it, fills the Greenhouse,
+Lever, Workday and Ashby fixture forms from a profile after reviewing them, attaches a tailored CV,
+saves a job ad and tailors for it, and disconnecting the browser on the Extension page stops the
+extension at its next request.
+
 ## Plans and limits
 
 Values live in one config module (`apps/api/src/api/billing/plans.py`) so they can change without code
@@ -243,4 +308,5 @@ Say what happened and what to do next.
 ## Out of scope for v1
 
 Cover letters, LinkedIn import, DOCX export, collaboration and sharing links, mobile editing (mobile can
-view and download), browser extensions, job board integrations, analytics dashboards for users.
+view and download), job board integrations (APIs; the browser extension works in the page), AI answers
+to free-text application questions, analytics dashboards for users.

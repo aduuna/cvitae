@@ -21,6 +21,7 @@ export function fakeProvider(initial: string | null = null) {
 		sendEmailLink: vi.fn(async () => {}),
 		isEmailLink: vi.fn((url: string) => url.includes('oobCode=')),
 		completeEmailLink: vi.fn(async (address: string) => emit(address)),
+		signInWithPassword: vi.fn(async (address: string) => emit(address)),
 		signOut: vi.fn(async () => emit(null))
 	};
 	return { provider, emit };

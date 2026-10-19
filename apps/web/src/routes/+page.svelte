@@ -49,7 +49,7 @@
 		{
 			cartoon: 'extension',
 			title: 'Fill in applications faster',
-			body: 'A Chrome extension that fills in application forms on careers sites from your profile, so you stop retyping your CV into every form.'
+			body: 'An extension for Chrome and Firefox that fills in application forms on careers sites from your profile and attaches the CV you tailored, so you stop retyping your CV into every form.'
 		},
 		{
 			cartoon: 'ats',
@@ -313,12 +313,20 @@
 				<Logo />
 				Chameleon vitae
 			</span>
-			<a
-				href={resolve('/login')}
-				class="rounded-md transition-colors duration-120 ease-out hover:text-fg"
-			>
-				Sign in
-			</a>
+			<nav aria-label="Footer" class="flex items-center gap-6">
+				<a
+					href={resolve('/privacy')}
+					class="rounded-md transition-colors duration-120 ease-out hover:text-fg"
+				>
+					Privacy
+				</a>
+				<a
+					href={resolve('/login')}
+					class="rounded-md transition-colors duration-120 ease-out hover:text-fg"
+				>
+					Sign in
+				</a>
+			</nav>
 		</div>
 	</footer>
 </div>

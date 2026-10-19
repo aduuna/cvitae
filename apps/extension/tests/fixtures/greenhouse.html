@@ -1,0 +1,95 @@
+<!-- Greenhouse's classic hosted board (boards.greenhouse.io), reduced to its form markup. -->
+<div id="content">
+	<h1 class="app-title">Senior Data Engineer</h1>
+	<div id="content-intro">
+		<h2>What you will do</h2>
+		<p>Build pipelines.</p>
+	</div>
+</div>
+<div id="application">
+	<h2>Apply for this Job</h2>
+	<form id="application_form" action="/acme/jobs/123" method="post">
+		<div class="field">
+			<label for="first_name">First Name <span class="asterisk">*</span></label>
+			<input type="text" id="first_name" name="job_application[first_name]" />
+		</div>
+		<div class="field">
+			<label for="last_name">Last Name <span class="asterisk">*</span></label>
+			<input type="text" id="last_name" name="job_application[last_name]" />
+		</div>
+		<div class="field">
+			<label for="email">Email <span class="asterisk">*</span></label>
+			<input type="text" id="email" name="job_application[email]" />
+		</div>
+		<div class="field">
+			<label for="phone">Phone</label>
+			<input type="text" id="phone" name="job_application[phone]" />
+		</div>
+		<div class="field">
+			<label>Resume/CV <span class="asterisk">*</span></label>
+			<input type="file" id="resume" name="job_application[resume]" style="display: none" />
+		</div>
+		<div class="field">
+			<label>Cover Letter</label>
+			<input type="file" id="cover_letter" name="job_application[cover_letter]" />
+		</div>
+		<div class="field">
+			<label for="job_application_answers_attributes_0_text_value">LinkedIn Profile</label>
+			<input
+				type="text"
+				id="job_application_answers_attributes_0_text_value"
+				name="job_application[answers_attributes][0][text_value]"
+			/>
+		</div>
+		<div class="field">
+			<label for="job_application_answers_attributes_1_text_value">Website</label>
+			<input
+				type="text"
+				id="job_application_answers_attributes_1_text_value"
+				name="job_application[answers_attributes][1][text_value]"
+			/>
+		</div>
+		<div class="field">
+			<label for="job_application_answers_attributes_2_text_value">
+				How did you hear about this job?
+			</label>
+			<input
+				type="text"
+				id="job_application_answers_attributes_2_text_value"
+				name="job_application[answers_attributes][2][text_value]"
+			/>
+		</div>
+		<div class="field">
+			<label for="job_application_answers_attributes_3_boolean_value">
+				Are you legally authorized to work in the United Kingdom? *
+			</label>
+			<select
+				id="job_application_answers_attributes_3_boolean_value"
+				name="job_application[answers_attributes][3][boolean_value]"
+			>
+				<option value="">Please select</option>
+				<option value="1">Yes</option>
+				<option value="0">No</option>
+			</select>
+		</div>
+		<div id="eeoc_fields">
+			<h3>U.S. Equal Employment Opportunity Information</h3>
+			<label for="job_application_gender">Gender</label>
+			<select id="job_application_gender" name="job_application[gender]">
+				<option value="">Please select</option>
+				<option value="1">Male</option>
+				<option value="2">Female</option>
+			</select>
+			<label for="job_application_race">Please identify your race</label>
+			<select id="job_application_race" name="job_application[race]">
+				<option value="">Please select</option>
+			</select>
+			<label for="job_application_veteran_status">Veteran Status</label>
+			<select id="job_application_veteran_status" name="job_application[veteran_status]">
+				<option value="">Please select</option>
+			</select>
+		</div>
+		<input type="hidden" name="authenticity_token" value="abc" />
+		<input type="submit" value="Submit Application" />
+	</form>
+</div>

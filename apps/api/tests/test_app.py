@@ -285,6 +285,24 @@ async def test_serves_the_spa_with_a_client_route_fallback(tmp_path: Path) -> No
     assert api.json()["error"]["code"] == "not_found"
 
 
+async def test_serves_prerendered_pages_by_their_path(tmp_path: Path) -> None:
+    (tmp_path / "spa.html").write_text("<!doctype html><title>app</title>")
+    (tmp_path / "privacy.html").write_text("<!doctype html><title>privacy</title>")
+    settings = Settings(env="test", auth_mode="dev", database_url=DB, static_dir=tmp_path)
+    app = create_app(settings)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        page, slash, missing = (
+            await c.get("/privacy"),
+            await c.get("/privacy/"),
+            await c.get("/terms"),
+        )
+
+    assert "<title>privacy</title>" in page.text
+    assert "<title>privacy</title>" in slash.text
+    assert "<title>app</title>" in missing.text
+
+
 def test_providers_need_their_keys() -> None:
     def registry(**keys: str | None) -> list[str]:
         settings = Settings(

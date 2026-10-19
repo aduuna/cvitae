@@ -1,0 +1,84 @@
+<!-- A company's own careers form: lists for country, state and degree, month inputs, a date input,
+placeholders as labels, a length limit, and fields that already have values. -->
+<form id="apply">
+	<h2>Personal information</h2>
+	<input name="given" placeholder="First name" autocomplete="given-name" />
+	<input name="middle" placeholder="Middle name" />
+	<input name="family" placeholder="Last name" autocomplete="family-name" />
+	<input name="contact_email" type="email" placeholder="Email address" value="old@example.com" />
+	<label for="mobile">Mobile number</label>
+	<input id="mobile" name="mobile" type="tel" />
+	<label for="phone-type">Phone device type</label>
+	<select id="phone-type">
+		<option value="">Select</option>
+		<option>Mobile</option>
+	</select>
+	<label for="addr1">Address line 1</label>
+	<input id="addr1" name="address1" />
+	<label for="city">City</label>
+	<input id="city" name="city" />
+	<label for="state">State / Province</label>
+	<select id="state">
+		<option value="">Select a state</option>
+		<option value="CA">California</option>
+		<option value="TX">Texas</option>
+	</select>
+	<label for="country">Country</label>
+	<select id="country">
+		<option value="">Choose a country</option>
+		<option value="GH">Ghana</option>
+		<option value="GB">United Kingdom of Great Britain and Northern Ireland</option>
+		<option value="US">United States of America</option>
+	</select>
+	<label for="zip">Postal code</label>
+	<input id="zip" name="zip" />
+	<label for="dob">Date of birth</label>
+	<input id="dob" type="date" />
+	<label for="headline">Professional headline</label>
+	<input id="headline" />
+	<label for="summary">Professional summary</label>
+	<textarea id="summary"></textarea>
+	<label for="skills">Skills</label>
+	<input id="skills" name="skills" />
+	<label for="site">Personal website</label>
+	<input id="site" type="url" />
+
+	<section>
+		<h2>Work history</h2>
+		<label for="employer">Employer</label>
+		<input id="employer" name="jobs[0][employer]" />
+		<label for="position">Position</label>
+		<input id="position" name="jobs[0][position]" />
+		<label for="from">From</label>
+		<input id="from" type="month" name="jobs[0][from]" />
+		<label for="to">To</label>
+		<input id="to" type="month" name="jobs[0][to]" />
+		<label><input type="checkbox" name="jobs[0][current]" /> I currently work here</label>
+		<label for="duties">Duties and achievements</label>
+		<textarea id="duties" maxlength="120"></textarea>
+	</section>
+
+	<section>
+		<h2>Education</h2>
+		<label for="uni">University</label>
+		<input id="uni" />
+		<label for="degree">Degree</label>
+		<select id="degree">
+			<option value="">Select</option>
+			<option value="hs">High School</option>
+			<option value="ba">Bachelor's Degree</option>
+			<option value="ma">Master's Degree</option>
+		</select>
+		<label for="major">Major</label>
+		<input id="major" />
+		<label for="grad">Graduation date</label>
+		<input id="grad" type="date" />
+		<label for="gpa">GPA</label>
+		<input id="gpa" />
+	</section>
+
+	<label for="disabled-field">Reference number</label>
+	<input id="disabled-field" disabled />
+	<label for="years">Years of experience</label>
+	<input id="years" type="number" />
+</form>

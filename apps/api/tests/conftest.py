@@ -11,6 +11,13 @@ os.environ.update(
     RENDERER_URL="http://renderer.test",
 )
 
+# Nor do tests read a developer's .env: its keys and local switches (DEV_PLAN, ...) would change
+# what the tests see. Settings come from the variables above and what each test passes.
+from api.settings import DatabaseSettings, Settings
+
+for model in (DatabaseSettings, Settings):
+    model.model_config["env_file"] = None
+
 import json
 from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
@@ -40,7 +47,6 @@ from api.ports.renderer import FakeRendererClient
 from api.ports.storage import LocalStorage
 from api.repositories.users import UserRepository
 from api.services.billing import Billing
-from api.settings import Settings
 from cvcore.models import CvContent
 
 REPO = Path(__file__).resolve().parents[3]

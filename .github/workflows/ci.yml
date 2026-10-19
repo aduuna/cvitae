@@ -86,6 +86,35 @@ jobs:
           path: apps/web/test-results/
           if-no-files-found: ignore
 
+  extension:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/extension
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: apps/extension/package.json
+      # The extension builds on the web app's tokens, components and generated API types.
+      - run: bun install --frozen-lockfile
+        working-directory: apps/web
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      - run: bun run lint
+      - run: bun run test
+      - run: bun run build
+      - run: bun run lint:firefox
+      # Extensions need full Chromium; they do not load in the headless shell.
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: extension-playwright-results
+          path: apps/extension/test-results/
+          if-no-files-found: ignore
+
   infra:
     runs-on: ubuntu-latest
     steps:

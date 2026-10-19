@@ -31,7 +31,8 @@ resource "google_identity_platform_config" "auth" {
   )
 
   sign_in {
-    # Email link (passwordless) sign-in; Google is the other provider.
+    # Email link (passwordless) sign-in; Google is the other provider. password_required = false
+    # also accepts passwords, used only by the store review account (apps/api/scripts/review_account.py).
     email {
       enabled           = true
       password_required = false

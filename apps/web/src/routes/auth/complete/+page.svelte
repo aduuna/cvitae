@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { errorMessage } from '#lib/api/client.ts';
+	import { afterSignIn } from '#lib/auth/next.ts';
 	import { pendingEmail, session } from '#lib/auth/session.svelte.ts';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Input from '#lib/components/ui/Input.svelte';
@@ -21,7 +22,8 @@
 		error = null;
 		try {
 			await session.completeEmailLink(address, location.href);
-			await goto(resolve('/app/documents'), { replaceState: true });
+			// eslint-disable-next-line svelte/no-navigation-without-resolve -- an app path checked by afterSignIn
+			await goto(afterSignIn(new URL(location.href)), { replaceState: true });
 		} catch (failure) {
 			error = errorMessage(failure);
 			needsEmail = true;

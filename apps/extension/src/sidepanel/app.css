@@ -1,0 +1,11 @@
+/* The web app's tokens and base styles, so the panel looks like the app (docs/DESIGN.md). */
+@import '../../../web/src/app.css';
+
+/* Utilities used by the web app's components the panel reuses. */
+@source '../../../web/src/lib/components';
+
+@layer base {
+	body {
+		background: var(--color-canvas);
+	}
+}

@@ -1,0 +1,146 @@
+<!-- Workday's "My Experience" step: no form element, automation ids, groups named by headings,
+and dates split into month and year inputs. -->
+<div data-automation-id="applyFlowPage">
+	<h2 data-automation-id="pageHeader">My Experience</h2>
+	<div role="group" aria-labelledby="Work-Experience-1-panel">
+		<h4 id="Work-Experience-1-panel">Work Experience 1</h4>
+		<div data-automation-id="formField-jobTitle">
+			<label for="workExperience-1--jobTitle">Job Title<abbr title="required">*</abbr></label>
+			<input id="workExperience-1--jobTitle" data-automation-id="jobTitle" type="text" />
+		</div>
+		<div data-automation-id="formField-companyName">
+			<label for="workExperience-1--companyName">Company<abbr title="required">*</abbr></label>
+			<input id="workExperience-1--companyName" data-automation-id="company" type="text" />
+		</div>
+		<div data-automation-id="formField-location">
+			<label for="workExperience-1--location">Location</label>
+			<input id="workExperience-1--location" data-automation-id="location" type="text" />
+		</div>
+		<div data-automation-id="formField-currentlyWorkHere">
+			<input
+				type="checkbox"
+				id="workExperience-1--currentlyWorkHere"
+				data-automation-id="currentlyWorkHere"
+			/>
+			<label for="workExperience-1--currentlyWorkHere">I currently work here</label>
+		</div>
+		<div data-automation-id="formField-startDate">
+			<label>From<abbr title="required">*</abbr></label>
+			<div data-automation-id="dateInputWrapper">
+				<input
+					type="text"
+					role="spinbutton"
+					aria-label="Month"
+					data-automation-id="dateSectionMonth-input"
+				/>
+				<input
+					type="text"
+					role="spinbutton"
+					aria-label="Year"
+					data-automation-id="dateSectionYear-input"
+				/>
+			</div>
+		</div>
+		<div data-automation-id="formField-endDate">
+			<label>To<abbr title="required">*</abbr></label>
+			<div data-automation-id="dateInputWrapper">
+				<input
+					type="text"
+					role="spinbutton"
+					aria-label="Month"
+					data-automation-id="dateSectionMonth-input"
+				/>
+				<input
+					type="text"
+					role="spinbutton"
+					aria-label="Year"
+					data-automation-id="dateSectionYear-input"
+				/>
+			</div>
+		</div>
+		<div data-automation-id="formField-roleDescription">
+			<label for="workExperience-1--roleDescription">Role Description</label>
+			<textarea id="workExperience-1--roleDescription" data-automation-id="description"></textarea>
+		</div>
+	</div>
+	<div role="group" aria-labelledby="Work-Experience-2-panel">
+		<h4 id="Work-Experience-2-panel">Work Experience 2</h4>
+		<div data-automation-id="formField-jobTitle">
+			<label for="workExperience-2--jobTitle">Job Title<abbr title="required">*</abbr></label>
+			<input id="workExperience-2--jobTitle" data-automation-id="jobTitle" type="text" />
+		</div>
+		<div data-automation-id="formField-companyName">
+			<label for="workExperience-2--companyName">Company<abbr title="required">*</abbr></label>
+			<input id="workExperience-2--companyName" data-automation-id="company" type="text" />
+		</div>
+		<div data-automation-id="formField-location">
+			<label for="workExperience-2--location">Location</label>
+			<input id="workExperience-2--location" data-automation-id="location" type="text" />
+		</div>
+		<div data-automation-id="formField-currentlyWorkHere">
+			<input
+				type="checkbox"
+				id="workExperience-2--currentlyWorkHere"
+				data-automation-id="currentlyWorkHere"
+			/>
+			<label for="workExperience-2--currentlyWorkHere">I currently work here</label>
+		</div>
+		<div data-automation-id="formField-startDate">
+			<label>From<abbr title="required">*</abbr></label>
+			<div data-automation-id="dateInputWrapper">
+				<input
+					type="text"
+					role="spinbutton"
+					aria-label="Month"
+					data-automation-id="dateSectionMonth-input"
+				/>
+				<input
+					type="text"
+					role="spinbutton"
+					aria-label="Year"
+					data-automation-id="dateSectionYear-input"
+				/>
+			</div>
+		</div>
+		<div data-automation-id="formField-endDate">
+			<label>To<abbr title="required">*</abbr></label>
+			<div data-automation-id="dateInputWrapper">
+				<input
+					type="text"
+					role="spinbutton"
+					aria-label="Month"
+					data-automation-id="dateSectionMonth-input"
+				/>
+				<input
+					type="text"
+					role="spinbutton"
+					aria-label="Year"
+					data-automation-id="dateSectionYear-input"
+				/>
+			</div>
+		</div>
+		<div data-automation-id="formField-roleDescription">
+			<label for="workExperience-2--roleDescription">Role Description</label>
+			<textarea id="workExperience-2--roleDescription" data-automation-id="description"></textarea>
+		</div>
+	</div>
+	<div role="group" aria-labelledby="Education-1-panel">
+		<h4 id="Education-1-panel">Education 1</h4>
+		<div data-automation-id="formField-schoolName">
+			<label for="education-1--schoolName">School or University</label>
+			<input id="education-1--schoolName" data-automation-id="school" type="text" />
+		</div>
+		<div data-automation-id="formField-degree">
+			<label for="education-1--degree">Degree</label>
+			<button id="education-1--degree" type="button" aria-haspopup="listbox">Select One</button>
+		</div>
+		<div data-automation-id="formField-fieldOfStudy">
+			<label for="education-1--fieldOfStudy">Field of Study</label>
+			<input id="education-1--fieldOfStudy" data-automation-id="fieldOfStudy" type="text" />
+		</div>
+	</div>
+	<div data-automation-id="formField-linkedinQuestion">
+		<label for="linkedin">LinkedIn</label>
+		<input id="linkedin" data-automation-id="linkedinQuestion" type="text" />
+	</div>
+</div>

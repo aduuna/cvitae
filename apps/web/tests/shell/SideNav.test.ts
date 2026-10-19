@@ -63,6 +63,7 @@ describe('SideNav', () => {
 			['Profiles', '/app/profiles'],
 			['Tailor', '/app/tailor'],
 			['Templates', '/app/templates'],
+			['Extension', '/app/extension'],
 			['Settings', '/app/settings']
 		]);
 	});

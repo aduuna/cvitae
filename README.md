@@ -23,6 +23,7 @@ Advanced editing and hardening come next. See [docs/ROADMAP.md](docs/ROADMAP.md)
 | Frontend (`apps/web`) | SvelteKit 3 SPA (Svelte 5), Tailwind CSS v4, bun |
 | API (`apps/api`) | Python 3.13, FastAPI, Pydantic v2, uv |
 | Renderer (`apps/renderer`) | FastAPI service that compiles Typst in a sandbox |
+| Browser extension (`apps/extension`) | Chrome and Firefox (Manifest V3): fills job applications, attaches CVs, saves job ads |
 | Shared (`packages/cvcore`) | CV models, rich-text parser, fact guard |
 | Data and infra | Neon Postgres, Google Cloud Storage, Cloud Run, OpenTofu |
 
@@ -69,6 +70,25 @@ cd apps/web && bun run dev                                                      
 ```
 
 Open http://localhost:5173. The Vite dev server proxies `/api` to the api on port 8000.
+
+### The browser extension
+
+```sh
+cd apps/extension
+bun install
+bun run build        # dist/chrome and dist/firefox, talking to http://localhost:5173
+```
+
+In Chrome, open `chrome://extensions`, turn on Developer mode and choose Load unpacked with
+`apps/extension/dist/chrome`. In Firefox, open `about:debugging#/runtime/this-firefox` and choose
+Load Temporary Add-on with `apps/extension/dist/firefox/manifest.json`. A new install opens the
+app's Extension page (also in the side nav); choose Connect extension. Then open a job application
+(a Greenhouse or Lever job, for example) and click the extension's toolbar button. Build again after
+changes and reload the extension. For another environment, set `VITE_APP_URL` when building.
+
+`bun run package` builds the store zips for the live app into `apps/extension/releases/`, and
+`apps/api/scripts/review_account.py` makes the account store reviewers sign in with (see "Browser
+extension" in [docs/INFRA.md](docs/INFRA.md)).
 
 ### With mise
 

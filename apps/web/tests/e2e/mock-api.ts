@@ -314,6 +314,11 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 
 		if (resource === 'usage') return reply(route, 200, usageOf(state));
 
+		// Settings lists the browsers the extension is connected in: none here.
+		if (resource === 'extension' && id === 'connections' && method === 'GET') {
+			return reply(route, 200, []);
+		}
+
 		if (resource === 'billing') {
 			if (id === 'checkout') {
 				state.checkouts += 1;

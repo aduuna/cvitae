@@ -21,7 +21,8 @@ Two Python services and one shared package, in a uv workspace:
 
 - `packages/cvcore`: the CV data model (Pydantic), the rich-text bullet parser, the fact guard and the
   LLM schema helper. Pure Python, no I/O. Imported by `api` and `renderer`.
-- `apps/api`: everything user-facing.
+- `apps/api`: everything user-facing, including the routes the browser extension (`apps/extension`)
+  calls with its own token (see Authentication).
 - `apps/renderer`: compiles Typst. Holds the templates and fonts. Stateless, no database, no secrets,
   no outbound internet.
 
@@ -70,6 +71,8 @@ packages/cvcore/src/cvcore/
   richtext.py        parse "**bold**" and "[[placeholder]]" into spans; serialize back
   factguard.py       compare tailored content to its source profile
   render.py          to_render_json(content): CvContent -> data.json dict with bullet text replaced by spans
+  application.py     to_application_data(content): CvContent -> what application forms ask for
+  places.py          countries and US states, to read "London, UK" as city and country
   llm_schema.py      Pydantic model -> JSON schema subset accepted by both providers
   ids.py             id helpers
 
@@ -85,9 +88,10 @@ apps/api/src/api/
   repositories/
     base.py          UserScopedRepository[T]: get/list/create/update/delete, always filtered by user_id
     users.py profiles.py documents.py jobs.py uploads.py ai_runs.py subscriptions.py webhooks.py
+    extension_tokens.py
   services/
     users.py profiles.py documents.py versions.py jobs.py imports.py tailoring.py ai_edits.py
-    rendering.py billing.py quotas.py account.py
+    rendering.py billing.py quotas.py account.py extension.py
   ports/             Protocols (interfaces) + implementations for external systems
     llm/
       base.py        LLMProvider Protocol, LLMRequest, LLMResult, ProviderName enum
@@ -107,6 +111,7 @@ apps/api/src/api/
     pricing.py       per-model token prices for cost tracking
   routers/
     me.py profiles.py documents.py jobs.py imports.py tailor.py templates.py render.py billing.py webhooks.py
+    extension.py
   billing/plans.py   plan limits (see PRODUCT.md)
   tests/
 
@@ -126,7 +131,8 @@ apps/renderer/src/renderer/
   Pure functions where possible. Raise `AppError` subclasses, never `HTTPException`.
 - **Repositories**: SQLAlchemy only. Every query goes through `UserScopedRepository`, which takes
   `user_id` in its constructor and adds `WHERE user_id = :user_id` to every statement. The users and
-  webhook repositories are the only unscoped ones and are kept minimal.
+  webhook repositories, and `ExtensionTokenLookup` (which finds a token's owner before anyone is
+  signed in, by the token's hash), are the only unscoped ones and are kept minimal.
 - **Ports**: one Protocol per external system with a real and a fake implementation. Services depend on
   the Protocol. Tests override the dependency with the fake.
 
@@ -198,6 +204,7 @@ in Python.
 | `ai_runs` | `user_id`, `task` (`import`/`analyze_job`/`tailor`/`edit`), `provider`, `model`, `prompt_version`, `status`, `error_code`, `input_tokens`, `output_tokens`, `cost_usd` numeric(10,6), `duration_ms` | No prompt or output content. Drives quotas and cost reporting. |
 | `subscriptions` | `user_id` unique, `paystack_customer_code`, `paystack_subscription_code` null, `plan_code`, `status` (`active`/`non_renewing`/`attention`/`cancelled`), `current_period_end` null | Mirrors Paystack state. The subscription code arrives with `subscription.create`; `current_period_end` is the next payment date Paystack last reported, so the date the user has paid up to. |
 | `webhook_events` | `provider`, `event_key` unique, `event_type`, `processed_at` | Idempotency for webhooks. No payload is stored. |
+| `extension_tokens` | `user_id`, `label` ("Chrome on macOS"), `token_hash` unique (SHA-256 hex), `last_used_at` null | A browser the extension is connected in. The token is shown once and never stored. `last_used_at` is written at most hourly. At most 10 per user: an eleventh replaces the least recently used. |
 
 Indexes on every `user_id` foreign key and on `(user_id, updated_at desc)` for list pages.
 Foreign keys from user-owned tables to `users` use `ON DELETE CASCADE` so account deletion is one delete
@@ -341,6 +348,28 @@ revert.
 
 The guard is deterministic and has thorough unit tests, including cases taken from real CVs. The review
 screen shows its report.
+
+### Application data (cvcore/application.py)
+
+`to_application_data(content) -> ApplicationData` is what the browser extension fills forms with. It
+only splits and reformats the CV's own text, never adds to it:
+
+- The name as full, first, middle (the words between) and last; one-word names fill `first` only.
+- The location read by `places.parse_place` into city, region and country. A country is recognised
+  by name, alias ("UK", "USA", "Holland") or capitalised ISO code, and carries the spellings a list
+  might use (name, code, aliases); a US state ("Austin, TX") implies the United States. A name that
+  is both, like Georgia, reads as the country.
+- Links sorted by site: LinkedIn, GitHub, GitLab, Twitter or X, Stack Overflow, the first other link
+  as the website, the rest as `other`.
+- Roles with company, title, location, start and end as year and month (`None` when the CV gives no
+  month), `current`, and a plain-text description: the role's bullets as "- " lines, then each
+  client engagement under a "Client: Harbour Bank, London, UK" heading. The current company and
+  title come from the first current role.
+- Education with the degree's level (`bachelor`, `master`, ...) and field of study read from it
+  ("BSc (Hons) Software Engineering" is a bachelor's in Software Engineering), for degree lists.
+- Skills (groups, then stack entries, without repeats) and certifications.
+- Text is plain: bold markers go, placeholders keep their brackets so a gap stays visible in a form,
+  and `placeholders` counts them.
 
 ## AI pipeline
 
@@ -577,7 +606,8 @@ keeping the last good preview.
 ## REST API
 
 Base path `/api/v1`. JSON in and out, snake_case. All routes except webhooks, internal routes,
-`/client-config` and `/healthz` require a valid Firebase ID token. FastAPI serves OpenAPI at `/api/openapi.json`, and
+`/client-config`, `/healthz` and the browser extension's routes (its own token; see Authentication)
+require a valid Firebase ID token. FastAPI serves OpenAPI at `/api/openapi.json`, and
 `api/export_openapi.py` writes the same schema to a file without starting the server. The frontend's
 `bun run gen:api` script runs `uv run --package api python -m api.export_openapi` and then
 `bunx openapi-typescript` to produce `src/lib/api/schema.d.ts`; the app calls the API with `openapi-fetch`.
@@ -608,6 +638,12 @@ Base path `/api/v1`. JSON in and out, snake_case. All routes except webhooks, in
 | `GET /billing/manage-link` | Paystack hosted subscription management link |
 | `POST /webhooks/paystack` | Paystack events (no Firebase auth; signature checked) |
 | `POST /internal/prune-versions` | Deletes autosave versions older than 7 days. Accepts only an OIDC token from the Cloud Scheduler service account; no Firebase auth. |
+| `GET/POST /extension/connections`, `DELETE /extension/connections/{id}` | The browsers the extension is connected in (signed in as usual). `POST` (`label`) returns the new connection with its `token`, the only time the token is shown |
+| `GET /extension/session` | Extension token only. The account's email, profiles, form-mode CVs (with their `job_id` and placeholder count) and saved jobs, so the extension can choose what to fill from |
+| `DELETE /extension/session` | Extension token only. Disconnect this browser: its token stops working |
+| `GET /extension/profiles/{id}/application`, `GET /extension/documents/{id}/application` | Extension token only. `ApplicationData` (cvcore/application.py) for a profile or CV |
+| `GET /extension/documents/{id}/cv.pdf` | Extension token only. The CV as a PDF, named for the company of its job; 409 while placeholders remain (no `force`) |
+| `POST /extension/jobs` (as `POST /jobs`) | Extension token only. Save the job ad the user is reading; 201 with `created: true`, or 200 with the job saved before from the same URL |
 | `GET /healthz` | Liveness |
 
 Long AI calls are synchronous requests (Cloud Run request timeout 300 s). The frontend shows progress
@@ -616,7 +652,7 @@ response is sent.
 
 ## Authentication
 
-- Frontend: Firebase JS SDK, Google provider (pop-up) and email-link sign-in, loaded only when
+- Frontend: Firebase JS SDK, Google provider (pop-up), email-link and password sign-in, loaded only when
   `GET /client-config` says `auth_mode: firebase`. The API client attaches
   `Authorization: Bearer <idToken>` from `getIdToken()` (which refreshes automatically).
 - Backend: `FirebaseVerifier` calls `firebase_admin.auth.verify_id_token` (in a thread pool) and checks the
@@ -624,8 +660,26 @@ response is sent.
   `users` row by `firebase_uid`.
 - Renderer calls: with `RENDERER_AUTH=oidc` the api sends a Google ID token for the renderer's URL
   (from the metadata server on Cloud Run), cached until shortly before it expires.
+- Passwords: only `/login?password` asks for one, for accounts made with a password by
+  `apps/api/scripts/review_account.py` (the store review account, created with a verified email
+  through the Firebase Admin SDK). The app offers no password sign-up; an account someone makes
+  with Firebase's API directly still needs a verified email.
 - Local development: `AUTH_MODE=dev` accepts `X-Dev-User: <email>` instead of a token. Startup fails if
   `AUTH_MODE=dev` with `ENV` set to `dev` or `prod`.
+- Browser extension: the extension cannot hold a Firebase session, so it gets its own token,
+  `cvx_` plus 32 random bytes (URL-safe base64). The web app's connect page creates it
+  (`POST /extension/connections`, signed in as usual) and hands it to the extension's content script
+  on that page with `window.postMessage` on the app's origin; both sides check the origin and sender
+  of every message (`apps/web/src/lib/extension/protocol.ts`). The api stores only its SHA-256. The
+  `extension_connection` dependency (`deps.py`) reads `Authorization: Bearer cvx_...` on the
+  `/extension` routes only; every other route ignores it, and the extension routes ignore Firebase
+  tokens and `X-Dev-User`. The token reads profiles and CVs, exports PDFs and saves jobs; it cannot
+  change or delete anything and calls no AI. A deleted account's tokens stop working at once, and
+  deleting the account deletes them (cascade). The extension calls the api from its background
+  script and side panel, where host permissions make CORS unnecessary; content scripts never see the
+  token, and in Chrome cannot read the extension's storage at all (`setAccessLevel`). A script
+  already running on the app's own origin (another extension, for one) could read the token as it is
+  handed over; such a script could read the Firebase session there anyway.
 
 ## Billing (Paystack)
 
@@ -683,5 +737,6 @@ response is sent.
 | Paystack | respx + signed fixture payloads | signature check, idempotency, each event's state change |
 | Renderer | pytest | every template x every fixture compiles; page counts; placeholder highlight present; limits and timeouts enforced; `@` imports rejected |
 | Frontend | vitest + @testing-library/svelte; Playwright | primitives, token test, editor flows against a mocked API |
+| Extension | vitest (jsdom) with a fake `chrome`; Playwright with the built extension in Chromium | field detection on Greenhouse, Lever, Workday, Ashby and custom form fixtures; filling a React form; the side panel's review and fill; job ad reading; the connect handshake; attaching a PDF in a real browser |
 
 Coverage gate: 85% lines for `apps/api` and `packages/cvcore`.

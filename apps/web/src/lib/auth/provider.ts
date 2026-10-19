@@ -11,6 +11,8 @@ export interface AuthProvider {
 	sendEmailLink(email: string, continueUrl: string): Promise<void>;
 	isEmailLink(url: string): boolean;
 	completeEmailLink(email: string, url: string): Promise<void>;
+	/** For accounts made with a password, such as the store review account; there is no sign-up. */
+	signInWithPassword(email: string, password: string): Promise<void>;
 	signOut(): Promise<void>;
 }
 
@@ -51,6 +53,9 @@ export function devProvider(email = DEV_USER): AuthProvider {
 	const unsupported = async () => {
 		throw new AuthError('Email links are not sent in local development. Use Continue with Google.');
 	};
+	const noPasswords = async () => {
+		throw new AuthError('Passwords are not used in local development. Use Continue with Google.');
+	};
 	return {
 		watch: (callback) => {
 			watchers.add(callback);
@@ -61,9 +66,13 @@ export function devProvider(email = DEV_USER): AuthProvider {
 		sendEmailLink: unsupported,
 		isEmailLink: () => false,
 		completeEmailLink: unsupported,
+		signInWithPassword: noPasswords,
 		signOut: async () => change(false)
 	};
 }
+
+// Firebase does not say which of the two was wrong, so neither do we.
+const WRONG_PASSWORD = 'The email or password is wrong. Check both and try again.';
 
 // Firebase error codes the user can do something about; anything else gets a generic message.
 const FIREBASE_MESSAGES: Record<string, string> = {
@@ -79,6 +88,10 @@ const FIREBASE_MESSAGES: Record<string, string> = {
 		'This sign-in link has expired or was already used. Request a new one.',
 	'auth/network-request-failed':
 		'Could not reach the sign-in service. Check your connection and try again.',
+	'auth/invalid-credential': WRONG_PASSWORD,
+	'auth/invalid-login-credentials': WRONG_PASSWORD,
+	'auth/wrong-password': WRONG_PASSWORD,
+	'auth/user-not-found': WRONG_PASSWORD,
 	'auth/too-many-requests': 'Too many attempts. Wait a few minutes and try again.',
 	'auth/user-disabled': 'This account is disabled.'
 };
@@ -97,7 +110,7 @@ async function mapErrors<T>(action: () => Promise<T>): Promise<T> {
 	}
 }
 
-/** Firebase Auth with Google and email-link sign-in. The SDK loads on first use. */
+/** Firebase Auth with Google, email-link and password sign-in. The SDK loads on first use. */
 export async function firebaseProvider(config: FirebaseConfig): Promise<AuthProvider> {
 	const [{ initializeApp }, firebaseAuth] = await Promise.all([
 		import('firebase/app'),
@@ -134,6 +147,10 @@ export async function firebaseProvider(config: FirebaseConfig): Promise<AuthProv
 		completeEmailLink: (email, url) =>
 			mapErrors(async () => {
 				await firebaseAuth.signInWithEmailLink(auth, email, url);
+			}),
+		signInWithPassword: (email, password) =>
+			mapErrors(async () => {
+				await firebaseAuth.signInWithEmailAndPassword(auth, email, password);
 			}),
 		signOut: () => mapErrors(() => firebaseAuth.signOut(auth))
 	};

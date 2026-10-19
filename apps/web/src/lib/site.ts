@@ -3,6 +3,9 @@ export const SITE_URL = 'https://cvitae.aduuna.dev';
 
 export const SITE_NAME = 'Chameleon vitae';
 
+/** Where people write about their data (the privacy policy) and the extension's store listings. */
+export const CONTACT_EMAIL = 'privacy@aduuna.dev';
+
 /** Other names people search for; search engines read them from the structured data below. */
 export const SITE_ALTERNATE_NAMES = ['cvitae', 'Chameleon CV'];
 

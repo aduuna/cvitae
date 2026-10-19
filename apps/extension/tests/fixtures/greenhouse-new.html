@@ -1,0 +1,115 @@
+<!-- Greenhouse's newer job boards (job-boards.greenhouse.io): comboboxes, and optional employment
+and education sections with month lists and year inputs. -->
+<form id="application-form" class="application--form">
+	<h3 class="section-header">Apply for this job</h3>
+	<div class="input-wrapper">
+		<label for="first_name" class="label">First Name<span aria-hidden="true">*</span></label>
+		<input id="first_name" class="input" aria-required="true" type="text" />
+	</div>
+	<div class="input-wrapper">
+		<label for="last_name" class="label">Last Name<span aria-hidden="true">*</span></label>
+		<input id="last_name" class="input" type="text" />
+	</div>
+	<div class="input-wrapper">
+		<label for="email" class="label">Email<span aria-hidden="true">*</span></label>
+		<input id="email" class="input" type="email" />
+	</div>
+	<div class="select__container">
+		<label for="country" class="label">Country</label>
+		<input id="country" role="combobox" aria-autocomplete="list" aria-expanded="false" />
+	</div>
+	<div class="input-wrapper">
+		<label for="phone" class="label">Phone</label>
+		<input id="phone" class="input" type="tel" />
+	</div>
+	<div class="select__container">
+		<label for="candidate-location" class="label">Location (City)</label>
+		<input id="candidate-location" role="combobox" aria-autocomplete="list" />
+	</div>
+	<fieldset class="employment">
+		<legend>Employment</legend>
+		<div class="input-wrapper">
+			<label for="company-name-0">Company name</label>
+			<input id="company-name-0" type="text" />
+		</div>
+		<div class="input-wrapper">
+			<label for="title-0">Title</label>
+			<input id="title-0" type="text" />
+		</div>
+		<div class="input-wrapper">
+			<label for="start-date-month-0">Start date month</label>
+			<select id="start-date-month-0">
+				<option value="">Select...</option>
+				<option value="1">January</option>
+				<option value="2">February</option>
+				<option value="3">March</option>
+				<option value="4">April</option>
+				<option value="5">May</option>
+				<option value="6">June</option>
+				<option value="7">July</option>
+				<option value="8">August</option>
+				<option value="9">September</option>
+				<option value="10">October</option>
+				<option value="11">November</option>
+				<option value="12">December</option>
+			</select>
+		</div>
+		<div class="input-wrapper">
+			<label for="start-date-year-0">Start date year</label>
+			<input id="start-date-year-0" type="number" />
+		</div>
+		<div class="input-wrapper">
+			<label for="end-date-month-0">End date month</label>
+			<select id="end-date-month-0">
+				<option value="">Select...</option>
+				<option value="1">January</option>
+				<option value="2">February</option>
+				<option value="3">March</option>
+				<option value="4">April</option>
+				<option value="5">May</option>
+				<option value="6">June</option>
+				<option value="7">July</option>
+				<option value="8">August</option>
+				<option value="9">September</option>
+				<option value="10">October</option>
+				<option value="11">November</option>
+				<option value="12">December</option>
+			</select>
+		</div>
+		<div class="input-wrapper">
+			<label for="end-date-year-0">End date year</label>
+			<input id="end-date-year-0" type="number" />
+		</div>
+		<div class="checkbox">
+			<input id="current-role-0" type="checkbox" />
+			<label for="current-role-0">Current role</label>
+		</div>
+	</fieldset>
+	<fieldset class="education">
+		<legend>Education</legend>
+		<div class="select__container">
+			<label for="school--0">School</label>
+			<input id="school--0" role="combobox" aria-autocomplete="list" />
+		</div>
+		<div class="select__container">
+			<label for="degree--0">Degree</label>
+			<input id="degree--0" role="combobox" aria-autocomplete="list" />
+		</div>
+		<div class="select__container">
+			<label for="discipline--0">Discipline</label>
+			<input id="discipline--0" role="combobox" aria-autocomplete="list" />
+		</div>
+		<div class="input-wrapper">
+			<label for="end-year--0">End date year</label>
+			<input id="end-year--0" type="number" />
+		</div>
+	</fieldset>
+	<div class="input-wrapper">
+		<label for="question_1">LinkedIn Profile</label>
+		<input id="question_1" type="text" />
+	</div>
+	<div class="input-wrapper">
+		<label for="question_2">Why do you want to join us?</label>
+		<textarea id="question_2"></textarea>
+	</div>
+</form>

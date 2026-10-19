@@ -166,6 +166,21 @@ class Subscription(UserOwned):
     """Paid up to here: the next payment date Paystack last reported."""
 
 
+class ExtensionToken(UserOwned):
+    """A browser extension connected to the account. Only the token's SHA-256 is kept: the token
+    itself is shown once, to the extension, and cannot be read back."""
+
+    __tablename__ = "extension_tokens"
+    __table_args__ = (
+        Index("ix_extension_tokens_user_id_created_at", "user_id", text("created_at DESC")),
+    )
+
+    label: Mapped[str] = mapped_column(String(100))
+    """Where it was connected, for example "Chrome on macOS"."""
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class WebhookEvent(Entity):
     """A webhook already processed, so a repeated delivery changes nothing. Not user content."""
 
