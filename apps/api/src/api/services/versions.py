@@ -7,6 +7,7 @@ from api.db.models import Document, DocumentVersion
 from api.errors import NotFound
 from api.repositories.documents import DocumentRepository, DocumentVersionRepository
 from api.services.documents import get_document
+from api.services.snapshots import keep_current_work, snapshot
 
 
 async def list_versions(
@@ -21,7 +22,7 @@ async def save_version(
 ) -> DocumentVersion:
     """The user's explicit "Save version"."""
     document = await get_document(documents, document_id)
-    return await _snapshot(versions, document, "manual")
+    return await snapshot(versions, document, "manual")
 
 
 async def restore_version(
@@ -36,22 +37,9 @@ async def restore_version(
     version = await versions.get_number(document.id, number)
     if version is None:
         raise NotFound(f"Version {number} of this CV does not exist.")
-    latest = await versions.latest(document.id)
-    if latest is None or (latest.content, latest.layout) != (document.content, document.layout):
-        await _snapshot(versions, document, "autosave")
+    await keep_current_work(versions, document)
     document = await documents.update(
         document, content=dict(version.content), layout=version.layout
     )
-    await _snapshot(versions, document, "restore")
+    await snapshot(versions, document, "restore")
     return document
-
-
-async def _snapshot(
-    versions: DocumentVersionRepository, document: Document, reason: str
-) -> DocumentVersion:
-    return await versions.create(
-        document_id=document.id,
-        reason=reason,
-        content=dict(document.content),
-        layout=document.layout,
-    )

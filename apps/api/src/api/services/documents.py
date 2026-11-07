@@ -6,12 +6,13 @@ from collections.abc import Sequence
 from api.billing.plans import Plan
 from api.db.models import Document
 from api.errors import NotFound
-from api.repositories.documents import DocumentRepository
+from api.repositories.documents import DocumentRepository, DocumentVersionRepository
 from api.repositories.jobs import JobRepository
 from api.repositories.profiles import ProfileRepository
 from api.services.jobs import get_job
 from api.services.profiles import get_profile
 from api.services.quotas import require_room
+from api.services.snapshots import keep_current_work
 from api.services.templates import DEFAULT_TEMPLATE_ID, TemplateCatalog
 from cvcore.models import CvContent
 
@@ -51,6 +52,7 @@ async def create_document(
 
 async def update_document(
     documents: DocumentRepository,
+    versions: DocumentVersionRepository,
     catalog: TemplateCatalog,
     jobs: JobRepository,
     document_id: uuid.UUID,
@@ -65,7 +67,8 @@ async def update_document(
     """`job_id` links a saved job: the ATS score checks the CV against it, the PDF is named for
     its company and the browser extension offers the CV on its pages. `layout` sets the CV's
     custom main.typ and `reset_layout` removes it; switching to another template removes it too,
-    unless the same update sets one."""
+    unless the same update sets one. A layout that is removed is first kept as an autosave
+    version, so the user can restore it."""
     document = await get_document(documents, document_id)
     values: dict[str, object] = {}
     if name is not None:
@@ -82,6 +85,8 @@ async def update_document(
         values["layout"] = layout
     if job_id is not None:
         values["job_id"] = (await get_job(jobs, job_id)).id
+    if document.layout is not None and "layout" in values and values["layout"] is None:
+        await keep_current_work(versions, document)
     return await documents.update(document, **values)
 
 

@@ -363,6 +363,49 @@ async def test_versions_keep_the_layout(
     assert undo["layout"] is None
 
 
+async def test_a_layout_that_is_removed_is_kept_as_a_version_first(
+    client: AsyncClient, sample_content: dict[str, Any]
+) -> None:
+    doc = await document(client, await profile(client, sample_content))
+    base = f"/api/v1/documents/{doc['id']}"
+    await client.patch(base, json={"layout": LAYOUT})
+
+    switched = (await client.patch(base, json={"template_id": "compact"})).json()
+
+    assert switched["layout"] is None
+    listed = (await client.get(f"{base}/versions")).json()
+    assert [v["reason"] for v in listed] == ["autosave"]
+    restored = (await client.post(f"{base}/versions/1/restore")).json()
+    assert (restored["layout"], restored["template_id"]) == (LAYOUT, "compact")
+
+    # Nothing more is kept for a layout the latest version already holds ...
+    await client.patch(base, json={"layout": None})
+    assert [v["reason"] for v in (await client.get(f"{base}/versions")).json()] == [
+        "restore",
+        "autosave",
+        "autosave",
+    ]
+    # ... and a reset keeps the layout it removes, like a switch does.
+    await client.patch(base, json={"layout": "#let other = 1"})
+    await client.patch(base, json={"layout": None})
+    newest = (await client.get(f"{base}/versions")).json()[0]
+    assert newest["reason"] == "autosave"
+    again = (await client.post(f"{base}/versions/{newest['number']}/restore")).json()
+    assert again["layout"] == "#let other = 1"
+
+
+async def test_switching_template_without_a_layout_keeps_no_version(
+    client: AsyncClient, sample_content: dict[str, Any]
+) -> None:
+    doc = await document(client, await profile(client, sample_content))
+    base = f"/api/v1/documents/{doc['id']}"
+
+    await client.patch(base, json={"template_id": "compact"})
+    await client.patch(base, json={"layout": None})
+
+    assert (await client.get(f"{base}/versions")).json() == []
+
+
 async def test_restore_unknown_version(client: AsyncClient, sample_content: dict[str, Any]) -> None:
     doc = await document(client, await profile(client, sample_content))
 

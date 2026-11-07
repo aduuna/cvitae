@@ -154,11 +154,13 @@ async def update_document(
     document_id: uuid.UUID,
     body: DocumentUpdate,
     documents: Documents,
+    versions_repo: Versions,
     catalog: Catalog,
     jobs: Jobs,
 ) -> Document:
     row = await service.update_document(
         documents,
+        versions_repo,
         catalog,
         jobs,
         document_id,

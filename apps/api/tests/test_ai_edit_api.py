@@ -115,6 +115,52 @@ async def test_a_cv_with_a_custom_layout_can_be_edited(
     assert saved["layout"] == "#let x = 1"
 
 
+async def test_the_version_before_an_edit_keeps_the_layout_it_was_made_with(
+    client: AsyncClient, sample_content: dict[str, Any], mimo: FakeLLMProvider
+) -> None:
+    doc = await new_cv(client, sample_content)
+    base = f"/api/v1/documents/{doc['id']}"
+    await client.patch(base, json={"layout": "#let first = 1"})
+    await client.post(f"{base}/versions")
+    # Only the layout changed since the latest version: that still has to be kept.
+    await client.patch(base, json={"layout": "#let second = 2"})
+
+    def shorten(cv: CvContent) -> None:
+        cv.summary = "Data engineer with **9 years** of experience."
+
+    mimo.responders["edit"] = editing(shorten)
+    edited = await ai_edit(client, doc["id"], "Shorten the summary")
+    versions = (await client.get(f"{base}/versions")).json()
+
+    assert edited.json()["changed"] is True
+    assert [v["reason"] for v in versions] == ["autosave", "manual"]
+
+    # The editor applies the edit, and the layout is reset; the version undoes both.
+    await client.patch(base, json={"content": edited.json()["content"], "layout": None})
+    undone = (await client.post(f"{base}/versions/2/restore")).json()
+
+    assert undone["layout"] == "#let second = 2"
+    assert undone["content"] == doc["content"]
+
+
+async def test_no_second_version_when_the_latest_already_holds_the_cv(
+    client: AsyncClient, sample_content: dict[str, Any], mimo: FakeLLMProvider
+) -> None:
+    doc = await new_cv(client, sample_content)
+    base = f"/api/v1/documents/{doc['id']}"
+    await client.patch(base, json={"layout": "#let mine = 1"})
+    await client.post(f"{base}/versions")
+
+    def shorten(cv: CvContent) -> None:
+        cv.summary = "Data engineer with **9 years** of experience."
+
+    mimo.responders["edit"] = editing(shorten)
+    await ai_edit(client, doc["id"], "Shorten the summary")
+
+    versions = (await client.get(f"{base}/versions")).json()
+    assert [v["reason"] for v in versions] == ["manual"]
+
+
 async def test_the_fact_guard_checks_edits_against_the_cv(
     client: AsyncClient, sample_content: dict[str, Any], mimo: FakeLLMProvider
 ) -> None:
