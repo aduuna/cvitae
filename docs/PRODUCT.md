@@ -17,7 +17,9 @@ and Europe, which is why payments go through Paystack.
    needs a number the user has not given, the CV shows a highlighted placeholder for the user to fill
    in. The fact guard checks every tailoring and AI edit against this rule.
 2. **Structured data first, Typst second.** A user's career lives in a structured profile. CVs are views of
-   that profile rendered through templates. Raw Typst editing is an advanced option, not the default.
+   that profile rendered through templates. Content is always structured, whether the user edits it in
+   the form or as Markdown; Typst editing changes a CV's layout, not its content, and is an advanced
+   option, not the default.
 3. **Fast and quiet.** Black and white UI, no clutter, live preview, keyboard friendly.
 4. **Drafts the user finishes.** Answers to an application's open questions (8, Answer questions) are
    drafts the user edits before they are filled, not CV content. They follow a rule of their own:
@@ -38,7 +40,8 @@ and Europe, which is why payments go through Paystack.
 | Tailoring | Creating a CV from a profile plus a job, using AI under the no-new-facts rule. |
 | AI edit | A change to one CV asked for in words in the editor's "Edit with AI" panel, under the same rule. |
 | ATS score | How a CV reads to an applicant tracking system's keyword search for one job: 0 to 100, the job's keywords it covers and misses, and readability checks. |
-| Ejected CV | A CV whose Typst source and data file the user edits directly. AI tailoring no longer applies to it. |
+| Editing mode | How the user edits a CV in the editor: Form, Markdown or Typst. The user can switch at any time without losing anything. |
+| Custom layout | A CV's own copy of its template's Typst code (`main.typ`), edited in Typst mode. The content still comes from the form or Markdown. |
 | Drafted answer | The extension's draft of an answer to an open question on an application form, from a profile or CV and the job ad. The user edits it before it is filled; it is never saved. |
 | AI model | What runs an AI task: MiMo Flash, Claude Haiku or Gemini Flash-Lite on every plan; MiMo Pro, Gemini Flash or Claude Sonnet on Pro. |
 
@@ -159,19 +162,33 @@ the model and regenerating works.
 - Users can have multiple CVs; limits depend on plan (see Plans).
 - Editor layout: left panel edits, right panel shows the live preview (pages rendered as SVG on a gray
   canvas, like typst.app). Top bar: document name, template picker, page count, export button.
-- Left panel has two modes:
+- The left panel has three editing modes, switched with a segmented control at its top
+  (Form, Markdown, Typst). Switching is instant, happens in the browser, and loses nothing. The last
+  mode used is remembered in this browser.
   - **Form** (default): the same section editor as Profiles, scoped to this CV. Changes here do not
     change the profile.
-  - **Typst** (after eject): a two-file code editor for `main.typ` and `data.json` with Typst
-    diagnostics shown inline. Ejecting asks for confirmation and explains that AI tailoring and template
-    switching stop applying to this CV. Ejecting is one-way; the user can duplicate the CV first.
+  - **Markdown**: the same content as one Markdown text in a code editor (format below). Every valid
+    edit updates the content and the preview, exactly as a form edit would. Lines the editor cannot
+    read are marked inline with the line and a message, and nothing is saved until they are fixed.
+    Leaving Markdown while errors remain asks before discarding the invalid text; the last valid
+    content is kept.
+  - **Typst**: the CV's layout as Typst code, in a code editor with two tabs: `main.typ` (editable)
+    and `data.json` (read-only, the content as the layout receives it). Until the user edits it,
+    `main.typ` shows the template's code. The first edit gives the CV a custom layout; the top bar
+    then shows a "Custom layout" badge. Typst compile errors show inline in `main.typ` and in the
+    preview's error panel. "Reset to template" (with confirmation) removes the custom layout.
+- Content stays structured in every mode, so tailoring, placeholders, the fact guard and version
+  history work the same whatever mode the user edits in.
+- Switching template on a CV with a custom layout asks first ("Switching to Compact replaces your
+  custom layout."), then drops the custom layout.
 - Preview updates within about one second of the user stopping typing. On a compile error the last good
   preview stays visible with an error panel listing line and message.
 - Click to edit: hovering the preview marks the part under the pointer, and a click opens the form
   field it comes from (a bullet, a role or other item, a section heading, the summary or the header),
-  scrolled into view, focused and briefly ringed. Exported PDFs carry no such links. Form-mode CVs
-  only; a CV edited as Typst has no form to open.
-- Edit with AI: a collapsible panel docked at the bottom of the edit panel (form-mode CVs on wide
+  scrolled into view, focused and briefly ringed. Exported PDFs carry no such links. A click in
+  Markdown or Typst mode switches to Form first (asking first if the Markdown has errors). It works
+  with a custom layout too, as long as the layout keeps the `_lib/cv.typ` helpers that add the links.
+- Edit with AI: a collapsible panel docked at the bottom of the edit panel (in Form mode on wide
   screens; it remembers being open or closed in this browser). The user writes a change in plain words
   ("Shorten the summary to two sentences") and can limit it to the summary or one section, which the
   server enforces; the model picker defaults to the user's setting. The edit goes straight into the
@@ -181,18 +198,93 @@ the model and regenerating works.
   the reply lists what the guard corrected. The model may also just answer a question about the CV.
   If the user edits the form while a request runs, the edit waits behind "Apply anyway". The content
   before an edit is kept as an autosave version. The conversation lasts while the editor is open.
-- ATS score: the top bar shows a form-mode CV's score for its job ("ATS 83", the score alone under
-  1024px) and opens the ATS dialog (see 9). It follows every save.
+- ATS score: the top bar shows a CV's score for its job ("ATS 83", the score alone under 1024px)
+  and opens the ATS dialog (see 9), in every editing mode. It follows every save.
 - Placeholders render highlighted in preview. Export is blocked while placeholders remain, with a clear
-  message and a "Show placeholders" action. (Export with placeholders is still possible from a
-  secondary menu, labelled "Export anyway".)
+  message and a "Show placeholders" action, shown above the preview pages so it stays in view in every
+  editing mode (under 768px, under the Form/Preview toggle). Each listed placeholder opens its form
+  field. (Export with placeholders is still possible from a secondary menu, labelled "Export
+  anyway".)
 - Version history: every tailoring, restore and explicit "Save version" creates a version; autosave
   snapshots are kept for 7 days. Users can preview and restore any version.
 - Export: PDF download, named `<Name>-CV-<Company>.pdf` when a job is linked, else `<Name>-CV.pdf`.
 
-Done when: a user can keep five CVs, edit one in form mode with live preview, switch templates without
-losing content, eject another and edit its Typst, restore an earlier version, and export a PDF whose
-text is selectable.
+#### Markdown format
+
+The Markdown mode shows the content in this shape. Field lines (`Key: value`) come right after their
+heading and before any bullets; empty fields are left out. Each `##` section heading ends with its kind
+in braces (`{experience}`, `{projects}`, `{education}`, `{skills}`, `{certifications}`, `{custom}`); a
+heading without a kind is a custom section. Bullets keep `**bold**` and `[[placeholder]]`.
+
+```markdown
+# Ama Owusu-Mensah
+Headline: Senior data engineer
+Email: ama@example.com
+Phone: +233 20 000 0000
+Location: Accra, Ghana
+Link: [GitHub](https://github.com/ama)
+
+Data engineer with **8 years** building batch and streaming pipelines.
+
+## Experience {experience}
+
+### Acme Bank
+Role: Senior data engineer
+Location: Accra
+Dates: 2021-03 to present
+Stack: Python, Spark, Airflow
+
+- Moved nightly batch jobs to streaming, cutting report delay by [[hours saved]].
+
+#### Big Telco
+Label: Client
+Dates: 2022-01 to 2023-06
+
+- Built the billing data model.
+
+## Projects {projects}
+
+### cvitae
+URL: https://github.com/ama/cvitae
+Status: Active
+Year: 2024
+
+- Typst CV generator.
+
+## Education {education}
+
+### University of Ghana
+Degree: BSc Computer Science
+Dates: 2012 to 2016
+
+## Skills {skills}
+
+- Languages: Python, SQL, Go
+- Data: Spark, dbt, Kafka
+
+## Certifications {certifications}
+
+### AWS Certified Data Engineer
+Issuer: Amazon Web Services
+Date: 2023-05
+
+## Volunteering {custom}
+
+- Mentor at a local coding club.
+```
+
+- `Dates:` is `start to end`, `start to present`, or one value when start and end are the same.
+  A bare `start to` is an empty end date, which shows as present like `to present`.
+- Comma lists (`Stack:` and skills) split on commas; write `\,` for a comma inside an item.
+- A bullet that continues over several lines indents the extra lines by two spaces.
+- Converting content to Markdown and back changes nothing the CV shows. Bullets and entries keep
+  their identity (and so their link to the profile bullet they came from) when their text is
+  unchanged or edited in place.
+
+Done when: a user can keep five CVs, edit one in Form and in Markdown with live preview and switch
+between the two without losing anything, switch templates without losing content, give another a custom
+layout in Typst and still edit its content in the form, restore an earlier version, and export a PDF
+whose text is selectable.
 
 ### 6. Templates
 
@@ -243,9 +335,12 @@ user, next to the five built-in ones. It renders their CVs like any other templa
   the user is told to try a simpler CV.
 - **Using it.** A saved template is chosen like a built-in one, can be the default, and exports PDFs
   and drives the ATS page check as they do. Each custom card has the same live preview, "Set as
-  default", rename, "View source" (the Typst, read only: it cannot be edited) and delete.
+  default", rename, "View source" (the Typst, read only: it cannot be edited) and delete. A CV in
+  the template can also take its code as a custom layout: Typst mode starts from it (5, Documents
+  and the editor).
 - **Deleting.** CVs that use the template switch to the user's default template, or to Classic when
-  the default was this one. The default resets to Classic. The uploaded CV is kept like an import's.
+  the default was this one. A CV's own layout stays as it is. The default resets to Classic. The
+  uploaded CV is kept like an import's.
 - **Limits.** Free 1 custom template, Pro 10 (Plans and limits). Making one takes one AI run, however
   many corrections it needed; on Free a failed attempt counts, on Pro it does not. The limit and the
   AI usage are checked before Claude is called, so a refused request costs nothing. Without an
@@ -265,7 +360,8 @@ Done when:
   and a refused generation saves nothing.
 - A DOCX is refused with a clear message; the limit and the AI usage are checked before any model is
   called; a second user cannot preview, read, rename, delete or use the first user's template.
-- Deleting a template moves its CVs to the default template, or to Classic.
+- Deleting a template moves its CVs to the default template, or to Classic, and a CV that has its
+  own layout keeps it.
 - The dialog and the cards fit at 1280px and 768px.
 
 ### 7. Settings
@@ -296,7 +392,7 @@ lives in `apps/extension`.
   to it). "Connect extension" makes a connection for this browser and hands its token to the
   extension, which checks it before keeping it. The extension's own Disconnect, and Disconnect on the
   Extension page, both revoke the token.
-- **What it may do.** Read profiles and form-mode CVs, export a CV as PDF, save jobs, and draft
+- **What it may do.** Read profiles and CVs, export a CV as PDF, save jobs, and draft
   answers to application questions, which spends AI usage (one AI run per request, see Answer
   questions). It cannot change or delete anything.
 - **Fill from** a profile or a CV, in a list. On the page of a saved job's ad or application form,
@@ -416,10 +512,11 @@ without a job, and none of them rejects a CV on its own: a recruiter does. The s
 what a search finds, not a prediction of any employer's result.
 
 - **Per CV and job.** A CV has a score once it is linked to a job. Every tailored CV is; any other
-  form-mode CV gets one in the ATS dialog by choosing a saved job ("Check against this job"). Linking
+  CV gets one in the ATS dialog by choosing a saved job ("Check against this job"). Linking
   also names the exported PDF for the job's company and makes it the CV the extension offers on that
   job's pages. A job that was never analysed (saved from the extension) is read first ("Read the job
-  ad"): one AI run, once. The score itself takes no AI run, on any plan. Ejected CVs have none.
+  ad"): one AI run, once. The score itself takes no AI run, on any plan. It reads the CV's content, so a CV with a
+  custom layout has one like any other.
 - **The score** (0 to 100) is the share of keyword points the CV covers, rounded down: a keyword
   the ad's must-haves name is worth 3, a nice-to-have 2, any other 1, and the job title 3. The
   title counts when the headline or a role title has it without seniority words ("Data Engineer"

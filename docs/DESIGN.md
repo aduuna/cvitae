@@ -237,9 +237,18 @@ No font sizes outside the scale; the display sizes (`3xl`, `4xl`) appear on the 
   of `bg-surface` cards with `border-line` and radius `lg`.
 - **Editor:** full width, split into edit panel (min 360px) and preview panel, with a draggable splitter
   (`border-line-strong`, 4px hit area). Split ratio persists per user in local storage, wrapped in
-  try/catch.
-- **Edit with AI panel:** docked at the bottom of the edit panel (not a third column, which would not
-  fit beside the preview at 768px), above `border-line`, on `bg-surface`. Closed, it is a pill button
+  try/catch. The edit panel starts with a 48px toolbar (`bg-surface`, bottom border `border-line`)
+  holding the mode `SegmentedControl` (Form, Markdown, Typst). The last mode used persists in local
+  storage the same way. Markdown and Typst fill the rest of the panel: a one-line hint in
+  `text-sm text-fg-muted` (in Typst mode with a custom layout, a ghost "Reset to template" beside it),
+  then the code editor; Typst puts `main.typ` and `data.json` in `Tabs` above the editor. Notices
+  about the CV as a whole, such as why an export stopped, sit in the preview panel between its toolbar
+  and the pages (24px inset, at most half its height), not in the edit panel. In the top bar the
+  "Custom layout" `Badge` sits beside the page count and, like it, is left out under 1024px (the Typst
+  panel says it there).
+- **Edit with AI panel:** docked at the bottom of the edit panel in Form mode (not a third column,
+  which would not fit beside the preview at 768px), above `border-line`, on `bg-surface`. Closed, it
+  is a pill button
   (`rounded-full`, `accent` fill like a primary button, 32px) with the Sparkles icon and "Edit with AI", and a
   one-line hint beside it, so it is not missed. Open, it is a 40px bar with the icon, the label and a
   chevron, and the conversation (at most 288px, scrolling) sits over the composer: the part and model
@@ -268,7 +277,7 @@ not by passing class strings from pages.
 | `IconButton` | `ghost`, `secondary`; square 28/32px | Requires `label` prop for aria-label and tooltip. |
 | `Input`, `Textarea` | One style; sizes `md` 32px | `bg-surface`, `border-line-strong`, radius `md`, focus ring accent. Error state: danger border and message below. |
 | `Select`, `Combobox` | Same as Input | Menu uses `shadow-pop`. |
-| `SegmentedControl` | 2 to 4 options | Used for form/Typst mode and similar two-way switches (the AI model is a `Select`: there are more than four). Selected: `bg-surface` with `shadow-page` on a `bg-muted` track. |
+| `SegmentedControl` | 2 to 4 options | Used for the editor's Form, Markdown and Typst modes and similar switches (the AI model is a `Select`: there are more than four). Selected: `bg-surface` with `shadow-page` on a `bg-muted` track. |
 | `Checkbox`, `Switch` | One style | Accent when on. |
 | `Tabs` | Underline style | Active tab: fg text and 2px accent underline. |
 | `Dialog` | `sm` 400px, `md` 560px, `lg` 800px | Title, body, footer with actions right-aligned; primary action last. Escape closes; focus trapped. |
@@ -276,7 +285,7 @@ not by passing class strings from pages.
 | `Menu` | Dropdown | Items 32px, shortcuts in `text-xs text-fg-muted` aligned right. |
 | `Toast` | `info`, `error` | Bottom right, auto-dismiss after 4s (errors stay until dismissed). |
 | `Tooltip` | One style | `bg-fg text-surface text-xs`, 400ms delay. |
-| `Badge` | `neutral`, `outline` | `text-xs`, radius `sm`. Used for plan, template name, "Ejected". |
+| `Badge` | `neutral`, `outline` | `text-xs`, radius `sm`. Used for plan, template name, "Custom layout". |
 | `Card` | One style | `bg-surface border-line rounded-lg`. |
 | `EmptyState` | One style | 20px icon, one-line title, one-line hint, one primary action. |
 | `Skeleton` | Lines, block | `bg-muted` with a slow pulse. |
@@ -284,6 +293,7 @@ not by passing class strings from pages.
 | `Splitter` | Vertical | Keyboard resizable with arrow keys. |
 | `Dropzone` | One style | Dashed `border-line-strong`, accepts PDF and DOCX (PDF only with `pdfOnly`, for custom templates), shows file name and size in mono. |
 | `Placeholder` | Inline | Used in form fields to show `[[...]]` gaps: `bg-placeholder` text `placeholder-fg`, radius `sm`. |
+| `CodeEditor` | `markdown`, `typst`, `json`; editable or read-only | CodeMirror 6 in `lib/components/editor/`, one component for the Markdown and Typst modes and for a template's source. `font-mono text-sm` on `bg-surface`, line numbers in `fg-muted` on `bg-subtle`, selection `bg-muted`, focus ring as Input. Syntax colours stay in the grey scale and keep AA contrast: keywords, headings, field names and bold `fg` at 600; comments, strings, URLs, labels, section kinds and Markdown marks `fg-muted`. In Markdown, `[[placeholders]]` use the `Placeholder` colours. Highlighting comes from small tokenizers (`markdown-language.ts`, `typst-language.ts`), not full grammars, to keep the bundle small. CodeMirror is its own chunk, loaded when the first editor opens (so only when a CV first leaves Form mode, or a source is viewed); until then, and if it cannot load, the text shows in a scrolling `pre`. Tab is not bound, so the keyboard is never trapped. Diagnostics: `danger` wavy underline and a gutter marker, message on hover and listed in full (Markdown: under the editor; Typst: in the preview's error panel). In the edit panel it fills the height and scrolls inside; in a dialog it grows with the text up to 60vh. |
 
 ### States
 
@@ -323,7 +333,7 @@ not by passing class strings from pages.
   progress card without its border while Claude works), which becomes an `lg` dialog for the result:
   the preview left, the name field right, "Discard" and "Save template". Closing it with a draft
   asks "Discard this template?". "View source" opens an `lg` dialog with the Typst in a read-only
-  CodeMirror view: weight and `fg-muted` comments only, no colour.
+  `CodeEditor`.
 - **Form pages** (Profile editor, Settings): stacked cards, each with a heading and fields. Labels above
   fields, `text-sm font-medium`. Help text under fields in `text-sm text-fg-muted`.
 - **Generation progress** (Import, Tailor): a card with the current step text, a thin indeterminate
