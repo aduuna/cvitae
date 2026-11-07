@@ -207,7 +207,29 @@ def get_own_extension_tokens(
     return ExtensionTokenRepository(session, connection.user.id)
 
 
+def get_extension_ai_runs(session: Session, connection: ExtensionConnection) -> AiRunRepository:
+    return AiRunRepository(session, connection.user.id)
+
+
+def get_extension_subscriptions(
+    session: Session, connection: ExtensionConnection
+) -> SubscriptionRepository:
+    return SubscriptionRepository(session, connection.user.id)
+
+
 ExtensionProfiles = Annotated[ProfileRepository, Depends(get_extension_profiles)]
 ExtensionDocuments = Annotated[DocumentRepository, Depends(get_extension_documents)]
 ExtensionJobs = Annotated[JobRepository, Depends(get_extension_jobs)]
 OwnExtensionTokens = Annotated[ExtensionTokenRepository, Depends(get_own_extension_tokens)]
+ExtensionAiRuns = Annotated[AiRunRepository, Depends(get_extension_ai_runs)]
+ExtensionSubscriptions = Annotated[SubscriptionRepository, Depends(get_extension_subscriptions)]
+
+
+async def get_extension_plan(
+    connection: ExtensionConnection, subscriptions: ExtensionSubscriptions, settings: AppSettings
+) -> Plan:
+    """The plan of the user the token belongs to, as `get_plan` works it out for a session."""
+    return settings.dev_plan or await billing.current_plan(connection.user, subscriptions)
+
+
+ExtensionPlan = Annotated[Plan, Depends(get_extension_plan)]

@@ -47,10 +47,16 @@ one meets its "done when" list and all checks pass.
    business logic. See `docs/BACKEND.md`.
 6. **Every repository query is scoped by `user_id`** through the shared base repository helper.
    No query may return another user's rows.
-7. **Never log CV content, profile content, job descriptions, uploaded files or prompts.** Log IDs,
-   counts, durations, token usage and error codes only.
-8. **The AI must not invent facts.** Tailoring may select, reorder and reword. New numbers or claims
-   become placeholders. The deterministic fact guard in `cvcore` enforces this; never bypass it.
+7. **Never log CV content, profile content, job descriptions, application questions, drafted
+   answers, uploaded files or prompts.** Log IDs, counts, durations, token usage and error codes only.
+8. **In CVs, the AI must not invent facts.** Tailoring and AI edits may select, reorder and reword.
+   New numbers or claims become placeholders. The deterministic fact guard in `cvcore` enforces this
+   on every CV; never bypass or loosen it.
+   **Drafted answers follow their own rule.** The extension's answers to open application questions
+   (`docs/PRODUCT.md`, 8, Answer questions) may infer skills the user very likely has, and must name
+   them; they never invent employers, titles, dates, qualifications or numbers. The fact guard does
+   not run on them. Drafts are never saved and never go into a CV or a profile, and the drafts' rule
+   never applies to CV content: keep the two rule texts apart (`NO_NEW_FACTS`, `ANSWER_RULES`).
 9. **No secrets in code or in the repo.** Settings come from environment variables via pydantic-settings;
    in GCP they come from Secret Manager.
 10. **DRY:** shared Pydantic models, markup parsing and the fact guard live in `packages/cvcore` and are

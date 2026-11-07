@@ -5,10 +5,11 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from api.ai.prompts import draft_answers as answers_prompt
 from api.ai.prompts import edit_cv as edit_prompt
 from api.ai.prompts import tailor_cv as tailor_prompt
 from api.ports.llm.base import LLMRequest, LLMResult, ProviderName
-from cvcore.ai import JobAnalysis
+from cvcore.ai import DraftAnswer, DraftAnswers, JobAnalysis, SkillMention
 from cvcore.models import CvContent
 from cvcore.render import iter_bullets
 from cvcore.richtext import plain_text
@@ -62,7 +63,9 @@ def default_responders(sample_profile: CvContent) -> dict[str, Responder]:
     """Plausible, deterministic answers in the providers' wire shape: import returns the sample
     profile (the content of templates/fixtures/sample-cv.pdf), job analysis reads the ad's first
     lines and known terms, tailoring returns the profile it was given with every bullet traced
-    to its source, and an edit returns the CV it was given unchanged."""
+    to its source, an edit returns the CV it was given unchanged, and each question gets an
+    answer set in the first role that names a skill the profile does not (Databricks) and has a
+    gap to fill."""
 
     def extract(_: LLMRequest[Any]) -> BaseModel:
         return WireImportedCv(content=to_wire(sample_profile), profile_name="Data engineering")
@@ -100,4 +103,28 @@ def default_responders(sample_profile: CvContent) -> dict[str, Responder]:
         cv = edit_prompt.cv_from(request.user_text)
         return WireCvEdit(reply="I made no change.", content=to_wire(cv))
 
-    return {"import": extract, "analyze_job": analyze, "tailor": tailor, "edit": edit}
+    def answers(request: LLMRequest[Any]) -> BaseModel:
+        profile = answers_prompt.profile_from(request.user_text)
+        roles = [item for section in profile.sections for item in section.experience]
+        drafts = []
+        for question in answers_prompt.questions_from(request.user_text):
+            if not roles:
+                drafts.append(DraftAnswer(id=question.id, text="", skills=[]))
+                continue
+            role, tools = roles[0], roles[0].stack[:2]
+            opening = "In my time at" if question.previous else "At"
+            text = (
+                f"{opening} {role.org} I worked as {role.role.lower()} with "
+                f"{' and '.join(tools) or 'the team'}, and moved [[how many]] jobs to Databricks."
+            )
+            mention = SkillMention(skill="Databricks", based_on=tools)
+            drafts.append(DraftAnswer(id=question.id, text=text, skills=[mention]))
+        return DraftAnswers(answers=drafts)
+
+    return {
+        "import": extract,
+        "analyze_job": analyze,
+        "tailor": tailor,
+        "edit": edit,
+        "answers": answers,
+    }

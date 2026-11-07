@@ -12,12 +12,18 @@ and Europe, which is why payments go through Paystack.
 
 ## Core principles
 
-1. **Your facts, better told.** The AI may select, reorder and reword what the user already said. It never
-   adds employers, titles, dates, tools, numbers or achievements. Where a stronger bullet needs a number
-   the user has not given, the CV shows a highlighted placeholder for the user to fill in.
+1. **Your facts, better told.** In a CV the AI may select, reorder and reword what the user already
+   said. It never adds employers, titles, dates, tools, numbers or achievements. Where a stronger bullet
+   needs a number the user has not given, the CV shows a highlighted placeholder for the user to fill
+   in. The fact guard checks every tailoring and AI edit against this rule.
 2. **Structured data first, Typst second.** A user's career lives in a structured profile. CVs are views of
    that profile rendered through templates. Raw Typst editing is an advanced option, not the default.
 3. **Fast and quiet.** Black and white UI, no clutter, live preview, keyboard friendly.
+4. **Drafts the user finishes.** Answers to an application's open questions (8, Answer questions) are
+   drafts the user edits before they are filled, not CV content. They follow a rule of their own:
+   they may infer skills the user very likely has, and name them; they never invent employers, titles,
+   dates, qualifications or numbers. Drafts are never saved and never go into a CV or a profile, so
+   they cannot loosen the first principle.
 
 ## Glossary
 
@@ -31,6 +37,7 @@ and Europe, which is why payments go through Paystack.
 | Tailoring | Creating a CV from a profile plus a job, using AI under the no-new-facts rule. |
 | AI edit | A change to one CV asked for in words in the editor's "Edit with AI" panel, under the same rule. |
 | Ejected CV | A CV whose Typst source and data file the user edits directly. AI tailoring no longer applies to it. |
+| Drafted answer | The extension's draft of an answer to an open question on an application form, from a profile or CV and the job ad. The user edits it before it is filled; it is never saved. |
 | AI model | What runs an AI task: MiMo Flash, Claude Haiku or Gemini Flash-Lite on every plan; MiMo Pro, Gemini Flash or Claude Sonnet on Pro. |
 
 ## Navigation
@@ -218,8 +225,9 @@ account deletion removes all user data from Postgres and GCS (verified by a test
 ### 8. Browser extension
 
 Applying is the step after tailoring. The Chameleon vitae extension for Chrome and Firefox fills job
-application forms from the user's profiles and CVs, attaches a tailored CV as a PDF, and saves the
-job ad the user is reading to Tailor. It lives in `apps/extension`.
+application forms from the user's profiles and CVs, drafts answers to a form's open questions for the
+user to edit, attaches a tailored CV as a PDF, and saves the job ad the user is reading to Tailor. It
+lives in `apps/extension`.
 
 - **The Extension page** (`/app/extension`, in the side nav) says what the extension does and what
   it can and cannot read, links to the browser stores once it is published there (until then it says
@@ -229,8 +237,9 @@ job ad the user is reading to Tailor. It lives in `apps/extension`.
   to it). "Connect extension" makes a connection for this browser and hands its token to the
   extension, which checks it before keeping it. The extension's own Disconnect, and Disconnect on the
   Extension page, both revoke the token.
-- **What it may do.** Read profiles and form-mode CVs, export a CV as PDF, and save jobs. It cannot
-  change or delete anything and runs no AI, so it uses no AI usage.
+- **What it may do.** Read profiles and form-mode CVs, export a CV as PDF, save jobs, and draft
+  answers to application questions, which spends AI usage (one AI run per request, see Answer
+  questions). It cannot change or delete anything.
 - **Fill from** a profile or a CV, in a list. On the page of a saved job's ad or application form,
   the CV tailored for that job is chosen ("The CV you tailored for Data engineer at Harbour Bank");
   otherwise the user's last choice; otherwise the default profile.
@@ -248,13 +257,13 @@ job ad the user is reading to Tailor. It lives in `apps/extension`.
   from your <source>? Nothing is sent until you submit it yourself." Nothing is read from the account
   until the user chooses Fill fields, and clicks made by the page's own scripts are ignored. The
   panel has a setting to turn the offer off.
-- **Never** submits a form. Never fills equal opportunity questions (gender, race, veteran or
-  disability status), work eligibility or sponsorship, pay, referrals, "how did you hear about us",
-  cover letters, dates of birth or passwords, and never answers free-text questions. Never fills a
-  text field the user cannot see (hidden, transparent, tiny or off the page), so a page cannot
-  collect more than it shows. It adds
-  nothing: a date the CV gives as a year fills only year fields, a missing middle name stays empty,
-  and placeholders stay visible in their brackets.
+- **Never** submits a form. Never fills or drafts equal opportunity questions (gender, race, veteran
+  or disability status), work eligibility or sponsorship, pay, referrals, "how did you hear about
+  us", cover letters, dates of birth or passwords. An open question gets an answer only as a draft
+  the user asked for, checked and chose to fill (Answer questions, below). Never fills a text field
+  the user cannot see (hidden, transparent, tiny or off the page), so a page cannot collect more than
+  it shows. Filling from a profile adds nothing: a date the CV gives as a year fills only year
+  fields, a missing middle name stays empty, and placeholders stay visible in their brackets.
 - **Attach CV.** With a CV chosen, Attach CV puts its PDF into the form's CV upload, named
   `<Name>-CV-<Company>.pdf` when the CV was tailored for a job. Refused while the CV has placeholders,
   with an "Open in editor" action.
@@ -264,12 +273,80 @@ job ad the user is reading to Tailor. It lives in `apps/extension`.
 - **Copy your details.** Every detail with a copy button, for fields the extension cannot fill
   (custom lists and widgets).
 - The browser keeps only the token, the account's email, the last choice and the offer setting.
-  Profile and CV data is fetched when a form is filled and not stored.
+  Profile and CV data is fetched when a form is filled and not stored, and drafted answers live in
+  the open panel only.
 
 Done when: in Chrome and Firefox a user installs the extension, connects it, fills the Greenhouse,
 Lever, Workday and Ashby fixture forms from a profile after reviewing them, attaches a tailored CV,
 saves a job ad and tailors for it, and disconnecting the browser on the Extension page stops the
 extension at its next request.
+
+#### Answer questions
+
+Many applications ask open questions ("Describe a time you used dbt in production", "Why do you
+want to work here?"). The panel's Answer questions card drafts answers from the user's own material
+so they can edit and fill them in seconds.
+
+- **What a draft is made from.** The profile or CV chosen under Fill from (the CV tailored for this
+  job when there is one, as for filling), and the job ad: the saved job when the page is one of its
+  pages (its text and, once it was tailored for, its analysis), else the ad read from the page as
+  Save job ad reads it, else none.
+- **How drafts are written.** Useful beats cautious: the user reviews and edits every draft and knows
+  what they actually did.
+  - First person, plain and specific, set in the user's real roles, clients and projects, in the
+    material's spelling convention. No cliches and no flattery of the employer.
+  - A draft may expand on the material with reasonable inference. Someone whose CV shows Spark
+    pipelines on Databricks has very likely used dbt, so a dbt question gets a confident answer set
+    in those roles.
+  - It never invents employers, clients, job titles, dates, degrees, certifications or other
+    qualifications, or specific numbers. Where an answer needs a figure the material does not give,
+    it has a placeholder such as "[[how many models]]". A number that is not in the material, the
+    question or the job ad is turned into one ("[[check this number: 40]]") before the user sees it.
+  - Questions about the company or role use the job ad; with no ad they get a placeholder such as
+    "[[why this company]]".
+  - Below each draft, one short line names the skills it mentions that are not in the material, and
+    what in the material they rest on: "Mentions dbt, from your Spark and Databricks work." It is a
+    hint of what to check, not a warning.
+  - The CV fact guard does not run on drafts. Drafts never go into a CV, a profile or the database.
+- **Finding questions.** Fill form, or Find questions in the card, reads the form in every frame. An
+  open question is a visible, enabled text area, or a text field with room for a sentence (no length
+  limit, or one of at least 100 characters), whose label reads as a question (it ends in "?", starts
+  with a word such as why, what, how, describe, tell, explain, share or give, or runs to six words or
+  more), and which filling from the profile does not already cover. Never listed: the questions
+  under Never above, notice periods, start dates, relocation, references, years of experience,
+  consent and signatures. Each shows its limit: the field's length limit, and a word or character
+  limit its label or help text states ("in 200 words", "max 1,000 characters", "150 to 300 words"
+  takes the upper bound). Questions that have a value already are listed unticked.
+- **Before drafting.** Ticked questions are drafted; a line says what the drafts use ("From your Data
+  engineering profile and the job ad you saved for Data engineer at Harbour Bank", "... and the job ad
+  on this page", or "No job ad found here, so answers about the company will have gaps"). If the page
+  says applicants must not use AI ("Do not use AI tools to write your answers"), a short notice above
+  the list says so and quotes it. Drafting stays possible: the choice is the user's.
+- **Drafts.** "Draft 3 answers" drafts every ticked question in one request. Each draft sits in an
+  editable text box under its question, with a count against its limit ("143 of 200 words"), the
+  skills hint, and Redraft, which writes a different draft of that one answer. A draft longer than
+  its limit is cut at a sentence and marked Shortened; a single-line field gets one line. A question
+  the AI leaves empty (one it must not answer) reads "Not drafted. Answer this one yourself." A note
+  counts the placeholders still in square brackets. "Drafted with Claude Haiku."
+- **Fill.** Nothing goes into the page until the user chooses "Fill 3 answers", which writes the
+  ticked answers as filling does (cut to the field's length limit, marked until the user edits
+  them). Undo puts back what the answers replaced, separately from the fields' Undo fill.
+- **Privacy.** Only when the user chooses Draft answers or Redraft: the text and limits of those
+  questions (with the draft it replaces, for Redraft), the job ad from the page (unless a saved job
+  is used) and the chosen profile or CV go to the api, which sends them, without the user's email, phone and links, to the company behind the
+  user's AI model. None of it is stored: not the questions, the ad read from the page, nor the
+  drafts. The panel drops drafts when the tab or its page changes. The fill offer in the page never
+  drafts.
+- **AI model and usage.** The user's AI model from Settings. One AI run per Draft answers or Redraft,
+  however many questions it covers, under the usual plan limits; at the limit the card shows the
+  usual message. A Pro model on Free shows its message and Open settings.
+- **Cover letters** are not drafted or filled: Chameleon vitae has no cover letters yet.
+
+Done when: on the Greenhouse, Lever and Ashby fixtures and the custom careers page the card lists the
+open questions and none of the excluded or hidden ones, with their limits; Draft answers (fake AI)
+returns a draft for each within its limit, with the hint for a skill the profile does not name and a
+placeholder for a number it does not give; the user edits one, unticks another, fills, and Undo puts
+the fields back; one request uses one AI run; a page that bans AI shows the notice first.
 
 ## Plans and limits
 
@@ -281,9 +358,10 @@ changes elsewhere.
 | Free | 0 | 4 | 2 | 20 |
 | Pro | Set in Paystack dashboard (monthly) | 100 | 10 | 150 |
 
-- An AI run is one import, one job analysis, one tailoring or one AI edit request, regardless of
-  model. Tailoring for a new job takes two runs (the analysis and the tailoring); tailoring a saved
-  job again takes one.
+- An AI run is one import, one job analysis, one tailoring, one AI edit request or one request for
+  drafted answers (Draft answers or Redraft in the extension, however many questions it covers),
+  regardless of model. Tailoring for a new job takes two runs (the analysis and the tailoring);
+  tailoring a saved job again takes one.
 - AI runs count per calendar month (UTC). On Free every attempt counts, failed ones included; on Pro
   only successful runs count.
 - Free plans use the free models (MiMo Flash, Claude Haiku, Gemini Flash-Lite); Pro adds MiMo Pro,
@@ -308,5 +386,5 @@ Say what happened and what to do next.
 ## Out of scope for v1
 
 Cover letters, LinkedIn import, DOCX export, collaboration and sharing links, mobile editing (mobile can
-view and download), job board integrations (APIs; the browser extension works in the page), AI answers
-to free-text application questions, analytics dashboards for users.
+view and download), job board integrations (APIs; the browser extension works in the page), analytics
+dashboards for users.
