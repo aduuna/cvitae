@@ -41,8 +41,8 @@ export interface MockApi {
 type Me = Schemas['Me'];
 
 const PLANS: Schemas['PlanInfo'][] = [
-	{ id: 'free', label: 'Free', documents: 4, profiles: 2, ai_runs: 20 },
-	{ id: 'pro', label: 'Pro', documents: 100, profiles: 10, ai_runs: 150 }
+	{ id: 'free', label: 'Free', documents: 4, profiles: 2, templates: 1, ai_runs: 20 },
+	{ id: 'pro', label: 'Pro', documents: 100, profiles: 10, templates: 10, ai_runs: 150 }
 ];
 
 function limits(plan: Me['plan']): Schemas['PlanInfo'] {
@@ -73,6 +73,7 @@ function usageOf(state: MockApi): Schemas['Usage'] {
 		ai_runs: meter('ai_runs', state.aiRuns),
 		documents: meter('documents', state.documents.length),
 		profiles: meter('profiles', state.profiles.length),
+		templates: { used: 0, limit: plan.templates, message: null },
 		subscription: state.subscription
 	};
 }
@@ -96,14 +97,16 @@ const TEMPLATES: TemplateMeta[] = [
 		name: 'Classic',
 		description: 'Serif',
 		paper_sizes: ['a4', 'us-letter'],
-		target_pages: 1
+		target_pages: 1,
+		custom: false
 	},
 	{
 		id: 'compact',
 		name: 'Compact',
 		description: 'Dense',
 		paper_sizes: ['a4', 'us-letter'],
-		target_pages: 1
+		target_pages: 1,
+		custom: false
 	}
 ];
 

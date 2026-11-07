@@ -283,8 +283,78 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Templates */
+        /**
+         * Get Templates
+         * @description The built-in templates, then the user's own ready ones (`custom` is true for those).
+         */
         get: operations["get_templates_api_v1_templates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/custom": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Custom Template
+         * @description Draft a template in the design of a CV, with Claude. Takes one AI run and up to about two
+         *     minutes; the request waits. The result is a draft: preview it, then confirm it with PATCH.
+         *     Send a PDF as `file`, or the `upload_id` of one uploaded before (a DOCX is refused).
+         */
+        post: operations["create_custom_template_api_v1_templates_custom_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/custom/{template_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Custom Template
+         * @description Delete a template. CVs that use it switch to the user's default template (Classic when
+         *     the default was this one), and the default resets to Classic.
+         */
+        delete: operations["delete_custom_template_api_v1_templates_custom__template_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Custom Template
+         * @description Rename or describe a template, or confirm a draft (`status: "ready"`).
+         */
+        patch: operations["update_custom_template_api_v1_templates_custom__template_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/templates/custom/{template_id}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Custom Template Source
+         * @description The Typst source of one of the user's templates, to read.
+         */
+        get: operations["get_custom_template_source_api_v1_templates_custom__template_id__source_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -302,7 +372,8 @@ export interface paths {
         };
         /**
          * Get Template Preview
-         * @description The template rendered with the user's default profile, or sample data.
+         * @description The template rendered with the user's default profile, or sample data. Works for the
+         *     user's own templates, drafts included.
          */
         get: operations["get_template_preview_api_v1_templates__template_id__preview_get"];
         put?: never;
@@ -931,6 +1002,19 @@ export interface components {
              */
             links: components["schemas"]["Link"][];
         };
+        /** Body_create_custom_template_api_v1_templates_custom_post */
+        Body_create_custom_template_api_v1_templates_custom_post: {
+            /**
+             * File
+             * @description A PDF, up to 10 MB
+             */
+            file?: string | null;
+            /**
+             * Upload Id
+             * @description Use an earlier upload
+             */
+            upload_id?: string | null;
+        };
         /** Body_create_import_api_v1_imports_post */
         Body_create_import_api_v1_imports_post: {
             /**
@@ -1051,6 +1135,94 @@ export interface components {
             plans: components["schemas"]["PlanInfo"][];
             /** Billing Enabled */
             billing_enabled: boolean;
+        };
+        /**
+         * CustomTemplate
+         * @description A template the user made from their own CV.
+         */
+        CustomTemplate: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "ready";
+            /** Paper Sizes */
+            paper_sizes: ("a4" | "us-letter")[];
+            /** Target Pages */
+            target_pages: number;
+            /** Upload Id */
+            upload_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * CustomTemplateDraft
+         * @description What generating a template returns: the new draft, and what ran.
+         */
+        CustomTemplateDraft: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "ready";
+            /** Paper Sizes */
+            paper_sizes: ("a4" | "us-letter")[];
+            /** Target Pages */
+            target_pages: number;
+            /** Upload Id */
+            upload_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            ai_model: components["schemas"]["AiModel"];
+            provider: components["schemas"]["ProviderName"];
+            /** Model */
+            model: string;
+        };
+        /** CustomTemplateSource */
+        CustomTemplateSource: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Main Typ */
+            main_typ: string;
+        };
+        /** CustomTemplateUpdate */
+        CustomTemplateUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Status */
+            status?: "ready" | null;
         };
         /** CvContent */
         "CvContent-Input": {
@@ -1755,6 +1927,8 @@ export interface components {
             documents: number;
             /** Profiles */
             profiles: number;
+            /** Templates */
+            templates: number;
             /** Ai Runs */
             ai_runs: number;
         };
@@ -2105,6 +2279,11 @@ export interface components {
             paper_sizes: ("a4" | "us-letter")[];
             /** Target Pages */
             target_pages: number;
+            /**
+             * Custom
+             * @default false
+             */
+            custom: boolean;
         };
         /** UploadSummary */
         UploadSummary: {
@@ -2145,6 +2324,7 @@ export interface components {
             ai_runs: components["schemas"]["Meter"];
             documents: components["schemas"]["Meter"];
             profiles: components["schemas"]["Meter"];
+            templates: components["schemas"]["Meter"];
             subscription: components["schemas"]["SubscriptionInfo"] | null;
         };
         /** ValidationError */
@@ -3417,6 +3597,251 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TemplateMeta"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    create_custom_template_api_v1_templates_custom_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_create_custom_template_api_v1_templates_custom_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomTemplateDraft"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description A plan limit is reached; the message says which */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description The AI provider failed */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description The server has no Claude key */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description The AI provider took too long */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    delete_custom_template_api_v1_templates_custom__template_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    update_custom_template_api_v1_templates_custom__template_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomTemplateUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomTemplate"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Payment Required */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_custom_template_source_api_v1_templates_custom__template_id__source_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomTemplateSource"];
                 };
             };
             /** @description Not signed in */

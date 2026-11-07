@@ -10,8 +10,8 @@ const FIREBASE: ClientConfig = {
 	default_ai_model: 'mimo-flash',
 	plans_enforced: true,
 	plans: [
-		{ id: 'free', label: 'Free', documents: 3, profiles: 1, ai_runs: 5 },
-		{ id: 'pro', label: 'Pro', documents: 100, profiles: 10, ai_runs: 150 }
+		{ id: 'free', label: 'Free', documents: 3, profiles: 1, templates: 1, ai_runs: 5 },
+		{ id: 'pro', label: 'Pro', documents: 100, profiles: 10, templates: 10, ai_runs: 150 }
 	],
 	billing_enabled: true
 };
