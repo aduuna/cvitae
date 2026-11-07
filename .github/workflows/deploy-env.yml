@@ -1,7 +1,8 @@
 name: Deploy environment
 
-# Builds, migrates, applies and smoke tests one environment (docs/INFRA.md, CI/CD). Called by
-# deploy.yml for dev and prod, so both run the same steps.
+# Builds (or promotes), migrates, applies and smoke tests one environment (docs/INFRA.md, CI/CD).
+# Called by deploy.yml for dev and prod, so both run the same steps. Dev builds the images from the
+# commit; prod sets promote_from and copies the images dev already built and ran, by digest.
 on:
   workflow_call:
     inputs:
@@ -23,6 +24,11 @@ on:
         type: string
       app_url:
         description: Shown on the deployment.
+        required: false
+        default: ""
+        type: string
+      promote_from:
+        description: Registry whose <image>:<sha> images to copy into this project's registry instead of building them. Empty builds from the commit.
         required: false
         default: ""
         type: string
@@ -75,6 +81,7 @@ jobs:
 
       - id: api
         name: Build and push the api image
+        if: inputs.promote_from == ''
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -87,6 +94,7 @@ jobs:
 
       - id: renderer
         name: Build and push the renderer image
+        if: inputs.promote_from == ''
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -96,6 +104,31 @@ jobs:
           tags: ${{ env.REGISTRY }}/renderer:${{ env.SHA }}
           cache-from: type=gha,scope=renderer
           cache-to: type=gha,mode=max,scope=renderer
+
+      # What runs in prod is byte for byte what ran in dev: the digest of <image>:<sha> in dev's
+      # registry is copied (the manifest and its layers, so the digest is unchanged). A missing tag
+      # fails the deploy; dev's registry keeps only its three most recent images per package.
+      - id: promote
+        name: Promote the images dev built
+        if: inputs.promote_from != ''
+        shell: bash
+        env:
+          FROM: ${{ inputs.promote_from }}
+        run: |
+          for image in api renderer; do
+            digest="$(docker buildx imagetools inspect "$FROM/$image:$SHA" --format '{{json .Manifest}}' | jq -r '.digest // empty')" || digest=""
+            if [ -z "$digest" ]; then
+              echo "::error::$FROM/$image:$SHA does not exist. Tag a commit that dev built recently; its registry keeps the last three images."
+              exit 1
+            fi
+            docker buildx imagetools create --tag "$REGISTRY/$image:$SHA" "$FROM/$image@$digest"
+            copied="$(docker buildx imagetools inspect "$REGISTRY/$image:$SHA" --format '{{json .Manifest}}' | jq -r '.digest // empty')"
+            if [ "$copied" != "$digest" ]; then
+              echo "::error::$image was copied as $copied, expected $digest."
+              exit 1
+            fi
+            echo "$image=$digest" >> "$GITHUB_OUTPUT"
+          done
 
       - uses: astral-sh/setup-uv@v6
         with:
@@ -122,8 +155,8 @@ jobs:
         run: |
           tofu init -input=false
           tofu apply -input=false -auto-approve \
-            -var "api_image=$REGISTRY/api@${{ steps.api.outputs.digest }}" \
-            -var "renderer_image=$REGISTRY/renderer@${{ steps.renderer.outputs.digest }}"
+            -var "api_image=$REGISTRY/api@${{ steps.api.outputs.digest || steps.promote.outputs.api }}" \
+            -var "renderer_image=$REGISTRY/renderer@${{ steps.renderer.outputs.digest || steps.promote.outputs.renderer }}"
           {
             echo "API_URL=$(tofu output -raw api_url)"
             echo "RENDERER_URL=$(tofu output -raw renderer_url)"

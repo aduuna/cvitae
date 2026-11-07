@@ -34,3 +34,14 @@ module "bootstrap" {
   github_environments  = ["prod"]
   admin_members        = var.admin_members
 }
+
+# Prod promotes the images dev built and ran (deploy-env.yml) instead of rebuilding them, so the
+# prod deployer reads dev's registry. The grant is on a dev resource but belongs here: it needs
+# the prod deployer to exist, and it goes away with the prod project.
+resource "google_artifact_registry_repository_iam_member" "read_dev_images" {
+  project    = "cvitae-511214"
+  location   = local.region
+  repository = "cvitae"
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:${module.bootstrap.deployer_email}"
+}

@@ -72,3 +72,5 @@ jobs:
       project_id: cvitae-prod
       # Known only after infra/bootstrap is applied to the prod project: a repository variable.
       wif_provider: ${{ vars.PROD_WIF_PROVIDER }}
+      # Prod runs the images dev built for this commit, by digest, rather than rebuilding them.
+      promote_from: europe-west1-docker.pkg.dev/cvitae-511214/cvitae
