@@ -1,6 +1,7 @@
 import { test as base, type Page, type Route } from '@playwright/test';
 import type { Schemas } from '../../src/lib/api/client.ts';
 import type {
+	AtsReport,
 	BulletDiff,
 	CvContent,
 	CvDocument,
@@ -185,6 +186,24 @@ function page(content: CvContent, template: string): string {
 			.join('') +
 		'</svg>'
 	);
+}
+
+/** The fake ATS score of any CV against its job: Snowflake missing, not in the profile. */
+function atsReport(): AtsReport {
+	return {
+		score: 83,
+		band: 'strong',
+		title: 'Data Engineer',
+		title_found: true,
+		keywords: [
+			{ term: 'Python', importance: 'required', found_in: ['experience', 'skills'] },
+			{ term: 'Spark', importance: 'required', found_in: ['experience'] },
+			{ term: 'Snowflake', importance: 'preferred', found_in: [], in_profile: false }
+		],
+		checks: [
+			{ id: 'contact', ok: true, message: 'Your email, phone and location are in the header.' }
+		]
+	};
 }
 
 function jobSummary(job: Job) {
@@ -450,7 +469,7 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 				changes: bulletDiffs(profile.content),
 				dropped: [],
 				placeholders: [{ text: 'number of analysts', bullet_id: null }],
-				missing_keywords: ['Snowflake']
+				ats: atsReport()
 			};
 			return reply(route, 201, result);
 		}
@@ -540,6 +559,13 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 				return version;
 			};
 
+			if (action === 'ats' && method === 'GET') {
+				const job = state.jobs.find((row) => row.id === doc.job_id);
+				return reply(route, 200, {
+					job: job ? jobSummary(job) : null,
+					report: job ? atsReport() : null
+				});
+			}
 			if (action === 'preview') {
 				state.previewCalls += 1;
 				doc.page_count = 1;

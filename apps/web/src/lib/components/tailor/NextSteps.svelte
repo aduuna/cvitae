@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { keywordGroups } from '#lib/ats.ts';
+	import AtsReport from '#lib/components/ats/AtsReport.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import type { TailorResult } from '#lib/cv/types.ts';
 	import ChangesPanel from './ChangesPanel.svelte';
@@ -8,13 +10,8 @@
 	let { result }: { result: TailorResult } = $props();
 
 	// What to do with a tailored CV, in order; the details of what changed stay folded away.
-	const KEYWORDS_SHOWN = 10;
-	let allKeywords = $state(false);
-
 	const gaps = $derived(result.placeholders.length);
-	const keywords = $derived(
-		allKeywords ? result.missing_keywords : result.missing_keywords.slice(0, KEYWORDS_SHOWN)
-	);
+	const groups = $derived(keywordGroups(result.ats));
 	const reworded = $derived(result.changes.filter((c) => c.text !== c.source_text).length);
 	const summary = $derived(
 		[
@@ -27,6 +24,10 @@
 			.join(', ')
 	);
 	const profileId = $derived(result.document.profile_id);
+
+	function openEditor() {
+		void goto(resolve('/app/documents/[id]', { id: result.document.id }));
+	}
 </script>
 
 <div class="flex flex-col gap-6">
@@ -41,42 +42,25 @@
 				They are highlighted in yellow. Replace each with a real detail, such as a number you can
 				stand behind, then export.
 			</p>
-			<Button
-				size="sm"
-				onclick={() => goto(resolve('/app/documents/[id]', { id: result.document.id }))}
-			>
-				Fill in the editor
-			</Button>
+			<Button size="sm" onclick={openEditor}>Fill in the editor</Button>
 		{/if}
 	</section>
 
-	{#if result.missing_keywords.length > 0}
-		<section aria-labelledby="keywords" class="flex flex-col items-start gap-2">
-			<h3 id="keywords" class="text-base font-semibold text-fg">
-				Not in your profile ({result.missing_keywords.length})
-			</h3>
-			<p class="text-sm text-fg-muted">
-				The job asks for these. Add the ones that are true to your profile, then tailor again.
-			</p>
-			<ul class="flex flex-wrap gap-1.5" aria-label="Job keywords not in your profile">
-				{#each keywords as keyword (keyword)}
-					<li class="rounded-sm border border-line px-1.5 text-sm text-fg">{keyword}</li>
-				{/each}
-			</ul>
-			<div class="flex items-center gap-2">
-				{#if keywords.length < result.missing_keywords.length}
-					<Button variant="ghost" size="sm" onclick={() => (allKeywords = true)}>
-						Show all {result.missing_keywords.length}
-					</Button>
-				{/if}
-				{#if profileId}
-					<Button size="sm" onclick={() => goto(resolve('/app/profiles/[id]', { id: profileId }))}>
-						Edit profile
-					</Button>
-				{/if}
+	<section aria-labelledby="ats" class="flex flex-col gap-3">
+		<h3 id="ats" class="text-base font-semibold text-fg">ATS match</h3>
+		<AtsReport
+			report={result.ats}
+			checks={false}
+			notInProfileHint="The job asks for these. Add the ones that are true to your profile, then tailor again."
+		/>
+		{#if profileId && groups.notInProfile.length > 0}
+			<div>
+				<Button size="sm" onclick={() => goto(resolve('/app/profiles/[id]', { id: profileId }))}>
+					Edit profile
+				</Button>
 			</div>
-		</section>
-	{/if}
+		{/if}
+	</section>
 
 	<details class="rounded-lg border border-line bg-surface">
 		<summary class="cursor-pointer px-4 py-3 text-sm font-medium text-fg">

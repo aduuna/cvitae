@@ -228,6 +228,11 @@ test.describe('M3 at 1280px', () => {
 			page.getByText('Generated with MiMo Flash for Senior Data Engineer')
 		).toBeVisible();
 		await expect(page.getByRole('img', { name: 'Page 1 of 1' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'ATS match' })).toBeVisible();
+		await expect(page.getByRole('meter', { name: 'ATS score' })).toHaveAttribute(
+			'aria-valuenow',
+			'83'
+		);
 		await expect(
 			page.getByText('Add the ones that are true to your profile', { exact: false })
 		).toBeVisible();
