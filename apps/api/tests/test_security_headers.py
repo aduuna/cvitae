@@ -248,6 +248,54 @@ def test_only_scripts_that_run_inline_need_a_hash(tmp_path: Path) -> None:
     )
 
 
+def test_other_attributes_do_not_pass_for_the_type(tmp_path: Path) -> None:
+    """`data-type` is not `type`: the script has no type, so it runs, and needs its hash."""
+    (tmp_path / "a.html").write_text(
+        '<script data-type="application/json">one()</script>'
+        '<script data-type="x" type="module">two()</script>'
+        '<script data-src="/x.js">three()</script>'
+        '<script type="application/json" data-type="module">not_run()</script>'
+    )
+
+    assert inline_script_hashes(tmp_path) == sorted(
+        [sha256("one()"), sha256("two()"), sha256("three()")]
+    )
+
+
+def test_the_type_is_read_as_the_browser_reads_it(tmp_path: Path) -> None:
+    (tmp_path / "a.html").write_text(
+        '<script type=" Module ">one()</script>'
+        "<script type='text/javascript; charset=utf-8'>two()</script>"
+        "<script type=>three()</script>"
+        "<script type=importmap>{}</script>"
+        '<script type="speculationrules">{}</script>'
+        "<script type=text/x-template><b></b></script>"
+    )
+
+    assert inline_script_hashes(tmp_path) == sorted(
+        [sha256("one()"), sha256("two()"), sha256("three()")]
+    )
+
+
+def test_a_script_is_hashed_whole(tmp_path: Path) -> None:
+    body = 'if (a < b && "</p>" < "x") { fn("<div>", "&amp;") }\n\tlast()'
+    (tmp_path / "a.html").write_text(f"<p>before</p><script>{body}</script><p>after</p>")
+
+    assert inline_script_hashes(tmp_path) == [sha256(body)]
+
+
+def test_line_breaks_are_hashed_as_the_browser_reads_them(tmp_path: Path) -> None:
+    (tmp_path / "a.html").write_bytes(b"<script>a()\r\nb()\rc()</script>")
+
+    assert inline_script_hashes(tmp_path) == [sha256("a()\nb()\nc()")]
+
+
+def test_a_commented_out_script_is_not_hashed(tmp_path: Path) -> None:
+    (tmp_path / "a.html").write_text("<!-- <script>old()</script> --><script>live()</script>")
+
+    assert inline_script_hashes(tmp_path) == [sha256("live()")]
+
+
 def test_pages_with_the_same_script_give_one_hash(tmp_path: Path) -> None:
     (tmp_path / "a.html").write_text("<script>same()</script>")
     (tmp_path / "sub").mkdir()
@@ -296,3 +344,56 @@ async def test_the_spa_policy_does_not_loosen_for_the_docs() -> None:
     policy = response.headers["content-security-policy"]
     assert "jsdelivr" not in policy
     assert "'unsafe-inline'" not in directives(policy)["script-src"]
+
+
+# Errors nothing handled
+
+
+async def test_an_unhandled_error_is_a_500_with_the_security_headers() -> None:
+    """Starlette answers these from outside every middleware, so the handler adds the headers."""
+    app = create_app(settings_for())
+
+    @app.get("/api/v1/boom")
+    async def boom() -> None:
+        raise RuntimeError("secret detail for ada@example.com")
+
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        response = await c.get("/api/v1/boom")
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": {
+            "code": "internal_error",
+            "message": "Something went wrong on the server. Try again.",
+            "details": {},
+        }
+    }
+    assert "secret" not in response.text
+    headers = response.headers
+    assert headers["content-security-policy"] == app.state.security.csp
+    assert headers["strict-transport-security"] == "max-age=31536000; includeSubDomains"
+    assert headers["x-content-type-options"] == "nosniff"
+    assert headers["x-frame-options"] == "DENY"
+    assert headers["referrer-policy"] == "strict-origin-when-cross-origin"
+    assert "permissions-policy" in headers
+    assert len(headers.get_list("content-security-policy")) == 1
+
+
+async def test_an_unhandled_error_still_reaches_the_server_to_be_logged() -> None:
+    app = create_app(settings_for())
+
+    @app.get("/api/v1/boom")
+    async def boom() -> None:
+        raise RuntimeError("logged by the server")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        with pytest.raises(RuntimeError, match="logged by the server"):
+            await c.get("/api/v1/boom")
+
+
+async def test_handled_errors_keep_their_own_answers() -> None:
+    response = await get(settings_for(), "/api/v1/nothing-here")
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "not_found"

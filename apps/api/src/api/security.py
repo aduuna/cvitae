@@ -17,9 +17,9 @@ The Content Security Policy is as strict as the SPA allows:
 
 import base64
 import hashlib
-import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from pathlib import Path
 
 from starlette.datastructures import MutableHeaders
@@ -53,13 +53,56 @@ HSTS = "max-age=31536000; includeSubDomains"
 
 PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
 
-_INLINE_SCRIPT = re.compile(
-    r"<script(?P<attrs>[^>]*)>(?P<body>.*?)</script>", re.DOTALL | re.IGNORECASE
+# What the HTML spec calls JavaScript MIME types, besides an empty `type` and `module`: a script
+# of any other type is data to the browser and is not run.
+_JAVASCRIPT_TYPES = frozenset(
+    {
+        "",
+        "module",
+        "application/ecmascript",
+        "application/javascript",
+        "application/x-ecmascript",
+        "application/x-javascript",
+        "text/ecmascript",
+        "text/javascript",
+        "text/javascript1.0",
+        "text/javascript1.1",
+        "text/javascript1.2",
+        "text/javascript1.3",
+        "text/javascript1.4",
+        "text/javascript1.5",
+        "text/jscript",
+        "text/livescript",
+        "text/x-ecmascript",
+        "text/x-javascript",
+    }
 )
-_SRC = re.compile(r"\bsrc\s*=", re.IGNORECASE)
-_TYPE = re.compile(r"""\btype\s*=\s*["']?(?P<type>[^"'\s>]+)""", re.IGNORECASE)
-_RUNS = {"", "module", "text/javascript", "application/javascript"}
-"""Script types the browser runs; others (`application/ld+json`) are data and need no hash."""
+
+
+class _InlineScripts(HTMLParser):
+    """The text of every `<script>` that runs inline: no `src`, and a type the browser runs."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self.found: list[str] = []
+        self._open: list[str] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag != "script":
+            return
+        attributes = dict(attrs)
+        kind = (attributes.get("type") or "").split(";")[0].strip().lower()
+        runs = "src" not in attributes and kind in _JAVASCRIPT_TYPES
+        self._open = [] if runs else None
+
+    def handle_data(self, data: str) -> None:
+        if self._open is not None:
+            self._open.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "script" and self._open is not None:
+            self.found.append("".join(self._open))
+            self._open = None
 
 
 def inline_script_hashes(static_dir: Path) -> list[str]:
@@ -67,12 +110,12 @@ def inline_script_hashes(static_dir: Path) -> list[str]:
     start the SPA differ a little from page to page, so each page's own is allowed."""
     hashes: set[str] = set()
     for page in static_dir.rglob("*.html"):
-        for match in _INLINE_SCRIPT.finditer(page.read_text(encoding="utf-8")):
-            attrs = match["attrs"]
-            kind = _TYPE.search(attrs)
-            if _SRC.search(attrs) or (kind and kind["type"].lower() not in _RUNS):
-                continue
-            digest = hashlib.sha256(match["body"].encode("utf-8")).digest()
+        parser = _InlineScripts()
+        # Reading as text turns CRLF into LF, which is the text the browser hashes.
+        parser.feed(page.read_text(encoding="utf-8"))
+        parser.close()
+        for text in parser.found:
+            digest = hashlib.sha256(text.encode("utf-8")).digest()
             hashes.add(f"'sha256-{base64.b64encode(digest).decode()}'")
     return sorted(hashes)
 
@@ -104,6 +147,12 @@ class SecurityHeaders:
     csp: str
     headers: Mapping[str, str]
 
+    def apply(self, headers: MutableHeaders, path: str) -> None:
+        """Set the security headers on a response for `path`."""
+        for name, value in self.headers.items():
+            headers[name] = value
+        headers["Content-Security-Policy"] = DOCS_CSP if path in DOCS_PATHS else self.csp
+
     @classmethod
     def for_settings(cls, settings: Settings) -> "SecurityHeaders":
         hashes = inline_script_hashes(settings.static_dir) if settings.static_dir else []
@@ -120,8 +169,9 @@ class SecurityHeaders:
 
 
 class SecurityHeadersMiddleware:
-    """Adds the security headers to every HTTP response, whatever sent it: a route, the SPA's
-    static files or an error handler."""
+    """Adds the security headers to every HTTP response sent from inside the app: a route, the
+    SPA's static files or an error handler. Starlette answers an unhandled exception from outside
+    every middleware, so `errors.py`'s handler for it applies the headers itself."""
 
     def __init__(self, app: ASGIApp, security: SecurityHeaders) -> None:
         self.app = app
@@ -131,14 +181,11 @@ class SecurityHeadersMiddleware:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        csp = DOCS_CSP if scope["path"] in DOCS_PATHS else self.security.csp
+        path = scope["path"]
 
         async def send_with_headers(message: Message) -> None:
             if message["type"] == "http.response.start":
-                headers = MutableHeaders(scope=message)
-                for name, value in self.security.headers.items():
-                    headers[name] = value
-                headers["Content-Security-Policy"] = csp
+                self.security.apply(MutableHeaders(scope=message), path)
             await send(message)
 
         await self.app(scope, receive, send_with_headers)

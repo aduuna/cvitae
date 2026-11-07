@@ -154,7 +154,21 @@ async def _http_error(_: Request, exc: Exception) -> JSONResponse:
     return _envelope(error.status_code, code, str(error.detail), {})
 
 
+async def _unhandled_error(request: Request, exc: Exception) -> JSONResponse:
+    """The answer to an exception nothing handled. Starlette sends it from outside every
+    middleware, so it takes the security headers itself, and then raises the exception again for
+    the server to log. Nothing of the exception reaches the user."""
+    response = _envelope(
+        500, "internal_error", "Something went wrong on the server. Try again.", {}
+    )
+    security = getattr(request.app.state, "security", None)
+    if security is not None:
+        security.apply(response.headers, request.url.path)
+    return response
+
+
 def install_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AppError, _app_error)
     app.add_exception_handler(RequestValidationError, _validation_error)
     app.add_exception_handler(HTTPException, _http_error)
+    app.add_exception_handler(Exception, _unhandled_error)
