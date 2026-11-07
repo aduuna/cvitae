@@ -3,8 +3,9 @@
 #
 #   infra/scripts/check-renderer-egress.sh <project-id> [region]
 #
-# 1. Configuration: the renderer service uses Direct VPC egress with all traffic routed into the
-#    renderer-egress subnet, and cvitae-vpc has no router (so no Cloud NAT) and no default route.
+# 1. Configuration: the renderer service uses Direct VPC egress with all traffic routed into a
+#    subnet, and that subnet's network (read from the service's network-interfaces annotation, so
+#    renamed networks are followed) has no router (so no Cloud NAT) and no default route.
 # 2. Behaviour: a throwaway Cloud Run job with the renderer's image, service account and network
 #    settings tries to open TCP connections to public addresses. Every attempt must fail. The job
 #    is deleted afterwards.
@@ -17,8 +18,6 @@ set -euo pipefail
 
 project="${1:?usage: check-renderer-egress.sh <project-id> [region]}"
 region="${2:-europe-west1}"
-network="cvitae-vpc"
-subnet="renderer-egress"
 job="egress-probe"
 
 fail() {
@@ -28,13 +27,16 @@ fail() {
 
 echo "Checking the renderer service configuration in $project"
 service="$(gcloud run services describe renderer --project "$project" --region "$region" --format=json)"
-echo "$service" | jq -e --arg subnet "$subnet" '
-  .spec.template.metadata.annotations as $a
-  | $a["run.googleapis.com/vpc-access-egress"] == "all-traffic"
-  and (($a["run.googleapis.com/network-interfaces"] // "[]") | fromjson
-       | any(.[]; (.subnetwork // "") | test($subnet + "$")))
-' >/dev/null || fail "the renderer does not route all traffic into the $subnet subnet"
-echo "ok: the renderer routes all traffic into $subnet"
+annotations='.spec.template.metadata.annotations'
+egress="$(echo "$service" | jq -r "$annotations"'["run.googleapis.com/vpc-access-egress"] // ""')"
+[ "$egress" = "all-traffic" ] || fail "the renderer's VPC egress is '${egress:-none}', not all-traffic"
+
+# The annotation lists the network and subnet by name or by full path; keep the last segment.
+interfaces="$(echo "$service" | jq -r "$annotations"'["run.googleapis.com/network-interfaces"] // "[]"')"
+network="$(echo "$interfaces" | jq -r '.[0].network // "" | split("/") | last // ""')"
+subnet="$(echo "$interfaces" | jq -r '.[0].subnetwork // "" | split("/") | last // ""')"
+[ -n "$network" ] && [ -n "$subnet" ] || fail "the renderer has no network and subnet for Direct VPC egress"
+echo "ok: the renderer routes all traffic into subnet $subnet of network $network"
 
 routers="$(gcloud compute routers list --project "$project" \
   --filter="network~/${network}\$" --format='value(name)')"
