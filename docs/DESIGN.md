@@ -272,7 +272,7 @@ not by passing class strings from pages.
 | `Checkbox`, `Switch` | One style | Accent when on. |
 | `Tabs` | Underline style | Active tab: fg text and 2px accent underline. |
 | `Dialog` | `sm` 400px, `md` 560px, `lg` 800px | Title, body, footer with actions right-aligned; primary action last. Escape closes; focus trapped. |
-| `ConfirmDialog` | Built on Dialog | Destructive confirmations use a `danger` primary button and, for account deletion, typed confirmation. |
+| `ConfirmDialog` | Built on Dialog | Destructive confirmations use a `danger` primary button and, for account deletion, typed confirmation: matched exactly, or without regard to case and surrounding spaces with `ignoreCase` (an email address), and `onconfirm` gets what was typed. |
 | `Menu` | Dropdown | Items 32px, shortcuts in `text-xs text-fg-muted` aligned right. |
 | `Toast` | `info`, `error` | Bottom right, auto-dismiss after 4s (errors stay until dismissed). |
 | `Tooltip` | One style | `bg-fg text-surface text-xs`, 400ms delay. |

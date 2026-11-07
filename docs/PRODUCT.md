@@ -277,7 +277,10 @@ Done when:
 - Data: export everything as JSON (uploaded files are listed in it, not included); delete account
   (deletes all rows and stored files after typed confirmation of the email address). A Pro
   subscription that is still running has to be cancelled first (Manage subscription); the dialog
-  says so.
+  says so. While Paystack has not confirmed a new subscription there is nothing to manage yet: the
+  message says to try again in a few minutes, and to write to the privacy address if that does not
+  clear. Deleting the account signs this browser out at once, and nothing it sends after that
+  carries the old sign-in.
 - Appearance: theme (System, Light or Dark), saved in this browser. CV previews stay black on white.
 
 Done when: changing the default model changes the preselected model on Import and Tailor, and
