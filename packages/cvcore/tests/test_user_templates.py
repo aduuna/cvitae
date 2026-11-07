@@ -273,6 +273,29 @@ def test_empty_parts_of_the_data_are_not_expected() -> None:
     assert check_render("Zoe", content) == []
 
 
+def test_a_skills_group_without_skills_may_be_left_out_but_one_with_skills_may_not() -> None:
+    content = CvContent.model_validate(
+        {
+            "basics": {"name": "Zoe"},
+            "sections": [
+                {
+                    "id": "s",
+                    "kind": "skills",
+                    "title": "Skills",
+                    "skills": [
+                        {"id": "g1", "label": "Nothing yet", "items": []},
+                        {"id": "g2", "label": "Languages", "items": ["Python"]},
+                    ],
+                }
+            ],
+        }
+    )
+
+    assert check_render("Zoe Skills Languages Python", content) == []
+    [issue] = check_render("Zoe Skills Nothing yet", content)
+    assert issue.code == "missing_content" and "entries" in issue.message
+
+
 def test_a_label_that_names_the_owner_is_spotted() -> None:
     reference = reference_from_text(UPLOAD_TEXT)
 

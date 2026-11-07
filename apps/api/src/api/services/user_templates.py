@@ -32,6 +32,7 @@ from api.errors import (
     TemplateFailed,
     ValidationFailed,
 )
+from api.ports.llm.design import describe_design
 from api.ports.llm.pages import pdf_text, pdf_to_pngs
 from api.ports.renderer import RendererClient
 from api.ports.storage import Storage
@@ -221,6 +222,7 @@ async def generate_template(
     pdf = await _pdf_of(uploads, storage, file, upload_id)
     text, _ = await asyncio.to_thread(pdf_text, pdf)
     reference = reference_from_text(text)
+    measurements = await asyncio.to_thread(describe_design, pdf)
     await require_room("templates", plan, templates)
     await require_ai_runs(runs, plan)
 
@@ -231,7 +233,9 @@ async def generate_template(
         return time.monotonic() - started < TIME_BUDGET_SECONDS
 
     async with _template_wording(), tasks.combined_run(runs) as run:
-        drafted = await tasks.draft_template(choice, run, pdf=pdf, library=kit.library)
+        drafted = await tasks.draft_template(
+            choice, run, pdf=pdf, library=kit.library, measurements=measurements
+        )
         meta = drafted.output
         source, model = meta.main_typ, drafted.model
         target_pages = min(max(meta.target_pages, 1), 2)
@@ -276,7 +280,14 @@ async def generate_template(
             try:
                 [page] = await asyncio.to_thread(pdf_to_pngs, verdict.pdf, 1)
                 revised = await tasks.refine_template(
-                    choice, run, pdf=pdf, page=page, source=source, library=kit.library
+                    choice,
+                    run,
+                    pdf=pdf,
+                    page=page,
+                    source=source,
+                    library=kit.library,
+                    pdf_measurements=measurements,
+                    render_measurements=await asyncio.to_thread(describe_design, verdict.pdf),
                 )
                 candidate = revised.output.main_typ
                 # Kept only when it passes everything the first version did.
