@@ -54,6 +54,13 @@ module "secrets" {
   accessors = each.value
 }
 
+# The renderer compiles user-supplied Typst, so it gets no internet: Direct VPC egress into a
+# subnet with no NAT and no internet route.
+module "renderer_vpc" {
+  source = "../../modules/renderer_vpc"
+  region = var.region
+}
+
 module "renderer" {
   source          = "../../modules/cloud_run_service"
   name            = "renderer"
@@ -67,6 +74,10 @@ module "renderer" {
   timeout_seconds     = 30
   health_path         = "/healthz"
   deletion_protection = false
+  vpc_egress = {
+    network    = module.renderer_vpc.network
+    subnetwork = module.renderer_vpc.subnetwork
+  }
 }
 
 module "api" {

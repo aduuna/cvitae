@@ -23,6 +23,7 @@ locals {
   apis = [
     "artifactregistry.googleapis.com",
     "cloudresourcemanager.googleapis.com",
+    "compute.googleapis.com",
     "firebase.googleapis.com",
     "iam.googleapis.com",
     "iamcredentials.googleapis.com",
@@ -39,6 +40,7 @@ locals {
   # What `tofu apply` in envs/<env> manages, granted to the deployer on the project.
   deployer_roles = [
     "roles/artifactregistry.writer",
+    "roles/compute.networkAdmin",
     "roles/firebase.admin",
     "roles/iam.serviceAccountAdmin",
     "roles/iam.serviceAccountUser",
