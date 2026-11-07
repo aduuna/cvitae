@@ -864,6 +864,80 @@
         }
       }
     },
+    "/api/v1/documents/{document_id}/ats": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Document Ats",
+        "description": "How the saved CV reads to an ATS search for its job. No AI run. 409 for ejected CVs.",
+        "operationId": "document_ats_api_v1_documents__document_id__ats_get",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentAts"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      }
+    },
     "/api/v1/documents/{document_id}/duplicate": {
       "post": {
         "tags": [
@@ -1979,6 +2053,110 @@
         }
       }
     },
+    "/api/v1/jobs/{job_id}/analyze": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Analyze Job",
+        "description": "The job with its analysis. One AI run when it has none yet; none when it has.",
+        "operationId": "analyze_job_api_v1_jobs__job_id__analyze_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalyzeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "A plan limit is reached; the message says which",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The AI provider failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The AI provider took too long",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tailor": {
       "post": {
         "tags": [
@@ -3057,6 +3235,22 @@
         ],
         "title": "AiModelInfo"
       },
+      "AnalyzeRequest": {
+        "properties": {
+          "ai_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AiModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "AnalyzeRequest"
+      },
       "ApplicationData": {
         "properties": {
           "name": {
@@ -3144,6 +3338,151 @@
           "placeholders"
         ],
         "title": "ApplicationData"
+      },
+      "AtsCheck": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "contact",
+              "headings",
+              "placeholders",
+              "length"
+            ],
+            "title": "Id"
+          },
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "ok",
+          "message"
+        ],
+        "title": "AtsCheck"
+      },
+      "AtsKeyword": {
+        "properties": {
+          "term": {
+            "type": "string",
+            "title": "Term"
+          },
+          "importance": {
+            "type": "string",
+            "enum": [
+              "required",
+              "preferred",
+              "other"
+            ],
+            "title": "Importance"
+          },
+          "found_in": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "headline",
+                "summary",
+                "experience",
+                "projects",
+                "education",
+                "skills",
+                "certifications",
+                "other"
+              ]
+            },
+            "type": "array",
+            "title": "Found In"
+          },
+          "in_profile": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Profile"
+          }
+        },
+        "type": "object",
+        "required": [
+          "term",
+          "importance",
+          "found_in"
+        ],
+        "title": "AtsKeyword"
+      },
+      "AtsReport": {
+        "properties": {
+          "score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "band": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "strong",
+                  "good",
+                  "partial",
+                  "limited"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Band"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "title_found": {
+            "type": "boolean",
+            "title": "Title Found"
+          },
+          "keywords": {
+            "items": {
+              "$ref": "#/components/schemas/AtsKeyword"
+            },
+            "type": "array",
+            "title": "Keywords"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/AtsCheck"
+            },
+            "type": "array",
+            "title": "Checks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "score",
+          "band",
+          "title",
+          "title_found",
+          "keywords",
+          "checks"
+        ],
+        "title": "AtsReport"
       },
       "Basics-Input": {
         "properties": {
@@ -3779,6 +4118,36 @@
         ],
         "title": "Document"
       },
+      "DocumentAts": {
+        "properties": {
+          "job": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AtsReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "job",
+          "report"
+        ],
+        "title": "DocumentAts"
+      },
       "DocumentCreate": {
         "properties": {
           "profile_id": {
@@ -3935,6 +4304,18 @@
                 "type": "null"
               }
             ]
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
           }
         },
         "type": "object",
@@ -5995,12 +6376,8 @@
             "type": "array",
             "title": "Placeholders"
           },
-          "missing_keywords": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Missing Keywords"
+          "ats": {
+            "$ref": "#/components/schemas/AtsReport"
           }
         },
         "type": "object",
@@ -6014,7 +6391,7 @@
           "changes",
           "dropped",
           "placeholders",
-          "missing_keywords"
+          "ats"
         ],
         "title": "TailorResult"
       },

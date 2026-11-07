@@ -12,6 +12,7 @@ from api.deps import (
     AppSettings,
     CurrentUser,
     Documents,
+    Jobs,
     Profiles,
     Providers,
     Renderer,
@@ -19,9 +20,11 @@ from api.deps import (
     Versions,
 )
 from api.errors import AI_ERROR_RESPONSES, ERROR_RESPONSES, QUOTA_RESPONSES, ErrorEnvelope
-from api.services import ai_edits, rendering, versions
+from api.routers.jobs import JobSummary
+from api.services import ai_edits, ats, rendering, versions
 from api.services import documents as service
 from api.services.ai_models import choose_model
+from cvcore.ats import AtsReport
 from cvcore.factguard import FactIssue
 from cvcore.models import CvContent
 from cvcore.rendering import SvgPages
@@ -59,6 +62,15 @@ class DocumentUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=200)
     template_id: str | None = None
     content: CvContent | None = None
+    job_id: uuid.UUID | None = None
+    """A saved job to check this CV against. It also names the exported PDF."""
+
+
+class DocumentAts(BaseModel):
+    job: JobSummary | None
+    """The job the CV is linked to."""
+    report: AtsReport | None
+    """None when the CV has no job, or its job has no analysis yet (`POST /jobs/{id}/analyze`)."""
 
 
 class ChatTurn(BaseModel):
@@ -130,17 +142,39 @@ async def get_document(document_id: uuid.UUID, documents: Documents) -> Document
 
 @router.patch("/{document_id}", responses={409: {"model": ErrorEnvelope}})
 async def update_document(
-    document_id: uuid.UUID, body: DocumentUpdate, documents: Documents, renderer: Renderer
+    document_id: uuid.UUID,
+    body: DocumentUpdate,
+    documents: Documents,
+    renderer: Renderer,
+    jobs: Jobs,
 ) -> Document:
     row = await service.update_document(
         documents,
         renderer,
+        jobs,
         document_id,
         name=body.name,
         template_id=body.template_id,
         content=body.content,
+        job_id=body.job_id,
     )
     return Document.model_validate(row)
+
+
+@router.get("/{document_id}/ats", responses={409: {"model": ErrorEnvelope}})
+async def document_ats(
+    document_id: uuid.UUID,
+    documents: Documents,
+    jobs: Jobs,
+    profiles: Profiles,
+    renderer: Renderer,
+) -> DocumentAts:
+    """How the saved CV reads to an ATS search for its job. No AI run. 409 for ejected CVs."""
+    result = await ats.document_ats(documents, jobs, profiles, renderer, document_id)
+    return DocumentAts(
+        job=JobSummary.model_validate(result.job) if result.job is not None else None,
+        report=result.report,
+    )
 
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -176,9 +210,13 @@ async def preview_document(
     },
 )
 async def export_pdf(
-    document_id: uuid.UUID, documents: Documents, renderer: Renderer, force: bool = False
+    document_id: uuid.UUID,
+    documents: Documents,
+    jobs: Jobs,
+    renderer: Renderer,
+    force: bool = False,
 ) -> Response:
-    pdf = await rendering.export_pdf(documents, renderer, document_id, force=force)
+    pdf = await rendering.export_pdf(documents, jobs, renderer, document_id, force=force)
     return Response(
         pdf.content,
         media_type="application/pdf",

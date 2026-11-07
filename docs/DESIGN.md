@@ -208,6 +208,8 @@ No font sizes outside the scale; the display sizes (`3xl`, `4xl`) appear on the 
 | Landing: checked against your facts | `ShieldCheck` |
 | Landing: typeset with Typst | `Type` |
 | Landing: choice of AI model | `Cpu` |
+| ATS score | `Gauge` |
+| Check passed / to fix (ATS readability) | `CircleCheck` / `CircleAlert` |
 
 ## Layout
 
@@ -314,7 +316,19 @@ not by passing class strings from pages.
 - **Review screen** (after tailoring): the preview, with a 352px "Next steps" column beside it from
   1024px, or two tabs (Preview, Next steps) below that. Next steps are actions first; the change
   details sit in a folded `<details>`, where changes show source text in `fg-muted` above the new
-  text in `fg`.
+  text in `fg`. The ATS match in Next steps is the ATS report without its readability checks.
+- **ATS report** (`$lib/components/ats/`): the band ("Good match") left and the score right
+  (`text-xl` 600, `tabular-nums`, "/ 100" in `text-sm text-fg-muted`), a 4px meter like the usage
+  meter (`bg-accent` on `bg-muted`), then one line of coverage and title in `text-sm text-fg-muted`.
+  Keyword groups (Left out of this CV, Not in your profile, In this CV) each have a `text-sm` 500
+  heading with a count, one line of advice and chips (`border-line`, radius `sm`; must-haves
+  `border-line-strong` and 500, with "(must-have)" for screen readers); 10 show, then "Show all".
+  Readability lists each check with `CircleCheck` in `fg-muted` or `CircleAlert` in `fg`. A
+  `text-xs` note ends it: the score is a guide. No colour: bands are words, not green or red.
+- **ATS dialog** (editor): opened from a secondary button in the top bar with `Gauge` and "ATS 83"
+  ("ATS score" before there is one), the score alone under 1024px, where the page-count badge also
+  steps aside for the CV's name. A `md` dialog: choosing a saved job (`Select`, "Check against this
+  job"), reading it once ("Read the job ad"), or the report under "For <job>" with "Change job".
 - **Landing page** (`/`, signed out): the one page outside the app shell, in the spirit of typst.app
   and github.com but in this language. A sticky 56px top bar (`bg-surface/90`, `border-line`): logo and
   name left, "How it works" and a secondary "Sign in" right (a primary "Open app" for signed-in

@@ -11,7 +11,6 @@ from api.ports.llm.base import LLMRequest, LLMResult, ProviderName
 from cvcore.ai import JobAnalysis
 from cvcore.models import CvContent
 from cvcore.render import iter_bullets
-from cvcore.richtext import plain_text
 from cvcore.wire import WireCvEdit, WireImportedCv, WireTailoredCv, to_wire
 
 type Responder = Callable[[LLMRequest[Any]], BaseModel]
@@ -85,16 +84,7 @@ def default_responders(sample_profile: CvContent) -> dict[str, Responder]:
         profile = tailor_prompt.profile_from(request.user_text)
         for bullet in iter_bullets(profile):
             bullet.source_id = bullet.id
-        text = " ".join(plain_text(b.text) for b in iter_bullets(profile)).casefold()
-        skills = {item.casefold() for s in profile.sections for g in s.skills for item in g.items}
-        missing = [
-            term
-            for term in KNOWN_TERMS
-            if term.casefold() in request.user_text.casefold()
-            and term.casefold() not in skills
-            and term.casefold() not in text
-        ]
-        return WireTailoredCv(content=to_wire(profile), changes=[], missing_keywords=missing)
+        return WireTailoredCv(content=to_wire(profile), changes=[])
 
     def edit(request: LLMRequest[Any]) -> BaseModel:
         cv = edit_prompt.cv_from(request.user_text)

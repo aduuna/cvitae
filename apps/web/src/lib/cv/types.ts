@@ -36,6 +36,11 @@ export type BulletDiff = Schemas['BulletDiff'];
 export type DroppedBullet = Schemas['DroppedBullet'];
 export type FactIssue = Schemas['FactIssue'];
 export type PlaceholderRef = Schemas['PlaceholderRef'];
+export type AtsReport = Schemas['AtsReport'];
+export type AtsKeyword = Schemas['AtsKeyword'];
+export type AtsCheck = Schemas['AtsCheck'];
+export type AtsBand = NonNullable<AtsReport['band']>;
+export type DocumentAts = Schemas['DocumentAts'];
 
 /** One Typst diagnostic, as the preview endpoint returns it in error details. */
 export interface Diagnostic {

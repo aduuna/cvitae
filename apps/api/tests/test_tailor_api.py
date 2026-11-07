@@ -76,7 +76,12 @@ async def test_tailoring_flow_end_to_end(
     assert {c["source_id"] for c in result["changes"]} == set(originals)
     assert result["dropped"] == []
     assert [p["text"] for p in result["placeholders"]] == ["number of analysts"]
-    assert result["missing_keywords"] == ["Snowflake", "Kubernetes"]
+    ats = result["ats"]
+    assert (ats["score"], ats["band"], ats["title_found"]) == (83, "strong", True)
+    missing = [(k["term"], k["in_profile"]) for k in ats["keywords"] if not k["found_in"]]
+    assert missing == [("Snowflake", False), ("Kubernetes", False)]
+    # Not yet rendered, so no length check.
+    assert [c["id"] for c in ats["checks"]] == ["contact", "headings", "placeholders"]
 
     # A tailor version exists, and two AI runs were recorded.
     versions = (await client.get(f"/api/v1/documents/{document['id']}/versions")).json()

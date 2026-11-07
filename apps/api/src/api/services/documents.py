@@ -8,7 +8,9 @@ from api.db.models import Document
 from api.errors import Conflict, NotFound
 from api.ports.renderer import RendererClient
 from api.repositories.documents import DocumentRepository
+from api.repositories.jobs import JobRepository
 from api.repositories.profiles import ProfileRepository
+from api.services.jobs import get_job
 from api.services.profiles import get_profile
 from api.services.quotas import require_room
 from api.services.templates import DEFAULT_TEMPLATE_ID, require_template
@@ -51,12 +53,16 @@ async def create_document(
 async def update_document(
     documents: DocumentRepository,
     renderer: RendererClient,
+    jobs: JobRepository,
     document_id: uuid.UUID,
     *,
     name: str | None = None,
     template_id: str | None = None,
     content: CvContent | None = None,
+    job_id: uuid.UUID | None = None,
 ) -> Document:
+    """`job_id` links a saved job: the ATS score checks the CV against it, the PDF is named for
+    its company and the browser extension offers the CV on its pages."""
     document = await get_document(documents, document_id)
     if document.mode == "ejected" and (template_id is not None or content is not None):
         raise Conflict("This CV is edited as Typst, so its form content and template are fixed.")
@@ -67,6 +73,8 @@ async def update_document(
         values["template_id"] = (await require_template(renderer, template_id)).id
     if content is not None:
         values["content"] = content.model_dump(mode="json")
+    if job_id is not None:
+        values["job_id"] = (await get_job(jobs, job_id)).id
     return await documents.update(document, **values)
 
 

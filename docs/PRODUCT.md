@@ -30,6 +30,7 @@ and Europe, which is why payments go through Paystack.
 | Placeholder | Highlighted text in a CV that the user must replace, for example "[[number of users]]". |
 | Tailoring | Creating a CV from a profile plus a job, using AI under the no-new-facts rule. |
 | AI edit | A change to one CV asked for in words in the editor's "Edit with AI" panel, under the same rule. |
+| ATS score | How a CV reads to an applicant tracking system's keyword search for one job: 0 to 100, the job's keywords it covers and misses, and readability checks. |
 | Ejected CV | A CV whose Typst source and data file the user edits directly. AI tailoring no longer applies to it. |
 | AI model | What runs an AI task: MiMo Flash, Claude Haiku or Gemini Flash-Lite on every plan; MiMo Pro, Gemini Flash or Claude Sonnet on Pro. |
 
@@ -127,8 +128,9 @@ bullets match the source, and the user can accept or discard it.
   **Next steps** beside it, kept short and actionable:
   1. **Fill in N gaps**: placeholders are highlighted in the preview, so they are counted, not listed;
      "Fill in the editor" opens the CV.
-  2. **Not in your profile**: job keywords the profile does not cover (10 shown, "Show all" for the
-     rest), "Add the ones that are true to your profile, then tailor again", and "Edit profile".
+  2. **ATS match**: the new CV's ATS score (see 9), with the job's keywords it covers, those it left
+     out that the profile has, and those not in the profile (10 shown per group, "Show all" for the
+     rest): "Add the ones that are true to your profile, then tailor again", and "Edit profile".
   3. **What changed**: one folded line ("4 reworded, 2 kept as written, 8 left out, 1 corrected by the
      fact check") that opens the details: each bullet with its source, left-out bullets and every
      fact-check correction.
@@ -171,6 +173,8 @@ the model and regenerating works.
   the reply lists what the guard corrected. The model may also just answer a question about the CV.
   If the user edits the form while a request runs, the edit waits behind "Apply anyway". The content
   before an edit is kept as an autosave version. The conversation lasts while the editor is open.
+- ATS score: the top bar shows a form-mode CV's score for its job ("ATS 83", the score alone under
+  1024px) and opens the ATS dialog (see 9). It follows every save.
 - Placeholders render highlighted in preview. Export is blocked while placeholders remain, with a clear
   message and a "Show placeholders" action. (Export with placeholders is still possible from a
   secondary menu, labelled "Export anyway".)
@@ -271,6 +275,44 @@ Lever, Workday and Ashby fixture forms from a profile after reviewing them, atta
 saves a job ad and tailors for it, and disconnecting the browser on the Extension page stops the
 extension at its next request.
 
+### 9. ATS score
+
+How a CV reads to an applicant tracking system's keyword search for one job. Real systems score a
+CV against one opening (Workday HiredScore grades against the job's qualifications, Greenhouse
+gives a match strength, Textkernel lists the terms found and not found), so there is no score
+without a job, and none of them rejects a CV on its own: a recruiter does. The score is a guide to
+what a search finds, not a prediction of any employer's result.
+
+- **Per CV and job.** A CV has a score once it is linked to a job. Every tailored CV is; any other
+  form-mode CV gets one in the ATS dialog by choosing a saved job ("Check against this job"). Linking
+  also names the exported PDF for the job's company and makes it the CV the extension offers on that
+  job's pages. A job that was never analysed (saved from the extension) is read first ("Read the job
+  ad"): one AI run, once. The score itself takes no AI run, on any plan. Ejected CVs have none.
+- **The score** (0 to 100) is the share of keyword points the CV covers, rounded down: a keyword
+  the ad's must-haves name is worth 3, a nice-to-have 2, any other 1, and the job title 3. The
+  title counts when the headline or a role title has it without seniority words ("Data Engineer"
+  for "Senior Data Engineer, Payments Platform"). Bands: Strong match from 80, Good from 60,
+  Partial from 40, else Limited.
+- **Matching is literal, like a recruiter's search:** whole words, ignoring case, punctuation,
+  plurals and British or American spelling, with a short list of known short forms (JS, K8s, AWS)
+  and any "Full name (ABC)" the ad or the CV spells out. Placeholders do not count.
+- **Keywords the CV misses** are looked up in the profile it came from: "Left out of this CV" (the
+  profile has them: put back the ones that fit) and "Not in your profile" (add the ones that are
+  true). "In this CV" names those found only in the skills list, since screeners look for them in
+  the roles too. Must-haves show in bold.
+- **Readability** (pass or fix, no score): email, phone and location in the header; section titles
+  a parser recognises ("Experience", not "Where I have worked"); no placeholders left; within the
+  template's page target. Columns, text boxes and fonts are not checked: every template is a single
+  column of selectable text.
+- The score never changes the CV and never suggests adding anything the person has not given.
+- **Where:** the review screen after tailoring (Next steps, 2), and the editor's top bar, which
+  opens the ATS dialog: the job and "Change job", the score, the keyword groups, readability.
+
+Done when: the sample profile's CV against the fixture job scores 83 (Strong match, Snowflake and
+Kubernetes not in the profile) in the API, the review screen shows the same report, a CV made from
+a profile is linked to a saved job from the editor and shows its score, reading an unanalysed job
+takes one AI run and never a second, and the dialog fits at 1280px and 768px.
+
 ## Plans and limits
 
 Values live in one config module (`apps/api/src/api/billing/plans.py`) so they can change without code
@@ -283,7 +325,7 @@ changes elsewhere.
 
 - An AI run is one import, one job analysis, one tailoring or one AI edit request, regardless of
   model. Tailoring for a new job takes two runs (the analysis and the tailoring); tailoring a saved
-  job again takes one.
+  job again takes one. The ATS score takes none.
 - AI runs count per calendar month (UTC). On Free every attempt counts, failed ones included; on Pro
   only successful runs count.
 - Free plans use the free models (MiMo Flash, Claude Haiku, Gemini Flash-Lite); Pro adds MiMo Pro,
