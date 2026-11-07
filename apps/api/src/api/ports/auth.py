@@ -89,6 +89,11 @@ class DevVerifier:
         return Identity(uid=f"dev:{email}", email=email)
 
 
+CLOCK_SKEW_SECONDS = 10
+"""How far this instance's clock may differ from Google's. A token minted a moment ago is
+otherwise refused as issued in the future when the clock is behind."""
+
+
 class ServiceAccountVerifier:
     """Accepts a Google ID token minted for one audience by one service account, and nothing else:
     for the `/internal` routes, which Cloud Scheduler calls with an OIDC token from `scheduler-sa`.
@@ -117,7 +122,11 @@ class ServiceAccountVerifier:
             # Checks the signature against Google's certificates, the expiry, the issuer and
             # that the token was minted for this audience.
             claims = await asyncio.to_thread(
-                id_token.verify_oauth2_token, token, self._transport, self._audiences
+                id_token.verify_oauth2_token,
+                token,
+                self._transport,
+                self._audiences,
+                CLOCK_SKEW_SECONDS,
             )
         except google_exceptions.TransportError as exc:
             raise ServiceUnavailable("The caller could not be checked. Try again.") from exc

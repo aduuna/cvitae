@@ -107,6 +107,7 @@ def token(
     issuer: str = "https://accounts.google.com",
     email_verified: bool = True,
     expires_in: int = 3600,
+    issued: int = -10,
     signer: crypt.Signer = SIGNER,
     **extra: Any,
 ) -> str:
@@ -117,7 +118,7 @@ def token(
         "sub": "1234567890",
         "email": email,
         "email_verified": email_verified,
-        "iat": now - 10,
+        "iat": now + issued,
         "exp": now + expires_in,
         **extra,
     }
@@ -315,6 +316,29 @@ async def test_the_audience_is_the_apis_url_not_the_route(
     other = token(audience=AUDIENCE + "/api/v1/internal/prune-versions")
 
     await refused(client, db_session, 401, headers=bearer(other))
+
+
+async def test_a_token_issued_a_moment_ahead_of_this_clock_is_accepted(
+    client: AsyncClient,
+) -> None:
+    """Cloud Scheduler mints the token at T; this instance's clock may read a second or two
+    before that."""
+    response = await client.post(URL, headers=bearer(token(issued=+5)))
+
+    assert response.status_code == 200
+
+
+async def test_a_token_issued_well_ahead_of_this_clock_is_refused(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await refused(client, db_session, 401, headers=bearer(token(issued=+60)))
+
+
+async def test_a_token_that_expired_a_moment_ago_is_accepted_and_one_long_gone_is_not(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    assert (await client.post(URL, headers=bearer(token(expires_in=-5)))).status_code == 200
+    await refused(client, db_session, 401, headers=bearer(token(expires_in=-60)))
 
 
 async def test_an_expired_token_is_refused(client: AsyncClient, db_session: AsyncSession) -> None:
