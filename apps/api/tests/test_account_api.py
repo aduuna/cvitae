@@ -2,6 +2,7 @@
 account never touches another's."""
 
 import json
+import logging
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -16,12 +17,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.db.base import Base
 from api.db.models import Document, DocumentVersion, ExtensionToken, User
 from api.deps import get_storage
-from api.errors import NotFound
+from api.errors import NotFound, ServiceUnavailable
 from api.ports.storage import LocalStorage
 from api.repositories.ai_runs import AiRunRepository
 from api.repositories.subscriptions import SubscriptionRepository
 from api.repositories.uploads import UploadRepository
 from api.repositories.user_templates import UserTemplateRepository
+from api.repositories.users import UserRepository
 from api.services import uploads as upload_service
 
 PDF = b"%PDF-1.7\n1 0 obj\n"
@@ -350,11 +352,78 @@ async def test_a_deleted_accounts_extension_token_stops_working(
 
 
 @pytest.mark.parametrize(
-    ("status", "deleted"),
-    [("active", False), ("attention", False), ("non_renewing", True), ("cancelled", True)],
+    ("status", "code", "reason"),
+    [
+        ("active", "SUB_1", "subscription_active"),
+        ("attention", "SUB_1", "subscription_active"),
+        ("active", None, "subscription_pending"),
+        ("attention", None, "subscription_pending"),
+    ],
 )
 async def test_a_subscription_that_is_still_charged_is_cancelled_first(
-    client: AsyncClient, db_session: AsyncSession, status: str, deleted: bool
+    client: AsyncClient, db_session: AsyncSession, status: str, code: str | None, reason: str
+) -> None:
+    owner = await user_id(client)
+    await SubscriptionRepository(db_session, owner).save(
+        paystack_customer_code="CUS_1",
+        paystack_subscription_code=code,
+        plan_code="PLN_pro",
+        status=status,
+    )
+    await db_session.commit()
+
+    response = await client.request("DELETE", ME, json={"email": "ada@example.com"})
+
+    assert response.status_code == 409
+    error = response.json()["error"]
+    assert error["code"] == "conflict"
+    assert error["details"] == {"reason": reason}
+    assert await db_session.get(User, owner) is not None
+
+
+async def test_a_pending_subscription_says_to_wait_not_to_manage_it(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Manage subscription answers 404 until Paystack's webhook brings the subscription code, so
+    the message must not send the user there."""
+    owner = await user_id(client)
+    await SubscriptionRepository(db_session, owner).save(
+        paystack_customer_code="CUS_1", plan_code="PLN_pro", status="active"
+    )
+    await db_session.commit()
+
+    message = (await client.request("DELETE", ME, json={"email": "ada@example.com"})).json()[
+        "error"
+    ]["message"]
+
+    assert "still setting up" in message
+    assert "Try again in a few minutes" in message
+    assert "Manage subscription" not in message
+
+
+async def test_the_subscription_message_names_manage_subscription_once_it_can_be_managed(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    owner = await user_id(client)
+    await SubscriptionRepository(db_session, owner).save(
+        paystack_customer_code="CUS_1",
+        paystack_subscription_code="SUB_1",
+        plan_code="PLN_pro",
+        status="active",
+    )
+    await db_session.commit()
+
+    message = (await client.request("DELETE", ME, json={"email": "ada@example.com"})).json()[
+        "error"
+    ]["message"]
+
+    assert "Cancel your Pro subscription first" in message
+    assert "Manage subscription" in message
+
+
+@pytest.mark.parametrize("status", ["non_renewing", "cancelled"])
+async def test_a_subscription_that_is_not_charged_any_more_does_not_block(
+    client: AsyncClient, db_session: AsyncSession, status: str
 ) -> None:
     owner = await user_id(client)
     await SubscriptionRepository(db_session, owner).save(
@@ -364,38 +433,84 @@ async def test_a_subscription_that_is_still_charged_is_cancelled_first(
 
     response = await client.request("DELETE", ME, json={"email": "ada@example.com"})
 
-    assert (response.status_code == 204) is deleted
-    assert (await db_session.get(User, owner) is None) is deleted
-    if not deleted:
-        assert response.status_code == 409
-        assert "Cancel your Pro subscription" in response.json()["error"]["message"]
+    assert response.status_code == 204
+    assert await db_session.get(User, owner) is None
 
 
 class FailingStorage(LocalStorage):
+    """Storage that is down: it deletes nothing."""
+
     async def delete_prefix(self, prefix: str) -> int:
-        raise RuntimeError("storage is down")
+        raise RuntimeError("storage is down: key uploads/secret-cv-name.pdf")
 
 
-async def test_a_storage_failure_leaves_the_account_whole(
+async def test_a_storage_failure_does_not_undo_the_deletion(
     app: FastAPI,
     client: AsyncClient,
     db_session: AsyncSession,
     storage: LocalStorage,
     tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
+    """The rows are committed before storage is touched, so the account is gone and the request
+    says so. Rolling them back would bring back upload rows whose files may already be deleted."""
     await seed(client, db_session, storage)
     owner = await user_id(client)
-    working = app.dependency_overrides[get_storage]
+    documents = await document_ids(db_session, owner)
     app.dependency_overrides[get_storage] = lambda: FailingStorage(tmp_path / "storage")
 
-    with pytest.raises(RuntimeError, match="storage is down"):
+    with caplog.at_level(logging.INFO):
+        response = await client.request("DELETE", ME, json={"email": "ada@example.com"})
+
+    assert response.status_code == 204
+    after = await rows_left(db_session, owner, documents)
+    assert {name: count for name, count in after.items() if count} == {}
+    # The files are still there, and the log says so without saying what they are.
+    assert len(files_under(tmp_path / "storage", owner)) == 1
+    [failure] = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert failure.__dict__["user_id"] == str(owner)
+    assert failure.__dict__["error"] == "RuntimeError"
+    logged = " ".join(f"{r.getMessage()} {r.__dict__}" for r in caplog.records)
+    assert "secret-cv-name" not in logged
+    assert "ada@example.com" not in logged
+
+
+async def test_a_storage_error_with_a_code_is_logged_by_its_code(
+    app: FastAPI, client: AsyncClient, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    class Unreachable(LocalStorage):
+        async def delete_prefix(self, prefix: str) -> int:
+            raise ServiceUnavailable("The storage service did not answer for cv.pdf.")
+
+    app.dependency_overrides[get_storage] = lambda: Unreachable(tmp_path / "storage")
+
+    with caplog.at_level(logging.ERROR):
+        response = await client.request("DELETE", ME, json={"email": "ada@example.com"})
+
+    assert response.status_code == 204
+    [failure] = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert failure.__dict__["error"] == "service_unavailable"
+    assert "cv.pdf" not in " ".join(f"{r.getMessage()} {r.__dict__}" for r in caplog.records)
+
+
+async def test_a_failed_commit_leaves_the_files_alone(
+    app: FastAPI,
+    client: AsyncClient,
+    db_session: AsyncSession,
+    storage: LocalStorage,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Storage is cleared only after the rows are safely gone, never before."""
+    await seed(client, db_session, storage)
+    owner = await user_id(client)
+
+    async def commit_fails(self: UserRepository) -> None:
+        raise RuntimeError("the database went away")
+
+    monkeypatch.setattr(UserRepository, "commit", commit_fails)
+
+    with pytest.raises(RuntimeError, match="the database went away"):
         await client.request("DELETE", ME, json={"email": "ada@example.com"})
 
-    app.dependency_overrides[get_storage] = working
-    assert await db_session.get(User, owner) is not None
-    counts = await rows_left(db_session, owner, await document_ids(db_session, owner))
-    assert all(count > 0 for count in counts.values()), counts
-    # Another try, with storage back, finishes the job.
-    response = await client.request("DELETE", ME, json={"email": "ada@example.com"})
-    assert response.status_code == 204
-    assert files_under(tmp_path / "storage", owner) == []
+    assert len(files_under(tmp_path / "storage", owner)) == 1

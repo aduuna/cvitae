@@ -56,6 +56,11 @@ class UserRepository:
     async def set_plan(self, user_id: uuid.UUID, plan: Plan) -> None:
         await self.session.execute(update(User).where(User.id == user_id).values(plan=plan))
 
+    async def commit(self) -> None:
+        """Commit the request's work now, before something that cannot be rolled back (account
+        deletion clears storage after this)."""
+        await self.session.commit()
+
     async def delete(self, user_id: uuid.UUID) -> None:
         """Remove the user. Every user-owned table references `users.id` with ON DELETE CASCADE,
         so this takes all of their rows with it."""
