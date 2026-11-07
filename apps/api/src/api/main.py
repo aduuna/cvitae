@@ -17,7 +17,13 @@ from api.ai.models import model_options
 from api.db.base import create_engine, session_factory
 from api.errors import install_error_handlers
 from api.logs import configure_logging
-from api.ports.auth import AuthVerifier, DevVerifier, FirebaseVerifier
+from api.ports.auth import (
+    AuthVerifier,
+    DevVerifier,
+    FirebaseVerifier,
+    ServiceAccountVerifier,
+    ServiceCallerVerifier,
+)
 from api.ports.billing import HttpPaystackClient
 from api.ports.llm.base import LLMProvider, ProviderName
 from api.ports.llm.claude import ClaudeProvider
@@ -32,6 +38,7 @@ from api.routers import (
     documents,
     extension,
     imports,
+    internal,
     jobs,
     me,
     profiles,
@@ -40,6 +47,7 @@ from api.routers import (
     uploads,
     webhooks,
 )
+from api.security import SecurityHeaders, SecurityHeadersMiddleware
 from api.services.billing import Billing
 from api.settings import Settings
 
@@ -73,6 +81,13 @@ def build_auth_verifier(settings: Settings) -> AuthVerifier:
     if settings.firebase_project_id is None:  # pragma: no cover - Settings requires it
         raise RuntimeError("AUTH_MODE=firebase needs FIREBASE_PROJECT_ID")
     return FirebaseVerifier(settings.firebase_project_id)
+
+
+def build_scheduler_verifier(settings: Settings) -> ServiceCallerVerifier | None:
+    """Who may call `/internal` routes; nobody until both settings are present."""
+    if settings.public_base_url and settings.scheduler_sa_email:
+        return ServiceAccountVerifier(settings.public_base_url, settings.scheduler_sa_email)
+    return None
 
 
 def build_storage(settings: Settings) -> Storage:
@@ -142,11 +157,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.sessions = session_factory(engine)
     app.state.auth_verifier = build_auth_verifier(settings)
+    app.state.scheduler_verifier = build_scheduler_verifier(settings)
     app.state.renderer = renderer
     app.state.storage = build_storage(settings)
     app.state.providers = build_providers(settings)
     app.state.billing = billing_setup
+    app.state.security = SecurityHeaders.for_settings(settings)
     install_error_handlers(app)
+    app.add_middleware(SecurityHeadersMiddleware, security=app.state.security)
 
     v1 = APIRouter(prefix="/api/v1")
 
@@ -166,6 +184,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         tailor,
         billing,
         webhooks,
+        internal,
         extension,
     ):
         v1.include_router(module.router)

@@ -14,6 +14,7 @@
 	} from '#lib/billing/plans.ts';
 	import UsageMeter from '#lib/components/billing/UsageMeter.svelte';
 	import Page from '#lib/components/shell/Page.svelte';
+	import DataCard from '#lib/components/settings/DataCard.svelte';
 	import Badge from '#lib/components/ui/Badge.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
@@ -131,6 +132,12 @@
 			toast.error(errorMessage(error));
 			billing = null;
 		}
+	}
+
+	/** The account is gone: drop the session whatever the sign-out does, and leave the app. */
+	async function accountDeleted() {
+		await session.leaveDeletedAccount();
+		await goto(resolve('/'), { replaceState: true });
 	}
 
 	async function signOut() {
@@ -268,6 +275,12 @@
 			{/if}
 		</Card>
 	</div>
+
+	{#if loaded}
+		<DataCard email={session.me?.email ?? ''} ondeleted={accountDeleted} />
+	{:else}
+		<Card title="Data"><Skeleton lines={2} /></Card>
+	{/if}
 
 	<Card title="Appearance">
 		<div class="flex flex-col gap-3">

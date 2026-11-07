@@ -1,5 +1,6 @@
 <script lang="ts">
 	import '../app.css';
+	import Toast from '#lib/components/ui/Toast.svelte';
 	import { theme } from '#lib/theme.svelte.ts';
 
 	let { children } = $props();
@@ -10,3 +11,6 @@
 </script>
 
 {@render children()}
+
+<!-- Here, not in the app shell, so a toast survives the page that raised it (account deleted). -->
+<Toast />

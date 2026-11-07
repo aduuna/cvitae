@@ -44,6 +44,12 @@ class Settings(DatabaseSettings):
     gcs_bucket: str | None = None
     local_storage_dir: Path = _REPO / ".data" / "uploads"
 
+    public_base_url: str | None = None
+    """The api's public URL, for example https://cvitae.aduuna.dev. The audience of the OIDC token
+    Cloud Scheduler sends to `/internal` routes."""
+    scheduler_sa_email: str | None = None
+    """Only this service account (`scheduler-sa`) may call `/internal` routes."""
+
     renderer_url: str = "http://localhost:8001"
     renderer_auth: Literal["oidc", "none"] = "none"
     """`oidc`: call the renderer with a Google ID token for its URL (Cloud Run IAM)."""

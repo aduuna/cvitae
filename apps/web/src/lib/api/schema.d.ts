@@ -49,11 +49,35 @@ export interface paths {
         get: operations["get_me_api_v1_me_get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Me
+         * @description Delete the account and everything in it: rows and stored files.
+         */
+        delete: operations["delete_me_api_v1_me_delete"];
         options?: never;
         head?: never;
         /** Update Me */
         patch: operations["update_me_api_v1_me_patch"];
+        trace?: never;
+    };
+    "/api/v1/me/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Me
+         * @description All of the user's data as one JSON file.
+         */
+        get: operations["export_me_api_v1_me_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/profiles": {
@@ -608,6 +632,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/internal/prune-versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prune Versions
+         * @description Delete autosave versions older than 7 days.
+         */
+        post: operations["prune_versions_api_v1_internal_prune_versions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/extension/connections": {
         parameters: {
             query?: never;
@@ -757,6 +801,38 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AccountDelete */
+        AccountDelete: {
+            /** Email */
+            email: string;
+        };
+        /**
+         * AccountExport
+         * @description Everything the account holds, as JSON.
+         */
+        AccountExport: {
+            /**
+             * Exported At
+             * Format: date-time
+             */
+            exported_at: string;
+            account: components["schemas"]["ExportAccount"];
+            /** Profiles */
+            profiles: components["schemas"]["ExportProfile"][];
+            /** Jobs */
+            jobs: components["schemas"]["ExportJob"][];
+            /** Documents */
+            documents: components["schemas"]["ExportDocument"][];
+            /** Templates */
+            templates: components["schemas"]["ExportTemplate"][];
+            /** Uploads */
+            uploads: components["schemas"]["ExportUpload"][];
+            /** Ai Runs */
+            ai_runs: components["schemas"]["ExportAiRun"][];
+            subscription: components["schemas"]["ExportSubscription"] | null;
+            /** Extension Connections */
+            extension_connections: components["schemas"]["ExtensionConnectionInfo"][];
+        };
         /** AiEditRequest */
         AiEditRequest: {
             /** Message */
@@ -1555,6 +1631,265 @@ export interface components {
              */
             engagements: components["schemas"]["Engagement-Output"][];
         };
+        /** ExportAccount */
+        ExportAccount: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Email */
+            email: string;
+            /** Display Name */
+            display_name: string | null;
+            /** Preferred Ai Model */
+            preferred_ai_model: string | null;
+            /**
+             * Plan
+             * @enum {string}
+             */
+            plan: "free" | "pro";
+            /** Default Template Id */
+            default_template_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * ExportAiRun
+         * @description One AI call. There is no prompt or output: none is kept.
+         */
+        ExportAiRun: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Task */
+            task: string;
+            /** Provider */
+            provider: string;
+            /** Model */
+            model: string;
+            /** Status */
+            status: string;
+            /** Error Code */
+            error_code: string | null;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Cost Usd */
+            cost_usd: number | null;
+            /** Duration Ms */
+            duration_ms: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ExportDocument */
+        ExportDocument: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Template Id */
+            template_id: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "structured" | "ejected";
+            /** Profile Id */
+            profile_id: string | null;
+            /** Job Id */
+            job_id: string | null;
+            /** Page Count */
+            page_count: number | null;
+            /** Content */
+            content: {
+                [key: string]: unknown;
+            };
+            /** Source Files */
+            source_files: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Versions
+             * @default []
+             */
+            versions?: components["schemas"]["ExportVersion"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ExportJob */
+        ExportJob: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Company */
+            company: string;
+            /** Url */
+            url: string | null;
+            /** Description */
+            description: string;
+            /** Analysis */
+            analysis: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ExportProfile */
+        ExportProfile: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Is Default */
+            is_default: boolean;
+            /** Content */
+            content: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ExportSubscription */
+        ExportSubscription: {
+            /** Plan Code */
+            plan_code: string;
+            /** Status */
+            status: string;
+            /** Current Period End */
+            current_period_end: string | null;
+            /** Paystack Customer Code */
+            paystack_customer_code: string;
+            /** Paystack Subscription Code */
+            paystack_subscription_code: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ExportTemplate */
+        ExportTemplate: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "ready";
+            /** Main Typ */
+            main_typ: string;
+            /** Paper Sizes */
+            paper_sizes: string[];
+            /** Target Pages */
+            target_pages: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * ExportUpload
+         * @description What is known about a file the user uploaded. The file itself is not in the export: it is
+         *     the user's own, and an upload can be 10 MB.
+         */
+        ExportUpload: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Filename */
+            filename: string;
+            /** Mime Type */
+            mime_type: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * ExportVersion
+         * @description A version as the version history lists it, with what it held.
+         */
+        ExportVersion: {
+            /** Number */
+            number: number;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "tailor" | "manual" | "restore" | "autosave";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Content */
+            content: {
+                [key: string]: unknown;
+            };
+            /** Source Files */
+            source_files: {
+                [key: string]: string;
+            } | null;
+        };
         /** ExtensionConnectionCreate */
         ExtensionConnectionCreate: {
             /**
@@ -2047,6 +2382,11 @@ export interface components {
          * @enum {string}
          */
         ProviderName: "claude" | "gemini" | "mimo";
+        /** Pruned */
+        Pruned: {
+            /** Deleted */
+            deleted: number;
+        };
         /** Received */
         Received: {
             /**
@@ -2471,6 +2811,64 @@ export interface operations {
             };
         };
     };
+    delete_me_api_v1_me_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountDelete"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description A Pro subscription is still active */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     update_me_api_v1_me_patch: {
         parameters: {
             query?: never;
@@ -2491,6 +2889,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    export_me_api_v1_me_export_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountExport"];
                 };
             };
             /** @description Not signed in */
@@ -4715,6 +5160,53 @@ export interface operations {
                 };
             };
             /** @description Billing is not set up */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    prune_versions_api_v1_internal_prune_versions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pruned"];
+                };
+            };
+            /** @description No valid Google ID token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description The token is not the scheduler's */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Scheduled jobs are not set up */
             503: {
                 headers: {
                     [name: string]: unknown;

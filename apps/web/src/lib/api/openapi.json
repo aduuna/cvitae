@@ -97,6 +97,69 @@
           }
         }
       },
+      "delete": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Delete Me",
+        "description": "Delete the account and everything in it: rows and stored files.",
+        "operationId": "delete_me_api_v1_me_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountDelete"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A Pro subscription is still active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
       "patch": {
         "tags": [
           "me"
@@ -120,6 +183,58 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/export": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Export Me",
+        "description": "All of the user's data as one JSON file.",
+        "operationId": "export_me_api_v1_me_export_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountExport"
                 }
               }
             }
@@ -2877,6 +2992,58 @@
         }
       }
     },
+    "/api/v1/internal/prune-versions": {
+      "post": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "Prune Versions",
+        "description": "Delete autosave versions older than 7 days.",
+        "operationId": "prune_versions_api_v1_internal_prune_versions_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pruned"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid Google ID token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token is not the scheduler's",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Scheduled jobs are not set up",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/extension/connections": {
       "get": {
         "tags": [
@@ -3502,6 +3669,106 @@
   },
   "components": {
     "schemas": {
+      "AccountDelete": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 320,
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "AccountDelete"
+      },
+      "AccountExport": {
+        "properties": {
+          "exported_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Exported At"
+          },
+          "account": {
+            "$ref": "#/components/schemas/ExportAccount"
+          },
+          "profiles": {
+            "items": {
+              "$ref": "#/components/schemas/ExportProfile"
+            },
+            "type": "array",
+            "title": "Profiles"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/ExportJob"
+            },
+            "type": "array",
+            "title": "Jobs"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/ExportDocument"
+            },
+            "type": "array",
+            "title": "Documents"
+          },
+          "templates": {
+            "items": {
+              "$ref": "#/components/schemas/ExportTemplate"
+            },
+            "type": "array",
+            "title": "Templates"
+          },
+          "uploads": {
+            "items": {
+              "$ref": "#/components/schemas/ExportUpload"
+            },
+            "type": "array",
+            "title": "Uploads"
+          },
+          "ai_runs": {
+            "items": {
+              "$ref": "#/components/schemas/ExportAiRun"
+            },
+            "type": "array",
+            "title": "Ai Runs"
+          },
+          "subscription": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExportSubscription"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "extension_connections": {
+            "items": {
+              "$ref": "#/components/schemas/ExtensionConnectionInfo"
+            },
+            "type": "array",
+            "title": "Extension Connections"
+          }
+        },
+        "type": "object",
+        "required": [
+          "exported_at",
+          "account",
+          "profiles",
+          "jobs",
+          "documents",
+          "templates",
+          "uploads",
+          "ai_runs",
+          "subscription",
+          "extension_connections"
+        ],
+        "title": "AccountExport",
+        "description": "Everything the account holds, as JSON."
+      },
       "AiEditRequest": {
         "properties": {
           "message": {
@@ -5589,6 +5856,580 @@
         ],
         "title": "ExperienceItem"
       },
+      "ExportAccount": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "preferred_ai_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Ai Model"
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "free",
+              "pro"
+            ],
+            "title": "Plan"
+          },
+          "default_template_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Template Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "display_name",
+          "preferred_ai_model",
+          "plan",
+          "default_template_id",
+          "created_at"
+        ],
+        "title": "ExportAccount"
+      },
+      "ExportAiRun": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "task": {
+            "type": "string",
+            "title": "Task"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "input_tokens": {
+            "type": "integer",
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "type": "integer",
+            "title": "Output Tokens"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "title": "Duration Ms"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "task",
+          "provider",
+          "model",
+          "status",
+          "error_code",
+          "input_tokens",
+          "output_tokens",
+          "cost_usd",
+          "duration_ms",
+          "created_at"
+        ],
+        "title": "ExportAiRun",
+        "description": "One AI call. There is no prompt or output: none is kept."
+      },
+      "ExportDocument": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "template_id": {
+            "type": "string",
+            "title": "Template Id"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "structured",
+              "ejected"
+            ],
+            "title": "Mode"
+          },
+          "profile_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Id"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "page_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Count"
+          },
+          "content": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Content"
+          },
+          "source_files": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Files"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/ExportVersion"
+            },
+            "type": "array",
+            "title": "Versions",
+            "default": []
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "template_id",
+          "mode",
+          "profile_id",
+          "job_id",
+          "page_count",
+          "content",
+          "source_files",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ExportDocument"
+      },
+      "ExportJob": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "company": {
+            "type": "string",
+            "title": "Company"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "analysis": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "company",
+          "url",
+          "description",
+          "analysis",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ExportJob"
+      },
+      "ExportProfile": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "is_default": {
+            "type": "boolean",
+            "title": "Is Default"
+          },
+          "content": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Content"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "is_default",
+          "content",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ExportProfile"
+      },
+      "ExportSubscription": {
+        "properties": {
+          "plan_code": {
+            "type": "string",
+            "title": "Plan Code"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "current_period_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Period End"
+          },
+          "paystack_customer_code": {
+            "type": "string",
+            "title": "Paystack Customer Code"
+          },
+          "paystack_subscription_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paystack Subscription Code"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan_code",
+          "status",
+          "current_period_end",
+          "paystack_customer_code",
+          "paystack_subscription_code",
+          "created_at"
+        ],
+        "title": "ExportSubscription"
+      },
+      "ExportTemplate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "ready"
+            ],
+            "title": "Status"
+          },
+          "main_typ": {
+            "type": "string",
+            "title": "Main Typ"
+          },
+          "paper_sizes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Paper Sizes"
+          },
+          "target_pages": {
+            "type": "integer",
+            "title": "Target Pages"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "status",
+          "main_typ",
+          "paper_sizes",
+          "target_pages",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ExportTemplate"
+      },
+      "ExportUpload": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "mime_type": {
+            "type": "string",
+            "title": "Mime Type"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "title": "Size Bytes"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "filename",
+          "mime_type",
+          "size_bytes",
+          "created_at"
+        ],
+        "title": "ExportUpload",
+        "description": "What is known about a file the user uploaded. The file itself is not in the export: it is\nthe user's own, and an upload can be 10 MB."
+      },
+      "ExportVersion": {
+        "properties": {
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "tailor",
+              "manual",
+              "restore",
+              "autosave"
+            ],
+            "title": "Reason"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "content": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Content"
+          },
+          "source_files": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "number",
+          "reason",
+          "created_at",
+          "content",
+          "source_files"
+        ],
+        "title": "ExportVersion",
+        "description": "A version as the version history lists it, with what it held."
+      },
       "ExtensionConnectionCreate": {
         "properties": {
           "label": {
@@ -6767,6 +7608,19 @@
           "mimo"
         ],
         "title": "ProviderName"
+      },
+      "Pruned": {
+        "properties": {
+          "deleted": {
+            "type": "integer",
+            "title": "Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted"
+        ],
+        "title": "Pruned"
       },
       "Received": {
         "properties": {

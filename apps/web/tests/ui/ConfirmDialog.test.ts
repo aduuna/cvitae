@@ -77,4 +77,58 @@ describe('ConfirmDialog', () => {
 		await user.keyboard('{Enter}');
 		expect(onconfirm).toHaveBeenCalledOnce();
 	});
+
+	it('matches typed confirmation exactly unless told to ignore case', async () => {
+		const user = userEvent.setup();
+		render(ConfirmDialog, { ...base, confirmText: 'Ada@Example.com', onconfirm: vi.fn() });
+		const confirm = screen.getByRole('button', { name: 'Delete CV' });
+
+		await user.type(screen.getByLabelText('Type Ada@Example.com to confirm'), 'ada@example.com');
+
+		expect(confirm).toBeDisabled();
+	});
+
+	it('ignores case and surrounding spaces when asked to, and passes on what was typed', async () => {
+		const user = userEvent.setup();
+		const onconfirm = vi.fn();
+		render(ConfirmDialog, {
+			...base,
+			confirmText: 'Ada@Example.com',
+			ignoreCase: true,
+			onconfirm
+		});
+		const confirm = screen.getByRole('button', { name: 'Delete CV' });
+		const field = screen.getByLabelText('Type Ada@Example.com to confirm');
+
+		await user.type(field, '  ada@example.co');
+		expect(confirm).toBeDisabled();
+		await user.type(field, 'M  ');
+		expect(confirm).toBeEnabled();
+		await user.click(confirm);
+
+		expect(onconfirm).toHaveBeenCalledExactlyOnceWith('ada@example.coM');
+	});
+
+	it('still refuses text that is a different address, whatever its case', async () => {
+		const user = userEvent.setup();
+		render(ConfirmDialog, {
+			...base,
+			confirmText: 'ada@example.com',
+			ignoreCase: true,
+			onconfirm: vi.fn()
+		});
+
+		await user.type(screen.getByLabelText('Type ada@example.com to confirm'), 'ADA@EXAMPLE.ORG');
+
+		expect(screen.getByRole('button', { name: 'Delete CV' })).toBeDisabled();
+	});
+
+	it('passes an empty string without typed confirmation', async () => {
+		const onconfirm = vi.fn();
+		render(ConfirmDialog, { ...base, onconfirm });
+
+		await userEvent.click(screen.getByRole('button', { name: 'Delete CV' }));
+
+		expect(onconfirm).toHaveBeenCalledExactlyOnceWith('');
+	});
 });

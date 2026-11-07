@@ -29,6 +29,12 @@ export interface MockApi {
 	/** Checkouts started; verifying the last one upgrades to Pro. */
 	checkouts: number;
 	uploads: UploadSummary[];
+	/** Account exports downloaded. */
+	exports: number;
+	/** Whether the account was deleted: the api answered a `DELETE /me` with the right email. */
+	accountDeleted: boolean;
+	/** The emails sent to confirm deleting the account, as the user typed them. */
+	deleteConfirmations: string[];
 	jobs: Job[];
 	/** Provider of every AI call, in order. */
 	aiCalls: { task: 'import' | 'tailor' | 'template'; model: AiModel }[];
@@ -350,6 +356,9 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 		subscription: null,
 		checkouts: 0,
 		uploads: [],
+		exports: 0,
+		accountDeleted: false,
+		deleteConfirmations: [],
 		jobs: [],
 		aiCalls: [],
 		customTemplates: [],
@@ -416,6 +425,57 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 			}
 			if (id === 'manage-link')
 				return reply(route, 200, { url: 'https://paystack.test/manage/subscriptions/SUB_1' });
+		}
+
+		if (resource === 'me' && id === 'export') {
+			state.exports += 1;
+			return reply(
+				route,
+				200,
+				{
+					exported_at: '2026-11-07T10:00:00Z',
+					account: state.me,
+					profiles: state.profiles,
+					documents: state.documents,
+					jobs: state.jobs,
+					templates: [],
+					uploads: state.uploads,
+					ai_runs: [],
+					subscription: state.subscription,
+					extension_connections: []
+				},
+				{ 'content-disposition': 'attachment; filename="chameleon-vitae-export.json"' }
+			);
+		}
+
+		if (resource === 'me' && method === 'DELETE') {
+			state.deleteConfirmations.push(String(body.email ?? ''));
+			const status = state.subscription?.status;
+			if (status === 'active' || status === 'attention') {
+				return reply(route, 409, {
+					error: {
+						code: 'conflict',
+						message:
+							'Cancel your Pro subscription first: use Manage subscription under Billing. Then delete your account.',
+						details: {}
+					}
+				});
+			}
+			if (
+				String(body.email ?? '')
+					.trim()
+					.toLowerCase() !== state.me.email
+			) {
+				return reply(route, 422, {
+					error: {
+						code: 'validation_failed',
+						message: 'Type the email address of this account to confirm.',
+						details: { field: 'email' }
+					}
+				});
+			}
+			state.accountDeleted = true;
+			return reply(route, 204);
 		}
 
 		if (resource === 'me') {

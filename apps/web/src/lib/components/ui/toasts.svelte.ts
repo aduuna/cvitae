@@ -38,5 +38,5 @@ class Toasts {
 	}
 }
 
-/** App-wide toast queue. Render <Toast /> once in the app shell. */
+/** App-wide toast queue. Render <Toast /> once, in the root layout, so a toast outlives its page. */
 export const toast = new Toasts();

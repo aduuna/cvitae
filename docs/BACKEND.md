@@ -81,6 +81,7 @@ packages/cvcore/src/cvcore/
 
 apps/api/src/api/
   main.py            app factory: routers, middleware, error handlers, SPA static mount
+  security.py        security headers middleware and the Content Security Policy
   settings.py        pydantic-settings Settings (one class, env-driven)
   deps.py            FastAPI dependencies: db session, current user, ports
   errors.py          AppError hierarchy + one exception handler -> error envelope
@@ -117,7 +118,7 @@ apps/api/src/api/
     pricing.py       per-model token prices for cost tracking
   routers/
     me.py profiles.py documents.py jobs.py imports.py tailor.py templates.py render.py billing.py webhooks.py
-    extension.py
+    internal.py extension.py
   billing/plans.py   plan limits (see PRODUCT.md)
   tests/
 
@@ -137,8 +138,10 @@ apps/renderer/src/renderer/
   Pure functions where possible. Raise `AppError` subclasses, never `HTTPException`.
 - **Repositories**: SQLAlchemy only. Every query goes through `UserScopedRepository`, which takes
   `user_id` in its constructor and adds `WHERE user_id = :user_id` to every statement. The users and
-  webhook repositories, and `ExtensionTokenLookup` (which finds a token's owner before anyone is
-  signed in, by the token's hash), are the only unscoped ones and are kept minimal.
+  webhook repositories, `ExtensionTokenLookup` (which finds a token's owner before anyone is
+  signed in, by the token's hash) and `VersionPruner` (the scheduled job that deletes old autosave
+  versions of every user's CVs, unreachable from a signed-in request) are the only unscoped ones and
+  are kept minimal.
 - **Ports**: one Protocol per external system with a real and a fake implementation. Services depend on
   the Protocol. Tests override the dependency with the fake.
 
@@ -158,7 +161,7 @@ One envelope for every error response:
 `ClaudeUnavailable` (503, `claude_unavailable`: no Anthropic key, so no custom templates) and
 `TemplateFailed` (422, `template_failed`, with the codes of the checks a draft still failed in
 `details.issues`).
-A single exception handler maps them. Pydantic validation errors are converted to the same envelope.
+A single exception handler maps them. Pydantic validation errors are converted to the same envelope. An exception nothing handles becomes a 500 with the code `internal_error` and no detail.
 
 ## Settings
 
@@ -171,7 +174,7 @@ A single exception handler maps them. Pydantic validation errors are converted t
 | `DATABASE_URL_DIRECT` | Neon direct connection string (Alembic only) |
 | `AUTH_MODE` | `firebase` or `dev` (startup fails if `dev` and `ENV` is `dev` or `prod`) |
 | `FIREBASE_PROJECT_ID` | Token audience check |
-| `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_APP_ID` | The SPA's Firebase web config, served by `GET /client-config` (not secret; set by OpenTofu) |
+| `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_APP_ID` | The SPA's Firebase web config, served by `GET /client-config` (not secret; set by OpenTofu). The auth domain is also the one frame the CSP allows (Security headers) |
 | `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MIMO_API_KEY` | Provider keys; a provider without one is not offered |
 | `CLAUDE_MODEL_SMALL`, `CLAUDE_MODEL_LARGE` | defaults `claude-haiku-5-5`, `claude-sonnet-5-5` |
 | `GEMINI_MODEL_SMALL`, `GEMINI_MODEL_LARGE` | defaults `gemini-3.5-flash-lite`, `gemini-3.8-flash` |
@@ -188,8 +191,8 @@ A single exception handler maps them. Pydantic validation errors are converted t
 | `RENDERER_URL` | renderer base URL |
 | `RENDERER_AUTH` | `oidc` (Cloud Run) or `none` (local) |
 | `PAYSTACK_SECRET_KEY`, `PAYSTACK_PRO_PLAN_CODE`, `PAYSTACK_CALLBACK_URL` | Billing; upgrades are offered only when all three are set. The callback is the SPA's `/app/settings?tab=billing` |
-| `PUBLIC_BASE_URL` | The api's public URL (OIDC audience for internal routes, CSP) |
-| `SCHEDULER_SA_EMAIL` | Only this service account may call `/internal/*` routes |
+| `PUBLIC_BASE_URL` | The api's public URL, with no path (`https://cvitae.aduuna.dev`, a trailing slash is allowed): the audience of the OIDC token Cloud Scheduler sends to `/internal` routes, so the scheduler job's `audience` is this URL and not the route's |
+| `SCHEDULER_SA_EMAIL` | Only this service account (`scheduler-sa`) may call `/internal/*` routes. With either setting missing, those routes answer 503 |
 | `STATIC_DIR` | Built SPA directory served at `/`: `index.html` is the prerendered landing page and other unknown paths get the SPA shell `spa.html` (unset in local dev, where Vite serves the SPA) |
 
 Model IDs are configuration, not code. Before release, confirm current IDs on the Claude models page and
@@ -893,8 +896,8 @@ require a valid Firebase ID token. FastAPI serves OpenAPI at `/api/openapi.json`
 |---|---|
 | `GET /client-config` | No auth. How the SPA signs in (`auth_mode` and, for Firebase, the web config), the AI models the server offers (`ai_models`, with each one's plan), `default_ai_model` and `plans_enforced` |
 | `GET /me`, `PATCH /me` | Current user; update display name, preferred AI model, default template |
-| `DELETE /me` | Delete account and all data (typed email confirmation in body) |
-| `GET /me/export` | All user data as JSON |
+| `DELETE /me` | Delete account and all data: `{email}` in the body must be the account's address (any case; 422 otherwise). Removes the user row (every user-owned table cascades from it), commits that, and then removes the user's `uploads/<user_id>/` prefix in storage. Storage cannot join the transaction (a bucket deletes object by object), so the rows are the point of no return and the files follow: if clearing storage fails the request still answers 204, because the account is gone, and an error-severity log line with the user's id and an error code (no content) marks the objects left under the prefix for a sweep. 409 while a subscription is `active` or `attention` (Paystack would keep charging a user it can no longer match; `non_renewing` and `cancelled` are fine), with `details.reason` `subscription_active` (cancel it with Manage subscription) or, while the subscription has no Paystack code yet because `subscription.create` has not arrived and there is nothing to manage, `subscription_pending` (try again in a few minutes). 204. The Firebase user is not touched |
+| `GET /me/export` | All user data as one JSON file (`Content-Disposition: attachment`): the account, profiles, jobs, CVs with their versions, custom templates (with their Typst), upload metadata (not the files: they are the user's own, up to 10 MB each), AI runs (no prompts or outputs are kept), the subscription and the connected browsers (not their tokens or hashes) |
 | `GET /usage` | Current plan; a meter (`used`, `limit`, `message` once the limit is reached) for AI runs this month, CVs, profiles and custom templates; the period's start and end; the subscription's status, paid-up date and whether it can be managed yet |
 | `GET/POST /profiles`, `GET/PATCH/DELETE /profiles/{id}`, `POST /profiles/{id}/duplicate` | Profiles |
 | `POST /imports` (multipart: a file, pasted text, or the `upload_id` of an earlier upload; `ai_model`) | Extract a profile draft; returns `{upload_id, draft: CvContent, profile_name}`, where `profile_name` is the model's suggestion ("Data engineering") or else the CV's headline. Nothing is saved as a profile: after review the SPA saves the draft with `POST /profiles`. |
@@ -920,7 +923,7 @@ require a valid Firebase ID token. FastAPI serves OpenAPI at `/api/openapi.json`
 | `POST /billing/verify` (reference) | Verify after redirect back from Paystack; switches to Pro at once and returns the current plan. Repeatable: a payment is applied once, by this call or by its `charge.success` webhook (both record the same `webhook_events` key), so an old reference cannot bring Pro back after it ended. |
 | `GET /billing/manage-link` | Paystack hosted subscription management link |
 | `POST /webhooks/paystack` | Paystack events (no Firebase auth; signature checked) |
-| `POST /internal/prune-versions` | Deletes autosave versions older than 7 days. Accepts only an OIDC token from the Cloud Scheduler service account; no Firebase auth. |
+| `POST /internal/prune-versions` | Deletes autosave versions older than 7 days (manual, tailor and restore versions are never pruned) and returns `{deleted}`. Accepts only a Google ID token for `PUBLIC_BASE_URL` from `SCHEDULER_SA_EMAIL` (signature, expiry, issuer, audience and verified email checked by google-auth, with 10 seconds of clock skew so a token minted a moment ago is not refused as issued in the future; 401 for a missing or invalid token, including a Firebase one, 403 for another account); no Firebase auth, and `X-Dev-User` is ignored. |
 | `GET/POST /extension/connections`, `DELETE /extension/connections/{id}` | The browsers the extension is connected in (signed in as usual). `POST` (`label`) returns the new connection with its `token`, the only time the token is shown |
 | `GET /extension/session` | Extension token only. The account's email, profiles, form-mode CVs (with their `job_id` and placeholder count) and saved jobs, so the extension can choose what to fill from |
 | `DELETE /extension/session` | Extension token only. Disconnect this browser: its token stops working |
@@ -966,6 +969,42 @@ response is sent.
   token, and in Chrome cannot read the extension's storage at all (`setAccessLevel`). A script
   already running on the app's own origin (another extension, for one) could read the token as it is
   handed over; such a script could read the Firebase session there anyway.
+
+## Security headers
+
+`security.py` is a middleware that sends these on every HTTP response the api makes: the API, the
+built SPA's files and error responses. Starlette answers an exception nothing handled from outside
+every middleware, so `errors.py` handles `Exception` itself: a 500 in the usual envelope
+(`internal_error`, no detail) that applies the same headers, after which the exception still goes on
+to the server's log.
+
+| Header | Value |
+|---|---|
+| `Content-Security-Policy` | `default-src 'self'`; `script-src 'self'` plus the SHA-256 of each inline script in the built pages; `style-src 'self' 'unsafe-inline'`; `img-src 'self' data: blob:`; `font-src 'self'`; `connect-src 'self'`; `object-src 'none'`; `base-uri 'self'`; `form-action 'self'`; `frame-ancestors 'none'` |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
+| `X-Content-Type-Options` | `nosniff` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `X-Frame-Options` | `DENY` |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), payment=(), usb=()` |
+
+- SvelteKit puts one inline `<script>` in every page to start the app. The api parses the built
+  pages in `STATIC_DIR` at startup (`html.parser`, so attributes such as `data-type` are not mistaken
+  for `type`) and allows each inline script that the browser would run by hash, so a new build needs
+  no change;
+  `theme.js` is a file for the same reason. No `'unsafe-inline'` and no `'unsafe-eval'` for scripts.
+- Styles may be inline: Svelte's `style:` bindings, `app.html`'s `display: contents` wrapper and
+  CodeMirror's injected style sheets need it. Previews are SVG in `<img src="data:...">`.
+- With `AUTH_MODE=firebase` the policy also allows `https://apis.google.com` for scripts (the
+  Firebase SDK loads `api.js` for the Google pop-up), `https://identitytoolkit.googleapis.com` and
+  `https://securetoken.googleapis.com` for `connect-src`, and `frame-src https://<FIREBASE_AUTH_DOMAIN>`
+  (the pop-up's `/__/auth/iframe`). Nothing outside this origin is allowed in `dev` auth mode.
+- The Paystack checkout is a top-level redirect, which no CSP directive restricts. The extension
+  calls the api from its own pages, where this policy does not apply.
+- `/api/docs` (Swagger UI) loads its script and style from `cdn.jsdelivr.net` and starts with an
+  inline script, so it gets its own, looser policy; it is the only path that does.
+- Tests: `tests/test_security_headers.py` (every response, the policy per auth mode, the hashes).
+  Loading the built SPA through the api in a browser and reading the console for violations is a
+  manual check whenever a page gains a script, a font, an image source or a third-party call.
 
 ## Billing (Paystack)
 
@@ -1021,9 +1060,9 @@ response is sent.
 | Layer | Tooling | What is covered |
 |---|---|---|
 | `cvcore` | pytest, hypothesis | rich-text round trip, fact guard cases, llm_schema output for every model, ATS matching rules and the fixture CV's score, finishing drafted answers (numbers, limits, the skills hint), the custom template checks (every built-in template passes them; each rule, with false-positive cases; no check message repeats the upload's text) |
-| Services | pytest with fakes | business rules: quotas, versions, eject, tailoring flow with `FakeLLMProvider`, drafted answers (one run per request, nothing saved, refusal before any call), custom templates (quota before any model call, repair, refinement kept or dropped, one run per generation, nothing saved on failure, another user's template is 404 everywhere, delete falls CVs back), account deletion |
+| Services | pytest with fakes | business rules: quotas, versions, eject, tailoring flow with `FakeLLMProvider`, drafted answers (one run per request, nothing saved, refusal before any call), custom templates (quota before any model call, repair, refinement kept or dropped, one run per generation, nothing saved on failure, another user's template is 404 everywhere, delete falls CVs back), account deletion (every table, files, another user untouched, a storage failure leaves the account whole), pruning autosave versions |
 | Repositories | pytest against Postgres (compose locally, service container in CI) | user scoping (a test proves user A cannot read user B), cascades, indexes used by list queries |
-| API | httpx `AsyncClient` + dependency overrides | status codes, error envelope, auth required, schema of responses |
+| API | httpx `AsyncClient` + dependency overrides | status codes, error envelope, auth required, schema of responses, security headers; `/internal` routes with tokens signed by a throwaway key and checked by google-auth against a stub certificate transport (wrong audience, issuer, account and expiry, a Firebase token) |
 | LLM adapters | respx-mocked HTTP with recorded fixtures | request shape (PDF block, schema), parsing, retries; `@pytest.mark.live` tests for real calls run manually |
 | Paystack | respx + signed fixture payloads | signature check, idempotency, each event's state change |
 | Renderer | pytest | every template x every fixture compiles; page counts; placeholder highlight present; limits and timeouts enforced; `@` imports rejected; a user-style template (`files` with `main.typ`) compiles and stays inside the sandbox |

@@ -11,12 +11,16 @@ from api.billing.plans import Plan
 from api.db.base import utcnow
 from api.db.models import User
 from api.errors import ServiceUnavailable
-from api.ports.auth import AuthVerifier, bearer_token
+from api.ports.auth import AuthVerifier, ServiceCallerVerifier, bearer_token
 from api.ports.llm.registry import ProviderRegistry
 from api.ports.renderer import RendererClient
 from api.ports.storage import Storage
 from api.repositories.ai_runs import AiRunRepository
-from api.repositories.documents import DocumentRepository, DocumentVersionRepository
+from api.repositories.documents import (
+    DocumentRepository,
+    DocumentVersionRepository,
+    VersionPruner,
+)
 from api.repositories.extension_tokens import ExtensionTokenLookup, ExtensionTokenRepository
 from api.repositories.jobs import JobRepository
 from api.repositories.profiles import ProfileRepository
@@ -25,7 +29,7 @@ from api.repositories.uploads import UploadRepository
 from api.repositories.user_templates import UserTemplateRepository
 from api.repositories.users import UserRepository
 from api.repositories.webhooks import WebhookRepository
-from api.services import billing, extension
+from api.services import account, billing, extension
 from api.services.templates import TemplateCatalog
 from api.services.users import ensure_user
 from api.settings import Settings
@@ -48,6 +52,18 @@ Session = Annotated[AsyncSession, Depends(get_session, scope="function")]
 
 def get_auth_verifier(request: Request) -> AuthVerifier:
     return request.app.state.auth_verifier
+
+
+async def scheduler_call(request: Request) -> None:
+    """The `/internal` routes accept only Cloud Scheduler's service account (an OIDC token), never
+    a Firebase session. They are off until the audience and the account are configured."""
+    verifier: ServiceCallerVerifier | None = request.app.state.scheduler_verifier
+    if verifier is None:
+        raise ServiceUnavailable("Scheduled jobs are not set up on this server.")
+    await verifier.verify(request)
+
+
+SchedulerCall = Depends(scheduler_call)
 
 
 def get_renderer(request: Request) -> RendererClient:
@@ -148,6 +164,10 @@ def get_subscriptions_for(session: Session) -> billing.SubscriptionsFor:
     return scoped
 
 
+def get_version_pruner(session: Session) -> VersionPruner:
+    return VersionPruner(session)
+
+
 def get_webhooks(session: Session) -> WebhookRepository:
     return WebhookRepository(session)
 
@@ -165,8 +185,37 @@ UserTemplates = Annotated[UserTemplateRepository, Depends(get_user_templates)]
 AiRuns = Annotated[AiRunRepository, Depends(get_ai_runs)]
 Subscriptions = Annotated[SubscriptionRepository, Depends(get_subscriptions)]
 SubscriptionsFor = Annotated[billing.SubscriptionsFor, Depends(get_subscriptions_for)]
+VersionPrunerDep = Annotated[VersionPruner, Depends(get_version_pruner)]
 Webhooks = Annotated[WebhookRepository, Depends(get_webhooks)]
 ExtensionTokens = Annotated[ExtensionTokenRepository, Depends(get_extension_tokens)]
+
+
+def get_account_repositories(
+    profiles: Profiles,
+    jobs: Jobs,
+    documents: Documents,
+    versions: Versions,
+    user_templates: UserTemplates,
+    uploads: Uploads,
+    ai_runs: AiRuns,
+    subscriptions: Subscriptions,
+    connections: ExtensionTokens,
+) -> account.AccountRepositories:
+    """Every repository that holds the signed-in user's data, for export."""
+    return account.AccountRepositories(
+        profiles=profiles,
+        jobs=jobs,
+        documents=documents,
+        versions=versions,
+        templates=user_templates,
+        uploads=uploads,
+        ai_runs=ai_runs,
+        subscriptions=subscriptions,
+        connections=connections,
+    )
+
+
+AccountRepos = Annotated[account.AccountRepositories, Depends(get_account_repositories)]
 
 
 def get_catalog(renderer: Renderer, user_templates: UserTemplates) -> TemplateCatalog:
