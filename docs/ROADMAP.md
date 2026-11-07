@@ -116,7 +116,7 @@ Done when: the checks in `docs/PRODUCT.md`, 8 pass in Chrome and Firefox against
 reports no errors, and both store listings are drafted (privacy text: what is read, when, and that
 nothing is stored or sent elsewhere).
 
-## M7: Drafted answers in the extension
+## M8: Drafted answers in the extension
 
 Built after M6, also ahead of M5 (`docs/PRODUCT.md`, 8, Answer questions; `docs/BACKEND.md`,
 Drafted answers).
