@@ -42,7 +42,7 @@ export interface MockApi {
 	templateFailure: { status: number; code: string; message: string; details?: object } | null;
 	profiles: Profile[];
 	documents: CvDocument[];
-	versions: Map<string, (Version & { content: CvContent })[]>;
+	versions: Map<string, (Version & { content: CvContent; layout: string | null })[]>;
 	previewCalls: number;
 }
 
@@ -523,6 +523,13 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 				: { ...starterContent(), basics: { ...starterContent().basics, name: 'Sample' } };
 			return reply(route, 200, { pages: [page(content, id)], page_count: 1 });
 		}
+		if (resource === 'templates' && id && action === 'source') {
+			const own = readyTemplates(state).find((row) => row.id === id);
+			if (own) return reply(route, 200, { id, source: own.main_typ });
+			if (id.startsWith('u-')) return notFound(route);
+			const source = `// ${id}\n#let cv = json("data.json")\n= #cv.basics.name\n`;
+			return reply(route, 200, { id, source });
+		}
 		if (resource === 'templates') {
 			return reply(route, 200, [...TEMPLATES, ...readyTemplates(state).map(metaOf)]);
 		}
@@ -603,13 +610,14 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 				id: uuid(),
 				name: `${job.title} at ${job.company}`,
 				template_id: body.template_id ?? 'classic',
-				mode: 'structured',
+				custom_layout: false,
 				page_count: 1,
 				profile_id: profile.id,
 				job_id: job.id,
 				created_at: now(),
 				updated_at: now(),
-				content: structuredClone(profile.content)
+				content: structuredClone(profile.content),
+				layout: null
 			};
 			state.documents.push(doc);
 			const result: TailorResult = {
@@ -686,13 +694,14 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 					id: uuid(),
 					name: body.name ?? `${profile.name} CV`,
 					template_id: body.template_id ?? 'classic',
-					mode: 'structured',
+					custom_layout: false,
 					page_count: null,
 					profile_id: profile.id,
 					job_id: null,
 					created_at: now(),
 					updated_at: now(),
-					content: structuredClone(profile.content)
+					content: structuredClone(profile.content),
+					layout: null
 				};
 				state.documents.push(doc);
 				return reply(route, 201, doc);
@@ -706,7 +715,8 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 					number: versions.length + 1,
 					reason,
 					created_at: now(),
-					content: structuredClone(doc.content)
+					content: structuredClone(doc.content),
+					layout: doc.layout
 				};
 				versions.push(version);
 				return version;
@@ -722,8 +732,10 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 			if (action === 'preview') {
 				state.previewCalls += 1;
 				doc.page_count = 1;
-				return reply(route, 200, { pages: [page(doc.content, doc.template_id)], page_count: 1 });
+				const layout = doc.layout === null ? doc.template_id : 'custom layout';
+				return reply(route, 200, { pages: [page(doc.content, layout)], page_count: 1 });
 			}
+			if (action === 'data.json') return reply(route, 200, doc.content);
 			if (action === 'export.pdf') {
 				const left = placeholders(doc.content);
 				if (left.length && url.searchParams.get('force') !== 'true') {
@@ -762,13 +774,19 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 				if (!version) return notFound(route);
 				snapshot('autosave');
 				doc.content = structuredClone(version.content);
+				doc.layout = version.layout;
+				doc.custom_layout = doc.layout !== null;
 				doc.updated_at = now();
 				snapshot('restore');
 				return reply(route, 200, doc);
 			}
 			if (method === 'GET') return reply(route, 200, doc);
 			if (method === 'PATCH') {
+				// As on the server: switching template drops a custom layout unless one is given.
+				const switched = body.template_id !== undefined && body.template_id !== doc.template_id;
+				if (switched && !('layout' in body)) doc.layout = null;
 				Object.assign(doc, body, { updated_at: now() });
+				doc.custom_layout = doc.layout !== null;
 				return reply(route, 200, doc);
 			}
 			if (method === 'DELETE') {

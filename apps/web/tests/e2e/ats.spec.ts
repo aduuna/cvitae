@@ -38,13 +38,14 @@ function seed(api: MockApi, linked: boolean) {
 		id: DOC,
 		name: 'Data engineering CV',
 		template_id: 'classic',
-		mode: 'structured',
+		custom_layout: false,
 		page_count: 1,
 		profile_id: null,
 		job_id: linked ? JOB : null,
 		created_at: now,
 		updated_at: now,
-		content: content()
+		content: content(),
+		layout: null
 	});
 }
 

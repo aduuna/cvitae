@@ -35,13 +35,14 @@ function seedCv(api: MockApi) {
 		id: '00000000-0000-4000-8000-00000000dddd',
 		name: 'Bank CV',
 		template_id: 'classic',
-		mode: 'structured',
+		custom_layout: false,
 		page_count: 1,
 		profile_id: '00000000-0000-4000-8000-00000000aaaa',
 		job_id: null,
 		created_at: stamp,
 		updated_at: stamp,
-		content
+		content,
+		layout: null
 	});
 }
 
