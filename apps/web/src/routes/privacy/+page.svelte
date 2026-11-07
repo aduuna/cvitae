@@ -175,18 +175,21 @@
 				templates and uploaded files in the app at any time; a deleted file is removed from storage.
 				A CV you upload to make a template is kept like one you upload to import, unless no template
 				could be made from it, and deleting it does not delete the template. Deleting a template
-				deletes its code. To delete your account and everything in it, write to {@render email()} and
-				we will do it within 30 days. Records of use go with the account; logs are kept for up to 30 days.
-				Paystack keeps payment records for as long as the law requires.
+				deletes its code. To delete your account and everything in it, use Delete account in
+				Settings: your profiles, CVs, saved jobs, templates, uploaded files and records of use are
+				removed at once. That does not remove your sign-in record at Google Firebase; write to {@render email()}
+				and we will remove it within 30 days. Logs are kept for up to 30 days. Paystack keeps payment
+				records for as long as the law requires.
 			</p>
 		</section>
 
 		<section class="flex flex-col gap-3" aria-labelledby="rights">
 			<h2 id="rights" class="text-lg font-semibold">Your rights</h2>
 			<p>
-				You can ask to see, correct, export or delete your data, or object to how we use it, by
-				writing to {@render email()}. We answer within 30 days. You can also complain to the data
-				protection authority where you live.
+				You can export your data and delete your account yourself in Settings. You can also ask to
+				see, correct, export or delete your data, or object to how we use it, by writing to {@render email()}.
+				We answer within 30 days. You can also complain to the data protection authority where you
+				live.
 			</p>
 		</section>
 
