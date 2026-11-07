@@ -12,13 +12,15 @@ from api.errors import QuotaExceeded
 from api.repositories.ai_runs import AiRunRepository
 from api.repositories.documents import DocumentRepository
 from api.repositories.profiles import ProfileRepository
+from api.repositories.user_templates import UserTemplateRepository
 
-Stock = Literal["documents", "profiles"]
+Stock = Literal["documents", "profiles", "templates"]
 """Things a user keeps, limited by count."""
 
 _NOUNS: dict[Stock, tuple[str, str]] = {
     "documents": ("CV", "CVs"),
     "profiles": ("profile", "profiles"),
+    "templates": ("custom template", "custom templates"),
 }
 
 
@@ -39,6 +41,7 @@ class Usage:
     ai_runs: Meter
     documents: Meter
     profiles: Meter
+    templates: Meter
 
 
 def month(now: datetime) -> tuple[datetime, datetime]:
@@ -101,9 +104,12 @@ async def require_ai_runs(
 
 
 async def require_room(
-    stock: Stock, plan: Plan, repository: DocumentRepository | ProfileRepository
+    stock: Stock,
+    plan: Plan,
+    repository: DocumentRepository | ProfileRepository | UserTemplateRepository,
 ) -> None:
-    """Room for one more CV or profile. Over the limit after a downgrade, existing ones stay."""
+    """Room for one more CV, profile or custom template. Over the limit after a downgrade,
+    existing ones stay."""
     used = await repository.count()
     limit: int = getattr(PLANS[plan], stock)
     if used >= limit:
@@ -117,6 +123,7 @@ async def usage(
     runs: AiRunRepository,
     documents: DocumentRepository,
     profiles: ProfileRepository,
+    templates: UserTemplateRepository,
     *,
     now: datetime | None = None,
 ) -> Usage:
@@ -128,6 +135,7 @@ async def usage(
 
     runs_used = await ai_runs_used(runs, plan, start)
     documents_used, profiles_used = await documents.count(), await profiles.count()
+    templates_used = await templates.count()
     return Usage(
         plan=plan,
         period_start=start,
@@ -138,5 +146,8 @@ async def usage(
         ),
         profiles=meter(
             profiles_used, limits.profiles, _stock_message("profiles", plan, profiles_used)
+        ),
+        templates=meter(
+            templates_used, limits.templates, _stock_message("templates", plan, templates_used)
         ),
     )

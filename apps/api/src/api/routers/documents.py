@@ -10,12 +10,12 @@ from api.ai.prompts.edit_cv import Turn
 from api.deps import (
     AiRuns,
     AppSettings,
+    Catalog,
     CurrentUser,
     Documents,
     Jobs,
     Profiles,
     Providers,
-    Renderer,
     UserPlan,
     Versions,
 )
@@ -121,12 +121,12 @@ async def create_document(
     plan: UserPlan,
     documents: Documents,
     profiles: Profiles,
-    renderer: Renderer,
+    catalog: Catalog,
 ) -> Document:
     row = await service.create_document(
         documents,
         profiles,
-        renderer,
+        catalog,
         profile_id=body.profile_id,
         name=body.name,
         template_id=body.template_id or user.default_template_id,
@@ -145,12 +145,12 @@ async def update_document(
     document_id: uuid.UUID,
     body: DocumentUpdate,
     documents: Documents,
-    renderer: Renderer,
+    catalog: Catalog,
     jobs: Jobs,
 ) -> Document:
     row = await service.update_document(
         documents,
-        renderer,
+        catalog,
         jobs,
         document_id,
         name=body.name,
@@ -167,10 +167,10 @@ async def document_ats(
     documents: Documents,
     jobs: Jobs,
     profiles: Profiles,
-    renderer: Renderer,
+    catalog: Catalog,
 ) -> DocumentAts:
     """How the saved CV reads to an ATS search for its job. No AI run. 409 for ejected CVs."""
-    result = await ats.document_ats(documents, jobs, profiles, renderer, document_id)
+    result = await ats.document_ats(documents, jobs, profiles, catalog, document_id)
     return DocumentAts(
         job=JobSummary.model_validate(result.job) if result.job is not None else None,
         report=result.report,
@@ -194,10 +194,10 @@ async def duplicate_document(
 
 @router.post("/{document_id}/preview", responses={503: {"model": ErrorEnvelope}})
 async def preview_document(
-    document_id: uuid.UUID, documents: Documents, renderer: Renderer
+    document_id: uuid.UUID, documents: Documents, catalog: Catalog
 ) -> SvgPages:
     """SVG pages of the saved CV, or 422 with Typst diagnostics in `details`."""
-    return await rendering.preview(documents, renderer, document_id)
+    return await rendering.preview(documents, catalog, document_id)
 
 
 @router.get(
@@ -213,10 +213,10 @@ async def export_pdf(
     document_id: uuid.UUID,
     documents: Documents,
     jobs: Jobs,
-    renderer: Renderer,
+    catalog: Catalog,
     force: bool = False,
 ) -> Response:
-    pdf = await rendering.export_pdf(documents, jobs, renderer, document_id, force=force)
+    pdf = await rendering.export_pdf(documents, jobs, catalog, document_id, force=force)
     return Response(
         pdf.content,
         media_type="application/pdf",

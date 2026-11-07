@@ -128,13 +128,15 @@ class AiRun(UserOwned):
     __table_args__ = (
         Index("ix_ai_runs_user_id_created_at", "user_id", text("created_at DESC")),
         CheckConstraint(
-            "task IN ('import', 'analyze_job', 'tailor', 'edit', 'answers')", name="task"
+            "task IN ('import', 'analyze_job', 'tailor', 'edit', 'answers', 'template')",
+            name="task",
         ),
         CheckConstraint("provider IN ('claude', 'gemini', 'mimo')", name="provider"),
         CheckConstraint("status IN ('succeeded', 'failed')", name="status"),
     )
 
     task: Mapped[str] = mapped_column(String(16))
+    """A `template` run holds every model call of one generation, with their tokens summed."""
     provider: Mapped[str] = mapped_column(String(16))
     model: Mapped[str] = mapped_column(String(64))
     prompt_version: Mapped[str] = mapped_column(String(32))
@@ -144,6 +146,32 @@ class AiRun(UserOwned):
     output_tokens: Mapped[int] = mapped_column(default=0, server_default="0")
     cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(10, 6))
     duration_ms: Mapped[int] = mapped_column(default=0, server_default="0")
+
+
+class UserTemplate(UserOwned):
+    """A template made from the look of a user's own CV. `slug` is its template id everywhere
+    else (`documents.template_id`, `users.default_template_id`). A `draft` is a fresh generation
+    the user has not confirmed: it can be previewed but not used. The source is user content:
+    never logged."""
+
+    __tablename__ = "user_templates"
+    __table_args__ = (
+        Index("ix_user_templates_user_id_created_at", "user_id", text("created_at DESC")),
+        CheckConstraint("status IN ('draft', 'ready')", name="status"),
+    )
+
+    slug: Mapped[str] = mapped_column(String(64), unique=True)
+    name: Mapped[str] = mapped_column(String(60))
+    description: Mapped[str] = mapped_column(String(200))
+    main_typ: Mapped[str] = mapped_column(Text)
+    paper_sizes: Mapped[list[str]] = mapped_column(JSONB)
+    target_pages: Mapped[int] = mapped_column()
+    status: Mapped[str] = mapped_column(String(16), default="draft", server_default="draft")
+    # The PDF it was made from. Deleting the upload keeps the template.
+    upload_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("uploads.id", ondelete="SET NULL")
+    )
+    prompt_version: Mapped[str] = mapped_column(String(32))
 
 
 class Subscription(UserOwned):

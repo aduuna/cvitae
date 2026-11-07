@@ -89,6 +89,28 @@ async def test_sends_a_structured_request_with_fallback() -> None:
     assert text == {"type": "text", "text": "Extract this."}
 
 
+async def test_images_follow_the_document_before_the_text() -> None:
+    seen: list[httpx2.Request] = []
+    provider = provider_for(
+        lambda _: httpx2.Response(200, json=message('{"name": "Ada", "years": 9}')), seen
+    )
+
+    await provider.generate(request(document=b"%PDF-1.7 bytes", images=(b"\x89PNG-one", b"two")))
+
+    document, first, second, text = json.loads(seen[0].content)["messages"][0]["content"]
+    assert document["type"] == "document"
+    assert first == {
+        "type": "image",
+        "source": {
+            "type": "base64",
+            "media_type": "image/png",
+            "data": base64.standard_b64encode(b"\x89PNG-one").decode(),
+        },
+    }
+    assert second["source"]["data"] == base64.standard_b64encode(b"two").decode()
+    assert text == {"type": "text", "text": "Extract this."}
+
+
 async def test_models_without_a_fallback_do_not_send_one() -> None:
     seen: list[httpx2.Request] = []
     reply = message('{"name": "Ada", "years": 9}', model="claude-haiku-5-5")

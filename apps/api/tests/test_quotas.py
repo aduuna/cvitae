@@ -12,6 +12,7 @@ from api.errors import QuotaExceeded
 from api.repositories.ai_runs import AiRunRepository
 from api.repositories.documents import DocumentRepository
 from api.repositories.profiles import ProfileRepository
+from api.repositories.user_templates import UserTemplateRepository
 from api.repositories.users import UserRepository
 from api.services import quotas
 
@@ -159,6 +160,7 @@ async def test_usage_has_a_meter_for_each_limit(db_session: AsyncSession) -> Non
         AiRunRepository(db_session, user_id),
         DocumentRepository(db_session, user_id),
         ProfileRepository(db_session, user_id),
+        UserTemplateRepository(db_session, user_id),
         now=NOW,
     )
 
@@ -174,3 +176,4 @@ async def test_usage_has_a_meter_for_each_limit(db_session: AsyncSession) -> Non
     )
     assert usage.documents == quotas.Meter(used=2, limit=4, message=None)
     assert usage.profiles == quotas.Meter(used=0, limit=2, message=None)
+    assert usage.templates == quotas.Meter(used=0, limit=1, message=None)

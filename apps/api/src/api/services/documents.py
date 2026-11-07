@@ -6,14 +6,13 @@ from collections.abc import Sequence
 from api.billing.plans import Plan
 from api.db.models import Document
 from api.errors import Conflict, NotFound
-from api.ports.renderer import RendererClient
 from api.repositories.documents import DocumentRepository
 from api.repositories.jobs import JobRepository
 from api.repositories.profiles import ProfileRepository
 from api.services.jobs import get_job
 from api.services.profiles import get_profile
 from api.services.quotas import require_room
-from api.services.templates import DEFAULT_TEMPLATE_ID, require_template
+from api.services.templates import DEFAULT_TEMPLATE_ID, TemplateCatalog
 from cvcore.models import CvContent
 
 
@@ -31,7 +30,7 @@ async def get_document(documents: DocumentRepository, document_id: uuid.UUID) ->
 async def create_document(
     documents: DocumentRepository,
     profiles: ProfileRepository,
-    renderer: RendererClient,
+    catalog: TemplateCatalog,
     *,
     profile_id: uuid.UUID,
     name: str | None = None,
@@ -40,7 +39,7 @@ async def create_document(
 ) -> Document:
     """A new CV holding a copy of the profile's content; later profile edits do not change it."""
     profile = await get_profile(profiles, profile_id)
-    template = await require_template(renderer, template_id or DEFAULT_TEMPLATE_ID)
+    template = await catalog.require(template_id or DEFAULT_TEMPLATE_ID)
     await require_room("documents", plan, documents)
     return await documents.create(
         profile_id=profile.id,
@@ -52,7 +51,7 @@ async def create_document(
 
 async def update_document(
     documents: DocumentRepository,
-    renderer: RendererClient,
+    catalog: TemplateCatalog,
     jobs: JobRepository,
     document_id: uuid.UUID,
     *,
@@ -70,7 +69,7 @@ async def update_document(
     if name is not None:
         values["name"] = name
     if template_id is not None:
-        values["template_id"] = (await require_template(renderer, template_id)).id
+        values["template_id"] = (await catalog.require(template_id)).id
     if content is not None:
         values["content"] = content.model_dump(mode="json")
     if job_id is not None:

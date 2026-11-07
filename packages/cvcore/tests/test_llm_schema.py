@@ -3,7 +3,7 @@ from typing import Any, Literal
 import pytest
 from pydantic import BaseModel, Field
 
-from cvcore.ai import DraftAnswers, JobAnalysis, TailoredCv
+from cvcore.ai import DraftAnswers, GeneratedTemplate, JobAnalysis, RevisedTemplate, TailoredCv
 from cvcore.llm_schema import llm_schema
 from cvcore.models import CvContent
 
@@ -28,7 +28,10 @@ def walk(node: dict[str, Any]) -> list[dict[str, Any]]:
     return nodes
 
 
-@pytest.mark.parametrize("model", [CvContent, JobAnalysis, TailoredCv, DraftAnswers])
+@pytest.mark.parametrize(
+    "model",
+    [CvContent, JobAnalysis, TailoredCv, DraftAnswers, GeneratedTemplate, RevisedTemplate],
+)
 def test_output_models_use_only_the_shared_subset(model: type[BaseModel]) -> None:
     schema = llm_schema(model)
 

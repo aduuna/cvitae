@@ -8,11 +8,13 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.db.models import Document, DocumentVersion, Profile, Subscription, User
+from api.db.models import Document, DocumentVersion, Profile, Subscription, User, UserTemplate
 from api.repositories.ai_runs import AiRunRepository
 from api.repositories.documents import DocumentRepository, DocumentVersionRepository
 from api.repositories.profiles import ProfileRepository
 from api.repositories.subscriptions import SubscriptionRepository
+from api.repositories.uploads import UploadRepository
+from api.repositories.user_templates import UserTemplateRepository
 from api.repositories.users import UserRepository
 from api.repositories.webhooks import WebhookRepository
 
@@ -185,3 +187,71 @@ async def test_list_pages_use_the_user_updated_index(
     )
 
     assert index in "\n".join(plan.all())
+
+
+async def test_user_templates_are_scoped_to_their_owner(db_session: AsyncSession) -> None:
+    ada, bob = await user(db_session, "ada@example.com"), await user(db_session, "bob@example.com")
+    owner = UserTemplateRepository(db_session, ada.id)
+    ready = await owner.create(
+        slug="u-aaaaaaaaaa",
+        name="Ready",
+        description="",
+        main_typ="#let x = 1",
+        paper_sizes=["a4"],
+        target_pages=1,
+        status="ready",
+        prompt_version="v",
+    )
+    draft = await owner.create(
+        slug="u-bbbbbbbbbb",
+        name="Draft",
+        description="",
+        main_typ="#let x = 2",
+        paper_sizes=["a4"],
+        target_pages=1,
+        status="draft",
+        prompt_version="v",
+    )
+    theirs = UserTemplateRepository(db_session, bob.id)
+
+    assert await theirs.get(ready.id) is None
+    assert await theirs.get_by_slug("u-aaaaaaaaaa") is None
+    assert await theirs.get_by_slug("u-bbbbbbbbbb") is None
+    assert await theirs.list_ready() == []
+    assert await theirs.count() == 0
+    assert await theirs.delete(ready.id) is False
+    await theirs.delete_drafts()
+    assert await owner.get_by_slug("u-bbbbbbbbbb") == draft
+    # Only ready templates count and are listed; the owner's drafts are not.
+    assert await owner.count() == 1
+    assert [t.slug for t in await owner.list_ready()] == ["u-aaaaaaaaaa"]
+    await owner.delete_drafts()
+    assert await owner.get_by_slug("u-bbbbbbbbbb") is None
+    assert await owner.get_by_slug("u-aaaaaaaaaa") == ready
+
+
+async def test_a_template_goes_with_its_owner_and_survives_its_upload(
+    db_session: AsyncSession,
+) -> None:
+    ada = await user(db_session, "ada@example.com")
+    upload = await UploadRepository(db_session, ada.id).create(
+        storage_key="uploads/x", filename="cv.pdf", mime_type="application/pdf", size_bytes=1
+    )
+    row = await UserTemplateRepository(db_session, ada.id).create(
+        slug="u-cccccccccc",
+        name="T",
+        description="",
+        main_typ="x",
+        paper_sizes=["a4"],
+        target_pages=1,
+        status="ready",
+        upload_id=upload.id,
+        prompt_version="v",
+    )
+
+    await UploadRepository(db_session, ada.id).delete(upload.id)
+    await db_session.refresh(row)
+    assert row.upload_id is None
+    await db_session.execute(delete(User).where(User.id == ada.id))
+
+    assert (await db_session.scalars(select(UserTemplate))).all() == []

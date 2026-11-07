@@ -33,6 +33,8 @@ class PlanInfo(BaseModel):
     label: str
     documents: int
     profiles: int
+    templates: int
+    """Custom templates."""
     ai_runs: int
     """Per calendar month (UTC)."""
 
@@ -79,6 +81,7 @@ async def get_client_config(settings: AppSettings, providers: Providers) -> Clie
                 label=p.label,
                 documents=p.documents,
                 profiles=p.profiles,
+                templates=p.templates,
                 ai_runs=p.ai_runs,
             )
             for p in PLANS.values()

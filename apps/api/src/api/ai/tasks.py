@@ -7,7 +7,9 @@ Prompts and outputs are never logged.
 import logging
 import time
 import uuid
-from collections.abc import Sequence
+from collections.abc import AsyncGenerator, Sequence
+from contextlib import asynccontextmanager
+from decimal import Decimal
 from typing import Any, Protocol
 
 from pydantic import BaseModel
@@ -18,10 +20,20 @@ from api.ai.prompts import draft_answers as answers_prompt
 from api.ai.prompts import edit_cv as edit_prompt
 from api.ai.prompts import extract_profile as extract_prompt
 from api.ai.prompts import tailor_cv as tailor_prompt
-from api.errors import ProviderError, ProviderTimeout
+from api.ai.prompts import template as template_prompt
+from api.errors import AppError, ProviderError, ProviderTimeout
 from api.ports.llm.base import LLMProvider, LLMRequest, LLMResult
 from api.services.ai_models import ModelChoice
-from cvcore.ai import BulletChange, CvEdit, DraftAnswers, ImportedCv, JobAnalysis, TailoredCv
+from cvcore.ai import (
+    BulletChange,
+    CvEdit,
+    DraftAnswers,
+    GeneratedTemplate,
+    ImportedCv,
+    JobAnalysis,
+    RevisedTemplate,
+    TailoredCv,
+)
 from cvcore.models import CvContent
 from cvcore.wire import WireCvEdit, WireImportedCv, WireTailoredCv, from_wire
 
@@ -217,3 +229,123 @@ async def draft_answers(
         max_output_tokens=12000,
     )
     return await run(choice.provider, runs, request, answers_prompt.PROMPT_VERSION)
+
+
+class CombinedRun:
+    """Records several provider calls as one `ai_runs` row, for work that takes more than one
+    call yet is one AI run to the user (a custom template: draft, repairs, refinement). It stands
+    in for the run recorder: `run()` hands it each call's values, and `finish` writes the one row,
+    with tokens, cost and duration summed."""
+
+    def __init__(self, runs: RunRecorder) -> None:
+        self._runs = runs
+        self.user_id = runs.user_id
+        self._calls: list[dict[str, Any]] = []
+
+    async def checkpoint(self) -> None:
+        await self._runs.checkpoint()
+
+    async def record(self, **values: Any) -> None:
+        self._calls.append(values)
+
+    @property
+    def calls(self) -> int:
+        return len(self._calls)
+
+    async def finish(self, *, succeeded: bool, error_code: str | None = None) -> None:
+        """Write the row. The model and provider are the last call's; a failed row carries
+        `error_code`, else the code of the last failed call."""
+        if not self._calls:
+            return
+        last = self._calls[-1]
+        costs = [c["cost_usd"] for c in self._calls if c.get("cost_usd") is not None]
+        await self._runs.record(
+            task=last["task"],
+            provider=last["provider"],
+            model=last["model"],
+            prompt_version=last["prompt_version"],
+            status="succeeded" if succeeded else "failed",
+            error_code=None if succeeded else (error_code or last.get("error_code")),
+            input_tokens=sum(c.get("input_tokens", 0) for c in self._calls),
+            output_tokens=sum(c.get("output_tokens", 0) for c in self._calls),
+            cost_usd=sum(costs, Decimal(0)) if costs else None,
+            duration_ms=sum(c.get("duration_ms", 0) for c in self._calls),
+        )
+
+
+@asynccontextmanager
+async def combined_run(runs: RunRecorder) -> AsyncGenerator[CombinedRun]:
+    """One `ai_runs` row for everything done inside: succeeded when the block returns, failed
+    (with the error's code) when it raises."""
+    combined = CombinedRun(runs)
+    try:
+        yield combined
+    except AppError as exc:
+        await combined.finish(
+            succeeded=False, error_code=str(exc.details.get("error_code", exc.code))
+        )
+        raise
+    except BaseException:
+        await combined.finish(succeeded=False, error_code="internal_error")
+        raise
+    await combined.finish(succeeded=True)
+
+
+async def draft_template(
+    choice: ModelChoice, runs: RunRecorder, *, pdf: bytes, library: template_prompt.Library
+) -> LLMResult[GeneratedTemplate]:
+    """A Typst template in the design of the PDF. Not CV content: no fact guard; the checks in
+    cvcore.user_templates and a test render stand in for it."""
+    request = LLMRequest(
+        task="template",
+        system=template_prompt.system(library),
+        user_text=template_prompt.build_draft(),
+        output_model=GeneratedTemplate,
+        model=choice.option.model,
+        document=pdf,
+    )
+    return await run(choice.provider, runs, request, template_prompt.PROMPT_VERSION)
+
+
+async def repair_template(
+    choice: ModelChoice,
+    runs: RunRecorder,
+    *,
+    source: str,
+    problems: Sequence[str],
+    library: template_prompt.Library,
+) -> LLMResult[RevisedTemplate]:
+    """The source corrected for the listed problems. Sends no CV: only the source and the
+    problems, which never repeat the upload's text."""
+    request = LLMRequest(
+        task="template",
+        system=template_prompt.system(library),
+        user_text=template_prompt.build_repair(source, problems),
+        output_model=RevisedTemplate,
+        model=choice.option.model,
+        effort="low",
+    )
+    return await run(choice.provider, runs, request, template_prompt.PROMPT_VERSION)
+
+
+async def refine_template(
+    choice: ModelChoice,
+    runs: RunRecorder,
+    *,
+    pdf: bytes,
+    page: bytes,
+    source: str,
+    library: template_prompt.Library,
+) -> LLMResult[RevisedTemplate]:
+    """The source corrected to match the original's design more closely, from the original PDF
+    and a PNG of page 1 of the template rendered with sample data."""
+    request = LLMRequest(
+        task="template",
+        system=template_prompt.system(library),
+        user_text=template_prompt.build_refine(source),
+        output_model=RevisedTemplate,
+        model=choice.option.model,
+        document=pdf,
+        images=(page,),
+    )
+    return await run(choice.provider, runs, request, template_prompt.PROMPT_VERSION)

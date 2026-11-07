@@ -1,4 +1,5 @@
-"""PDF pages as PNG images, for providers that read images but not PDFs (MiMo)."""
+"""PDF pages as PNG images (for providers that read images but not PDFs, and for comparing a
+rendered template with the CV it copies) and the text layer of a PDF."""
 
 import io
 
@@ -27,5 +28,20 @@ def pdf_to_pngs(data: bytes, max_pages: int = MAX_PAGES, scale: float = SCALE) -
             bitmap.to_pil().save(buffer, format="PNG", optimize=True)
             images.append(buffer.getvalue())
         return images
+    finally:
+        document.close()
+
+
+def pdf_text(data: bytes) -> tuple[str, int]:
+    """The text layer of a PDF, page after page, and its page count. Empty text for a scan."""
+    try:
+        document = pypdfium2.PdfDocument(data)
+    except pypdfium2.PdfiumError as exc:
+        raise ValidationFailed(
+            "This PDF could not be read. Save it again from your editor and try again."
+        ) from exc
+    try:
+        pages = [document[index].get_textpage().get_text_range() for index in range(len(document))]
+        return "\n".join(pages), len(document)
     finally:
         document.close()
