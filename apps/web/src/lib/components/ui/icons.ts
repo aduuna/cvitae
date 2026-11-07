@@ -22,6 +22,7 @@ import PanelLeftOpen from '@lucide/svelte/icons/panel-left-open';
 import PenLine from '@lucide/svelte/icons/pen-line';
 import Puzzle from '@lucide/svelte/icons/puzzle';
 import Plus from '@lucide/svelte/icons/plus';
+import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 import RotateCcwClock from '@lucide/svelte/icons/rotate-ccw-clock';
 import Send from '@lucide/svelte/icons/send';
 import Sparkles from '@lucide/svelte/icons/sparkles';
@@ -75,7 +76,9 @@ export const icons = {
 	'ai-edit': Sparkles,
 	send: Send,
 	undo: Undo2,
-	extension: Puzzle
+	extension: Puzzle,
+	'ai-draft': Sparkles,
+	redraft: RefreshCw
 } as const;
 
 export type IconName = keyof typeof icons;

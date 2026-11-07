@@ -4,7 +4,7 @@
 	import { CONTACT_EMAIL, SITE_NAME, SITE_URL } from '#lib/site.ts';
 
 	/** Change it whenever the policy changes. */
-	const UPDATED = '18 October 2026';
+	const UPDATED = '7 November 2026';
 	const mail = `mailto:${CONTACT_EMAIL}`;
 </script>
 
@@ -83,19 +83,21 @@
 			<h2 id="use" class="text-lg font-semibold">How we use it</h2>
 			<p>
 				Only to run the service for you: to keep and show your profiles and CVs, render them as
-				PDFs, tailor and edit them when you ask, take payments, apply your plan's limits and keep
-				the service secure. We do not train AI models on your data.
+				PDFs, tailor and edit them when you ask, draft answers to application questions when you
+				ask, take payments, apply your plan's limits and keep the service secure. We do not train AI
+				models on your data.
 			</p>
 		</section>
 
 		<section class="flex flex-col gap-3" aria-labelledby="ai">
 			<h2 id="ai" class="text-lg font-semibold">AI providers</h2>
 			<p>
-				When you import a CV, tailor a CV or ask for an edit, what that task needs (the CV, your
-				profile, the job ad, your request) is sent to the company behind the AI model you choose:
-				Xiaomi for MiMo models, Anthropic for Claude models, or Google for Gemini models. They
-				process it to return the result, under their terms for business customers of their APIs. For
-				Gemini we ask Google not to store the request.
+				When you import a CV, tailor a CV, ask for an edit or have the extension draft answers to an
+				application's questions, what that task needs (the CV, your profile, the job ad, your
+				request, the questions) is sent to the company behind the AI model you choose: Xiaomi for
+				MiMo models, Anthropic for Claude models, or Google for Gemini models. They process it to
+				return the result, under their terms for business customers of their APIs. For Gemini we ask
+				Google not to store the request.
 			</p>
 		</section>
 
@@ -104,8 +106,8 @@
 			<ul class="flex list-disc flex-col gap-2 pl-5">
 				<li>
 					Connecting it gives it a key that works only for what the extension does: reading your
-					profiles and CVs, exporting a CV as a PDF and saving job ads. It cannot change or delete
-					anything.
+					profiles and CVs, exporting a CV as a PDF, saving job ads and drafting answers to
+					application questions, which uses your AI usage. It cannot change or delete anything.
 				</li>
 				<li>
 					In your browser it keeps only that key, your account's email, the profile or CV you last
@@ -114,12 +116,22 @@
 				</li>
 				<li>
 					On the job sites it supports, and on sites you allow, it looks for an application form so
-					it can offer to fill it. It reads a form's fields, or the job ad, only when you choose
-					Fill form, Fill fields, Attach CV or Save job ad.
+					it can offer to fill it. It reads a form's fields, its questions or the job ad only when
+					you choose Fill form, Fill fields, Find questions, Draft answers, Attach CV or Save job
+					ad.
 				</li>
 				<li>
 					It does not record which pages you visit. Page content leaves your browser only when you
-					save a job ad: the ad's title, company, address and text go to your account.
+					save a job ad, when the ad's title, company, address and text go to your account, or when
+					you choose Draft answers or Redraft.
+				</li>
+				<li>
+					Draft answers and Redraft send the questions you ticked, their length limits (for Redraft,
+					also the draft it replaces) and the job ad on the page (unless you saved that job) to
+					Chameleon vitae, which sends them with your profile or CV, but without your email, phone
+					number or links, to the company behind your AI model. They are used to write the drafts
+					and are not stored, and neither are the drafts: they stay in the extension's panel until
+					you leave the page.
 				</li>
 				<li>
 					It writes into a form only when you ask, and never submits it. What it fills is then
