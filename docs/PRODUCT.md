@@ -170,8 +170,8 @@ the model and regenerating works.
   - **Markdown**: the same content as one Markdown text in a code editor (format below). Every valid
     edit updates the content and the preview, exactly as a form edit would. Lines the editor cannot
     read are marked inline with the line and a message, and nothing is saved until they are fixed.
-    Leaving Markdown while errors remain asks before discarding the invalid text; the last valid
-    content is kept.
+    Leaving Markdown while errors remain (to another mode, another page or by closing the tab)
+    asks before discarding the invalid text; the last valid content is kept.
   - **Typst**: the CV's layout as Typst code, in a code editor with two tabs: `main.typ` (editable)
     and `data.json` (read-only, the content as the layout receives it). Until the user edits it,
     `main.typ` shows the template's code. The first edit gives the CV a custom layout; the top bar
@@ -180,7 +180,8 @@ the model and regenerating works.
 - Content stays structured in every mode, so tailoring, placeholders, the fact guard and version
   history work the same whatever mode the user edits in.
 - Switching template on a CV with a custom layout asks first ("Switching to Compact replaces your
-  custom layout."), then drops the custom layout.
+  custom layout."), then drops the custom layout. A removed layout (switch or reset) stays in
+  version history as a version kept before the change, so it can be restored.
 - Preview updates within about one second of the user stopping typing. On a compile error the last good
   preview stays visible with an error panel listing line and message.
 - Click to edit: hovering the preview marks the part under the pointer, and a click opens the form
@@ -274,7 +275,8 @@ Date: 2023-05
 ```
 
 - `Dates:` is `start to end`, `start to present`, or one value when start and end are the same.
-  A bare `start to` is an empty end date, which shows as present like `to present`.
+  A bare `start to` is an empty end date, which shows as present like `to present`. With no start
+  date, `to present` is the text "present" (an open range with no start shows nothing), kept as typed.
 - Comma lists (`Stack:` and skills) split on commas; write `\,` for a comma inside an item.
 - A bullet that continues over several lines indents the extra lines by two spaces.
 - Converting content to Markdown and back changes nothing the CV shows. Bullets and entries keep

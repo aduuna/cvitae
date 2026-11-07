@@ -891,6 +891,10 @@ it is never stored or sent. Typst mode saves `layout`:
 - `PATCH /documents/{id}` with `layout` (a string, at most 100,000 characters) sets the custom layout;
   `layout: null` removes it. Leaving `layout` out keeps it.
 - Changing `template_id` removes the custom layout, unless the same request sets `layout`.
+  A layout that a request removes (a template switch, or `layout: null`) is first kept as an
+  `autosave` version with the content, unless the latest version already holds both, so a
+  restore brings it back. AI edits and restores use the same snapshot (`services/snapshots.py`),
+  which always carries the layout and compares content and layout together.
 - Preview and export send `{"main.typ": layout, "data.json": ...}` without `template_id` when a layout
   is set, so the layout runs in the same sandbox as everything else; it can only import `_lib/` and
   its own root, and diagnostics name `main.typ` with line and column.
@@ -945,8 +949,7 @@ require a valid Firebase ID token. FastAPI serves OpenAPI at `/api/openapi.json`
 | `POST /templates/custom` (multipart: `file` or `upload_id`) | Draft a template from a PDF with Claude (see Custom templates): 201 with the draft (`id`, `name`, `description`, `status` `draft`, `paper_sizes`, `target_pages`, `upload_id`, timestamps, `ai_model`, `provider`, `model`). One AI run, up to about two minutes. 402 at a plan limit (`details.resource` `templates` or `ai_runs`), 422 for a DOCX or a PDF that cannot be read (`validation_failed`) or a draft that cannot be made to pass (`template_failed`), 503 `claude_unavailable` without a Claude key |
 | `PATCH /templates/custom/{id}` | `name`, `description` and `status: "ready"` (confirms a draft; 402 when there is no room); returns the template |
 | `DELETE /templates/custom/{id}` | Delete a template or discard a draft; the user's CVs switch to their default template, or Classic |
-| `GET /templates/custom/{id}/source` | `{id, name, main_typ}`: the Typst source of one of the user's templates, to read |
-| `GET /templates/{id}/source` | `{id, source}`: the `main.typ` of a built-in template or one of the user's ready ones, where a CV's custom layout starts; another user's is 404 |
+| `GET /templates/{id}/source` | `{id, source}`: the `main.typ` of a built-in template or one of the user's ready ones, to read and where a CV's custom layout starts ("View source" and Typst mode both use it); another user's template, a draft or an unknown custom id is 404 |
 | `POST /billing/checkout` | Paystack transaction initialize with the Pro plan; returns `authorization_url`; 409 when already on Pro, or when a failed renewal is waiting for a new card (the manage link fixes that) |
 | `POST /billing/verify` (reference) | Verify after redirect back from Paystack; switches to Pro at once and returns the current plan. Repeatable: a payment is applied once, by this call or by its `charge.success` webhook (both record the same `webhook_events` key), so an old reference cannot bring Pro back after it ended. |
 | `GET /billing/manage-link` | Paystack hosted subscription management link |

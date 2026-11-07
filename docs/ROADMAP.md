@@ -193,7 +193,7 @@ Backend:
   save as a draft, confirm, delete); `TemplateCatalog` in `services/templates.py` so every render
   path and every place that names a template resolves a custom id, and only its owner's; `images` on
   `LLMRequest` for the Claude adapter; `GET /templates` with the user's templates, and
-  `POST/PATCH/DELETE /templates/custom`, `GET /templates/custom/{id}/source`; `FakeLLMProvider`
+  `POST/PATCH/DELETE /templates/custom`, `GET /templates/{id}/source`; `FakeLLMProvider`
   and `FakeRendererClient` support; `TEMPLATES_DIR` and the image's template files. Service and API
   tests with the fakes, repository scoping tests, a live test next to `test_llm_live.py`.
 - renderer: tests that a user-style template compiles through the sandbox.
