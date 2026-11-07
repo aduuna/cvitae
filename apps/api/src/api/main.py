@@ -47,6 +47,7 @@ from api.routers import (
     uploads,
     webhooks,
 )
+from api.security import SecurityHeaders, SecurityHeadersMiddleware
 from api.services.billing import Billing
 from api.settings import Settings
 
@@ -164,6 +165,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.providers = build_providers(settings)
     app.state.billing = billing_setup
     install_error_handlers(app)
+    app.add_middleware(SecurityHeadersMiddleware, security=SecurityHeaders.for_settings(settings))
 
     v1 = APIRouter(prefix="/api/v1")
 
