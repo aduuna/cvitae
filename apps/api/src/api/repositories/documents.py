@@ -1,8 +1,10 @@
 import uuid
 from collections.abc import Sequence
+from datetime import datetime
 from typing import Any
 
-from sqlalchemy import ColumnElement, func, select
+from sqlalchemy import ColumnElement, delete, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import Document, DocumentVersion
 from api.repositories.base import UserScopedRepository
@@ -65,3 +67,22 @@ class DocumentVersionRepository(UserScopedRepository[DocumentVersion]):
         self.session.add(row)
         await self.session.flush()
         return row
+
+
+class VersionPruner:
+    """Deletes old autosave versions of every user's CVs, for the scheduled job. Unscoped by
+    nature, like the users repository: it is not reachable from a signed-in request, and does
+    one thing."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def delete_autosaves_before(self, cutoff: datetime) -> int:
+        """Remove the autosave versions created before `cutoff`; how many were removed. Versions
+        saved by hand, made by tailoring or by a restore are never touched."""
+        result = await self.session.execute(
+            delete(DocumentVersion).where(
+                DocumentVersion.reason == "autosave", DocumentVersion.created_at < cutoff
+            )
+        )
+        return getattr(result, "rowcount", 0) or 0

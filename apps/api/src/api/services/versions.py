@@ -1,12 +1,23 @@
 """Version history of a CV: explicit saves, restores and the snapshots that make restores safe."""
 
+import logging
 import uuid
 from collections.abc import Sequence
+from datetime import datetime, timedelta
 
 from api.db.models import Document, DocumentVersion
 from api.errors import NotFound
-from api.repositories.documents import DocumentRepository, DocumentVersionRepository
+from api.repositories.documents import (
+    DocumentRepository,
+    DocumentVersionRepository,
+    VersionPruner,
+)
 from api.services.documents import get_document
+
+logger = logging.getLogger(__name__)
+
+AUTOSAVE_RETENTION = timedelta(days=7)
+"""Autosave versions older than this are pruned by the daily scheduled job."""
 
 
 async def list_versions(
@@ -58,3 +69,11 @@ async def _snapshot(
         content=dict(document.content),
         source_files=document.source_files,
     )
+
+
+async def prune_autosaves(pruner: VersionPruner, now: datetime) -> int:
+    """Delete every user's autosave versions older than a week; how many went. Versions the user
+    saved, tailoring made or a restore made stay for as long as their CV does."""
+    deleted = await pruner.delete_autosaves_before(now - AUTOSAVE_RETENTION)
+    logger.info("autosave versions pruned", extra={"deleted": deleted})
+    return deleted

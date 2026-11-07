@@ -11,12 +11,16 @@ from api.billing.plans import Plan
 from api.db.base import utcnow
 from api.db.models import User
 from api.errors import ServiceUnavailable
-from api.ports.auth import AuthVerifier, bearer_token
+from api.ports.auth import AuthVerifier, ServiceCallerVerifier, bearer_token
 from api.ports.llm.registry import ProviderRegistry
 from api.ports.renderer import RendererClient
 from api.ports.storage import Storage
 from api.repositories.ai_runs import AiRunRepository
-from api.repositories.documents import DocumentRepository, DocumentVersionRepository
+from api.repositories.documents import (
+    DocumentRepository,
+    DocumentVersionRepository,
+    VersionPruner,
+)
 from api.repositories.extension_tokens import ExtensionTokenLookup, ExtensionTokenRepository
 from api.repositories.jobs import JobRepository
 from api.repositories.profiles import ProfileRepository
@@ -48,6 +52,18 @@ Session = Annotated[AsyncSession, Depends(get_session, scope="function")]
 
 def get_auth_verifier(request: Request) -> AuthVerifier:
     return request.app.state.auth_verifier
+
+
+async def scheduler_call(request: Request) -> None:
+    """The `/internal` routes accept only Cloud Scheduler's service account (an OIDC token), never
+    a Firebase session. They are off until the audience and the account are configured."""
+    verifier: ServiceCallerVerifier | None = request.app.state.scheduler_verifier
+    if verifier is None:
+        raise ServiceUnavailable("Scheduled jobs are not set up on this server.")
+    await verifier.verify(request)
+
+
+SchedulerCall = Depends(scheduler_call)
 
 
 def get_renderer(request: Request) -> RendererClient:
@@ -148,6 +164,10 @@ def get_subscriptions_for(session: Session) -> billing.SubscriptionsFor:
     return scoped
 
 
+def get_version_pruner(session: Session) -> VersionPruner:
+    return VersionPruner(session)
+
+
 def get_webhooks(session: Session) -> WebhookRepository:
     return WebhookRepository(session)
 
@@ -165,6 +185,7 @@ UserTemplates = Annotated[UserTemplateRepository, Depends(get_user_templates)]
 AiRuns = Annotated[AiRunRepository, Depends(get_ai_runs)]
 Subscriptions = Annotated[SubscriptionRepository, Depends(get_subscriptions)]
 SubscriptionsFor = Annotated[billing.SubscriptionsFor, Depends(get_subscriptions_for)]
+VersionPrunerDep = Annotated[VersionPruner, Depends(get_version_pruner)]
 Webhooks = Annotated[WebhookRepository, Depends(get_webhooks)]
 ExtensionTokens = Annotated[ExtensionTokenRepository, Depends(get_extension_tokens)]
 
