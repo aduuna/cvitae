@@ -6,10 +6,9 @@ from pathlib import Path
 from typing import Any
 
 from httpx import AsyncClient
-from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.db.models import AiRun, Document
+from api.db.models import AiRun
 from api.ports.llm.fake import FakeLLMProvider
 
 FIXTURES = Path(__file__).resolve().parents[3] / "templates" / "fixtures"
@@ -116,24 +115,21 @@ async def test_deleting_the_job_unlinks_it(
     assert (await get_ats(client, doc["id"])).json() == {"job": None, "report": None}
 
 
-async def test_an_ejected_cv_has_no_score(
-    client: AsyncClient, sample_content: dict[str, Any], db_session: AsyncSession
+async def test_a_cv_with_a_custom_layout_has_a_score(
+    client: AsyncClient, sample_content: dict[str, Any], mimo: FakeLLMProvider
 ) -> None:
     doc = await new_cv(client, sample_content)
-    await db_session.execute(
-        update(Document).where(Document.id == uuid.UUID(doc["id"])).values(mode="ejected")
-    )
-    await db_session.commit()
+    job = await new_job(client)
+    await link(client, doc["id"], job["id"])
+    await analyze(client, job["id"])
+    plain = (await get_ats(client, doc["id"])).json()["report"]
+    await client.patch(f"/api/v1/documents/{doc['id']}", json={"layout": "#let x = 1"})
 
     response = await get_ats(client, doc["id"])
 
-    assert response.status_code == 409
-    assert response.json()["error"]["message"] == (
-        "The ATS score reads the form, and this CV is edited as Typst."
-    )
-    # Linking a job still works: it names the PDF.
-    job = await new_job(client)
-    assert (await link(client, doc["id"], job["id"])).status_code == 200
+    # The score reads the CV's content, which a layout does not change.
+    assert response.status_code == 200
+    assert response.json()["report"] == plain
 
 
 async def test_jobs_and_scores_are_private(

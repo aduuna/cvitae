@@ -1,6 +1,6 @@
-"""A user's own template reaches the renderer as an ejected CV does: `main.typ` and `data.json` in
-`files`, no `template_id`. It compiles against the shared helpers like a built-in template and
-runs under the same sandbox (docs/BACKEND.md, Custom templates)."""
+"""A user's own template reaches the renderer as a CV's custom layout does: `main.typ` and
+`data.json` in `files`, no `template_id`. It compiles against the shared helpers like a built-in
+template and runs under the same sandbox (docs/BACKEND.md, Custom templates)."""
 
 import json
 from collections.abc import Callable

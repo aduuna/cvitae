@@ -28,7 +28,7 @@ from api.services import user_templates as custom
 from api.services.ai_models import choose_claude_model
 from api.services.templates import preview_template
 from api.services.uploads import MAX_UPLOAD_BYTES
-from cvcore.rendering import Paper, SvgPages, TemplateMeta
+from cvcore.rendering import Paper, SvgPages, TemplateMeta, TemplateSource
 
 if TYPE_CHECKING:
     from api.db.models import UserTemplate
@@ -202,3 +202,10 @@ async def get_template_preview(
     return await preview_template(
         profiles, catalog, template_id, sample_path=settings.sample_profile_path, paper=paper
     )
+
+
+@router.get("/{template_id}/source")
+async def get_template_source(template_id: str, catalog: Catalog) -> TemplateSource:
+    """The main.typ of a built-in template or one of the user's own, where a CV's custom layout
+    starts. Another user's template is a 404."""
+    return await catalog.source(template_id)

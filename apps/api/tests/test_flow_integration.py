@@ -119,3 +119,48 @@ async def test_tailored_fixture_cv_fits_one_page(
 
     assert tailored.status_code == 201
     assert preview.json()["page_count"] == 1
+
+
+async def test_a_custom_layout_compiles_exports_and_leaves_the_content_editable(
+    client: AsyncClient, real_renderer: HttpRendererClient, sample_content: dict[str, Any]
+) -> None:
+    profile = await client.post("/api/v1/profiles", json={"content": sample_content})
+    created = await client.post("/api/v1/documents", json={"profile_id": profile.json()["id"]})
+    doc = f"/api/v1/documents/{created.json()['id']}"
+
+    # Typst mode starts from the template's code; an edit makes it this CV's own layout.
+    source = (await client.get("/api/v1/templates/classic/source")).json()["source"]
+    assert source.startswith("// Classic")
+    layout = source.replace("// Classic", "// Classic, edited", 1)
+    own = await client.patch(doc, json={"layout": layout})
+    assert (own.json()["custom_layout"], own.json()["layout"]) == (True, layout)
+    own_preview = await client.post(f"{doc}/preview")
+    assert own_preview.status_code == 200
+    assert own_preview.json()["page_count"] == 1
+
+    # A layout the renderer cannot compile is reported with its line, and the CV is safe.
+    broken = layout + '\n#panic("stop")\n'
+    await client.patch(doc, json={"layout": broken})
+    failed = await client.post(f"{doc}/preview")
+    assert failed.status_code == 422
+    [diagnostic] = failed.json()["error"]["details"]["diagnostics"]
+    assert diagnostic["file"] == "main.typ"
+    assert diagnostic["line"] == len(layout.split("\n")) + 1
+    await client.patch(doc, json={"layout": layout})
+
+    # The content is still edited as structured data, and the layout reads it.
+    content = (await client.get(doc)).json()["content"]
+    content["summary"] = "Data engineer who ships."
+    await client.patch(doc, json={"content": content})
+    edited = (await client.post(f"{doc}/preview")).json()
+    assert edited["pages"][0] != own_preview.json()["pages"][0]
+    data = (await client.get(f"{doc}/data.json")).json()
+    assert data["basics"]["name"] == "Ama Owusu-Mensah"
+
+    forced = await client.get(f"{doc}/export.pdf?force=true")
+    assert forced.status_code == 200
+    assert forced.content.startswith(b"%PDF-")
+
+    # Switching template replaces the layout.
+    switched = (await client.patch(doc, json={"template_id": "compact"})).json()
+    assert (switched["template_id"], switched["layout"]) == ("compact", None)

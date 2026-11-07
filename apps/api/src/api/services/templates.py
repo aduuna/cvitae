@@ -14,7 +14,7 @@ from api.repositories.profiles import ProfileRepository
 from api.repositories.user_templates import UserTemplateRepository
 from cvcore.models import CvContent
 from cvcore.render import to_render_json
-from cvcore.rendering import Paper, SvgPages, TemplateMeta
+from cvcore.rendering import Paper, SvgPages, TemplateMeta, TemplateSource
 from cvcore.user_templates import is_custom_id
 
 DEFAULT_TEMPLATE_ID = "classic"
@@ -76,6 +76,14 @@ class TemplateCatalog:
         """The template's metadata, for a CV or default that is about to use it."""
         return (await self.get(template_id)).meta
 
+    async def source(self, template_id: str) -> TemplateSource:
+        """The main.typ of a template the user can use: where a CV's custom layout starts. The
+        user's own template is read from its row, a built-in one from the renderer."""
+        template = await self.get(template_id)
+        if template.source is not None:
+            return TemplateSource(id=template.meta.id, source=template.source)
+        return await self.renderer.template_source(template.meta.id)
+
     async def render_svg(
         self,
         template_id: str,
@@ -83,13 +91,24 @@ class TemplateCatalog:
         paper: Paper,
         *,
         source_links: bool = False,
+        layout: str | None = None,
     ) -> SvgPages:
+        """`layout`: a CV's own main.typ, which replaces the template's. It stands on its own, so
+        the template (which may since have been deleted) is not looked up."""
+        if layout is not None:
+            return await self.renderer.render_svg(
+                template_id, data, paper, source_links=source_links, source=layout
+            )
         template = await self.get(template_id)
         return await self.renderer.render_svg(
             template.meta.id, data, paper, source_links=source_links, source=template.source
         )
 
-    async def render_pdf(self, template_id: str, data: dict[str, Any], paper: Paper) -> bytes:
+    async def render_pdf(
+        self, template_id: str, data: dict[str, Any], paper: Paper, *, layout: str | None = None
+    ) -> bytes:
+        if layout is not None:
+            return await self.renderer.render_pdf(template_id, data, paper, source=layout)
         template = await self.get(template_id)
         return await self.renderer.render_pdf(template.meta.id, data, paper, source=template.source)
 

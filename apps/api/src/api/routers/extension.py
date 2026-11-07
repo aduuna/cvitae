@@ -79,7 +79,7 @@ class ExtensionSession(BaseModel):
     display_name: str | None
     profiles: list[SourceProfile]
     documents: list[SourceDocument]
-    """Form-mode CVs, newest first."""
+    """CVs, newest first."""
     jobs: list[JobSummary]
     """Saved jobs, so the extension can match the page it is on to the CV made for it."""
 

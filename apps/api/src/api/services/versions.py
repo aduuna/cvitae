@@ -30,20 +30,17 @@ async def restore_version(
     document_id: uuid.UUID,
     number: int,
 ) -> Document:
-    """Make version `number` the current content. Unsaved current content is kept as an
+    """Make version `number` the current content and layout. Unsaved current work is kept as an
     autosave version first, so a restore can itself be undone."""
     document = await get_document(documents, document_id)
     version = await versions.get_number(document.id, number)
     if version is None:
         raise NotFound(f"Version {number} of this CV does not exist.")
     latest = await versions.latest(document.id)
-    if latest is None or (latest.content, latest.source_files) != (
-        document.content,
-        document.source_files,
-    ):
+    if latest is None or (latest.content, latest.layout) != (document.content, document.layout):
         await _snapshot(versions, document, "autosave")
     document = await documents.update(
-        document, content=dict(version.content), source_files=version.source_files
+        document, content=dict(version.content), layout=version.layout
     )
     await _snapshot(versions, document, "restore")
     return document
@@ -56,5 +53,5 @@ async def _snapshot(
         document_id=document.id,
         reason=reason,
         content=dict(document.content),
-        source_files=document.source_files,
+        layout=document.layout,
     )

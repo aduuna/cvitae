@@ -1,4 +1,4 @@
-"""GET /templates and template previews with the default profile or the sample."""
+"""GET /templates, template previews with the default profile or the sample, and template source."""
 
 from typing import Any
 
@@ -57,5 +57,27 @@ async def test_preview_of_an_unknown_template(client: AsyncClient) -> None:
 async def test_preview_needs_sign_in(make_client: Any) -> None:
     async with make_client(user=None) as anonymous:
         response = await anonymous.get("/api/v1/templates/classic/preview")
+
+    assert response.status_code == 401
+
+
+async def test_template_source(client: AsyncClient) -> None:
+    response = await client.get("/api/v1/templates/compact/source")
+
+    assert response.status_code == 200
+    assert response.json()["id"] == "compact"
+    assert '#let cv = json("data.json")' in response.json()["source"]
+
+
+async def test_source_of_an_unknown_template(client: AsyncClient) -> None:
+    response = await client.get("/api/v1/templates/fancy/source")
+
+    assert response.status_code == 422
+    assert response.json()["error"]["message"] == "There is no template called fancy."
+
+
+async def test_source_needs_sign_in(make_client: Any) -> None:
+    async with make_client(user=None) as anonymous:
+        response = await anonymous.get("/api/v1/templates/classic/source")
 
     assert response.status_code == 401

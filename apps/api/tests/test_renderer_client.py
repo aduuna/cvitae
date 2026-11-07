@@ -64,11 +64,34 @@ async def test_a_users_own_template_travels_as_a_file() -> None:
     await client.render_svg("u-abcdefghij", DATA, "a4", source="#let x = 1")
     await client.render_pdf("u-abcdefghij", DATA, "us-letter", source="#let x = 1")
 
-    # The renderer gets main.typ with the data and no template id, like an ejected CV.
+    # The renderer gets main.typ with the data and no template id, like a CV with a custom layout.
     for body in seen:
         assert body["files"] == {"data.json": json.dumps(DATA), "main.typ": "#let x = 1"}
         assert body["template_id"] is None
     assert [body["paper"] for body in seen] == ["a4", "us-letter"]
+
+
+async def test_source_links_go_with_sent_code_too() -> None:
+    seen: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json={"pages": ["<svg/>"], "page_count": 1})
+
+    await client_for(handler).render_svg("classic", DATA, "a4", source="#mine", source_links=True)
+
+    assert seen[0]["files"] == {"data.json": json.dumps(DATA), "main.typ": "#mine"}
+    assert (seen[0]["template_id"], seen[0]["source_links"]) == (None, True)
+
+
+async def test_template_source() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/templates/classic/source"
+        return httpx.Response(200, json={"id": "classic", "source": "// Classic"})
+
+    source = await client_for(handler).template_source("classic")
+
+    assert (source.id, source.source) == ("classic", "// Classic")
 
 
 async def test_pdf_bytes() -> None:

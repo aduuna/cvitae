@@ -4,6 +4,7 @@ import re
 import unicodedata
 import uuid
 from dataclasses import dataclass
+from typing import Any
 from urllib.parse import quote
 
 from api.errors import Conflict
@@ -35,12 +36,16 @@ class Pdf:
 async def preview(
     documents: DocumentRepository, catalog: TemplateCatalog, document_id: uuid.UUID
 ) -> SvgPages:
-    """SVG pages of the saved CV, with each part linked to its form field so a click on the preview
-    can open it. Keeps the stored page count current."""
+    """SVG pages of the saved CV, in its custom layout if it has one, with each part linked to its
+    form field so a click on the preview can open it. Keeps the stored page count current."""
     document = await get_document(documents, document_id)
     content = CvContent.model_validate(document.content)
     pages = await catalog.render_svg(
-        document.template_id, to_render_json(content), DEFAULT_PAPER, source_links=True
+        document.template_id,
+        to_render_json(content),
+        DEFAULT_PAPER,
+        source_links=True,
+        layout=document.layout,
     )
     if document.page_count != pages.page_count:
         await documents.update(document, page_count=pages.page_count)
@@ -67,11 +72,19 @@ async def export_pdf(
             f"This CV still has {count} {noun}. Fill them in, or export anyway.",
             {"placeholders": [ref.model_dump() for ref in placeholders]},
         )
-    pdf = await catalog.render_pdf(document.template_id, to_render_json(content), DEFAULT_PAPER)
+    pdf = await catalog.render_pdf(
+        document.template_id, to_render_json(content), DEFAULT_PAPER, layout=document.layout
+    )
     job = await jobs.get(document.job_id) if document.job_id is not None else None
     return Pdf(
         content=pdf, filename=pdf_filename(content.basics.name, job.company if job else None)
     )
+
+
+async def render_data(documents: DocumentRepository, document_id: uuid.UUID) -> dict[str, Any]:
+    """The data.json a template or custom layout receives for the saved CV."""
+    document = await get_document(documents, document_id)
+    return to_render_json(CvContent.model_validate(document.content))
 
 
 def pdf_filename(name: str, company: str | None = None) -> str:

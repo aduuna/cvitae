@@ -40,7 +40,7 @@ async def test_renders_a_pdf(client: AsyncClient, data_json: DataJson) -> None:
     assert response.content.startswith(b"%PDF-")
 
 
-async def test_renders_an_ejected_project(client: AsyncClient, data_json: DataJson) -> None:
+async def test_renders_a_custom_layout(client: AsyncClient, data_json: DataJson) -> None:
     files = {
         "main.typ": '#import "/_lib/cv.typ": rich\n#let cv = json("data.json")\n#cv.basics.name\n',
         "data.json": data_json(),
@@ -113,3 +113,20 @@ async def test_healthz(client: AsyncClient) -> None:
     response = await client.get("/healthz")
 
     assert response.json() == {"status": "ok"}
+
+
+async def test_template_source(client: AsyncClient) -> None:
+    response = await client.get("/templates/classic/source")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == "classic"
+    assert body["source"].startswith("// Classic")
+    assert '#let cv = json("data.json")' in body["source"]
+
+
+async def test_source_of_an_unknown_template(client: AsyncClient) -> None:
+    for template_id in ["fancy", "_lib", "..", "fixtures"]:
+        response = await client.get(f"/templates/{template_id}/source")
+
+        assert response.status_code == 404, template_id

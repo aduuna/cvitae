@@ -82,6 +82,12 @@ def alembic_config() -> Config:
 
 
 @pytest.fixture(scope="session")
+def create_database() -> Callable[[str], None]:
+    """Create a database from its URL unless it exists, for tests that need one of their own."""
+    return _create_database
+
+
+@pytest.fixture(scope="session")
 def database(alembic_config: Config) -> str:
     """A test database migrated from scratch, which also exercises downgrade and upgrade."""
     _create_database(TEST_DATABASE_URL)

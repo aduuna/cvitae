@@ -156,7 +156,7 @@ export interface paths {
         };
         /**
          * Document Ats
-         * @description How the saved CV reads to an ATS search for its job. No AI run. 409 for ejected CVs.
+         * @description How the saved CV reads to an ATS search for its job. No AI run.
          */
         get: operations["document_ats_api_v1_documents__document_id__ats_get"];
         put?: never;
@@ -198,6 +198,26 @@ export interface paths {
          * @description SVG pages of the saved CV, or 422 with Typst diagnostics in `details`.
          */
         post: operations["preview_document_api_v1_documents__document_id__preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{document_id}/data.json": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Render Data
+         * @description The data.json the CV's template or custom layout receives.
+         */
+        get: operations["get_render_data_api_v1_documents__document_id__data_json_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -376,6 +396,27 @@ export interface paths {
          *     user's own templates, drafts included.
          */
         get: operations["get_template_preview_api_v1_templates__template_id__preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{template_id}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Template Source
+         * @description The main.typ of a built-in template or one of the user's own, where a CV's custom layout
+         *     starts. Another user's template is a 404.
+         */
+        get: operations["get_template_source_api_v1_templates__template_id__source_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1283,11 +1324,8 @@ export interface components {
             name: string;
             /** Template Id */
             template_id: string;
-            /**
-             * Mode
-             * @enum {string}
-             */
-            mode: "structured" | "ejected";
+            /** Custom Layout */
+            custom_layout: boolean;
             /** Page Count */
             page_count: number | null;
             /** Profile Id */
@@ -1305,6 +1343,8 @@ export interface components {
              */
             updated_at: string;
             content: components["schemas"]["CvContent-Output"];
+            /** Layout */
+            layout: string | null;
         };
         /** DocumentAts */
         DocumentAts: {
@@ -1334,11 +1374,8 @@ export interface components {
             name: string;
             /** Template Id */
             template_id: string;
-            /**
-             * Mode
-             * @enum {string}
-             */
-            mode: "structured" | "ejected";
+            /** Custom Layout */
+            custom_layout: boolean;
             /** Page Count */
             page_count: number | null;
             /** Profile Id */
@@ -1365,6 +1402,8 @@ export interface components {
             content?: components["schemas"]["CvContent-Input"] | null;
             /** Job Id */
             job_id?: string | null;
+            /** Layout */
+            layout?: string | null;
         };
         /** DroppedBullet */
         DroppedBullet: {
@@ -2285,6 +2324,16 @@ export interface components {
              */
             custom: boolean;
         };
+        /**
+         * TemplateSource
+         * @description A template's main.typ, where a CV's custom layout starts.
+         */
+        TemplateSource: {
+            /** Id */
+            id: string;
+            /** Source */
+            source: string;
+        };
         /** UploadSummary */
         UploadSummary: {
             /**
@@ -3081,15 +3130,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
             /** @description Invalid request */
             422: {
                 headers: {
@@ -3132,15 +3172,6 @@ export interface operations {
             };
             /** @description Not found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Conflict */
-            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3266,6 +3297,57 @@ export interface operations {
             };
             /** @description Service Unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_render_data_api_v1_documents__document_id__data_json_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3536,15 +3618,6 @@ export interface operations {
             };
             /** @description Not found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Conflict */
-            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3893,6 +3966,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SvgPages"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_template_source_api_v1_templates__template_id__source_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateSource"];
                 };
             };
             /** @description Not signed in */

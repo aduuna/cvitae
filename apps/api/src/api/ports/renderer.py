@@ -1,4 +1,5 @@
-"""The renderer port: compiles CV data with a template into SVG pages or a PDF."""
+"""The renderer port: compiles CV data with a template, or with Typst code sent along (a user's own
+template, a CV's custom layout), into SVG pages or a PDF."""
 
 import asyncio
 import json
@@ -21,6 +22,7 @@ from cvcore.rendering import (
     RenderRequest,
     SvgPages,
     TemplateMeta,
+    TemplateSource,
 )
 
 _templates_adapter = TypeAdapter(list[TemplateMeta])
@@ -78,8 +80,8 @@ class RendererClient(Protocol):
         source: str | None = None,
     ) -> SvgPages:
         """`source_links`: link each part to its form field, for click-to-edit previews.
-        `source`: the main.typ of a user's own template; the renderer then ignores `template_id`,
-        which is only a label."""
+        `source`: the main.typ of a user's own template or a CV's custom layout; the renderer
+        then ignores `template_id`, which is only a label."""
         ...
 
     async def render_pdf(
@@ -87,6 +89,10 @@ class RendererClient(Protocol):
     ) -> bytes: ...
 
     async def templates(self) -> list[TemplateMeta]: ...
+
+    async def template_source(self, template_id: str) -> TemplateSource:
+        """A built-in template's main.typ, where a custom layout starts."""
+        ...
 
 
 class HttpRendererClient:
@@ -130,6 +136,10 @@ class HttpRendererClient:
             self._templates = (now, _templates_adapter.validate_json(response.content))
         return self._templates[1]
 
+    async def template_source(self, template_id: str) -> TemplateSource:
+        response = await self._send("GET", f"/templates/{template_id}/source")
+        return TemplateSource.model_validate_json(response.content)
+
     async def _render(
         self,
         template_id: str,
@@ -139,7 +149,7 @@ class HttpRendererClient:
         source_links: bool = False,
         source: str | None = None,
     ) -> httpx.Response:
-        # A user's own template travels with the request, like an ejected CV's: the renderer
+        # A user's own template or a CV's custom layout travels with the request: the renderer
         # sandboxes it the same way (no packages, no other files, the same limits).
         files = {"data.json": json.dumps(data)}
         if source is not None:
@@ -232,6 +242,9 @@ def fake_pdf(data: dict[str, Any]) -> bytes:
     return out
 
 
+FAKE_TEMPLATE_SOURCE = '// {id}\n#let cv = json("data.json")\n#cv.basics.name\n'
+"""What the fake renderer says a built-in template's main.typ is."""
+
 # What Typst does with `#panic`: the compile fails with the message. The fake does the same, so
 # tests can hand it a template that does not compile.
 _PANIC = "#panic("
@@ -239,12 +252,13 @@ _PANIC = "#panic("
 
 class FakeRendererClient:
     """Deterministic renderer for tests: one SVG page per CV, a one-page PDF holding the CV's
-    text, two templates. A user's own template (`source`) containing `#panic(` fails to compile."""
+    text, two templates. Typst code sent along (`source`) containing `#panic(` fails to compile."""
 
     def __init__(self) -> None:
         self.calls: list[tuple[str, str, dict[str, Any]]] = []
         self.sources: list[str | None] = []
-        """Per render, the user's own template source, or None for a built-in template."""
+        """Per render, the Typst code sent along (a user's own template or a custom layout), or
+        None for a built-in template."""
         self.source_links: list[bool] = []
         """Per SVG render, whether source links were asked for."""
         self.fail_with: RenderFailed | None = None
@@ -286,6 +300,11 @@ class FakeRendererClient:
                 target_pages=1,
             ),
         ]
+
+    async def template_source(self, template_id: str) -> TemplateSource:
+        if template_id not in {template.id for template in await self.templates()}:
+            raise ServiceUnavailable("The renderer failed with status 404.")
+        return TemplateSource(id=template_id, source=FAKE_TEMPLATE_SOURCE.format(id=template_id))
 
     def _record(
         self, format: str, template_id: str, data: dict[str, Any], source: str | None

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from api.ai import tasks
 from api.ai.prompts.edit_cv import Turn
 from api.billing.plans import Plan
-from api.errors import Conflict, ValidationFailed
+from api.errors import ValidationFailed
 from api.repositories.ai_runs import AiRunRepository
 from api.repositories.documents import DocumentRepository, DocumentVersionRepository
 from api.services.ai_models import ModelChoice
@@ -123,8 +123,6 @@ async def edit_document(
     """Ask the model for the change in `message`, limited to `scope` (None for the whole CV,
     "summary", or a section id). Takes one AI run."""
     document = await get_document(documents, document_id)
-    if document.mode == "ejected":
-        raise Conflict("This CV is edited as Typst, so AI edits do not apply to it.")
     current = CvContent.model_validate(document.content)
     focus = _focus(current, scope)
     await require_ai_runs(runs, plan)
