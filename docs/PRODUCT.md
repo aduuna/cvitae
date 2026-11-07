@@ -32,7 +32,8 @@ and Europe, which is why payments go through Paystack.
 | Profile | A user's master career data: contact details, roles, clients, bullets, skills, education, projects, certifications. A user can have several (for example "Data engineering" and "Backend"). |
 | CV (document) | A renderable CV: a profile snapshot (possibly tailored), a template and a name. A user can have many. |
 | Job | A saved job description with its title, company, URL and AI analysis. |
-| Template | A Typst design that renders any CV. Five ship in v1. |
+| Template | A Typst design that renders any CV. Five ship in v1; a user can add their own from a CV they like (6, Custom templates). |
+| Custom template | A template made from the look of a CV the user uploads: Claude writes the Typst, the user previews it and keeps it next to the built-in ones. Only its owner sees it. |
 | Placeholder | Highlighted text in a CV that the user must replace, for example "[[number of users]]". |
 | Tailoring | Creating a CV from a profile plus a job, using AI under the no-new-facts rule. |
 | AI edit | A change to one CV asked for in words in the editor's "Edit with AI" panel, under the same rule. |
@@ -51,7 +52,7 @@ Icons are Lucide, listed in `docs/DESIGN.md`.
 | 1 | Documents | `/app/documents` | All CVs. Open, create, duplicate, rename, delete. Default landing page. |
 | 2 | Profiles | `/app/profiles` | Enter and edit work experience and other career data. New profiles start at `/app/profiles/new`: import a CV (the default) or start from scratch. |
 | 3 | Tailor | `/app/tailor` | Paste a job description and generate a tailored CV. Lists saved jobs. |
-| 4 | Templates | `/app/templates` | Browse the 5 templates with previews; set a default. |
+| 4 | Templates | `/app/templates` | Browse the 5 templates and your own with previews; set a default; add a template from a CV you like. |
 | 5 | Extension | `/app/extension` | The browser extension: what it does, where to get it, connect this browser, connected browsers. |
 | 6 | Settings | `/app/settings` | Account, AI model, billing, data export and deletion. |
 
@@ -212,6 +213,60 @@ Five templates, all rendering the same data, all A4 and US Letter:
 
 Done when: every template compiles every fixture without errors, renders placeholders highlighted, and
 the fixture CV fits one page in `classic` and `compact`.
+
+#### Custom templates
+
+A user who likes the look of a CV can have it as a template: they upload that CV as a PDF, Claude
+writes a Typst template in its design, and the template then appears for that user, and only that
+user, next to the five built-in ones. It renders their CVs like any other template.
+
+- **Where.** The Templates page has a "Your templates" group after the built-in ones, with an "Add
+  your own" card. Every template picker (new CV, Tailor, the editor's template switch, the default
+  template in Templates) lists a user's own templates after the built-in ones.
+- **Adding one.** The card opens a dialog: upload a PDF (the same upload as Import, and an earlier
+  upload can be reused), a short explanation that this takes one AI run, runs on Claude whatever
+  model the user chose, and takes up to about two minutes, a progress state, then the result: a
+  preview rendered with the user's default profile (or the sample), a name field, "Save template"
+  and "Discard". Nothing is usable until "Save template"; discarding deletes it. A DOCX is refused
+  with a clear message, because how a CV looks cannot be read from its text.
+- **What Claude is asked for.** The design of the PDF: paper and margins, fonts as near as the
+  bundled ones allow (Geist, Geist Mono, Libertinus Serif), sizes, colours, the header, section
+  headings, how dates and locations align, bullets and spacing. The template still follows the
+  template contract: one column in reading order (a sidebar in the original becomes part of the
+  column), every part of the CV drawn, no images or logos, nothing of the uploaded CV's own content
+  in it. Click to edit works in previews of a custom template as in a built-in one.
+- **Checked before it is offered.** A draft that does not compile, breaks the contract, copies the
+  uploaded CV's name, email, phone, links or text, drops any part of the sample CV's data or does not
+  fit its page target is sent back to Claude with the problem, up to twice. One further pass shows
+  Claude the original and the rendered result and asks it to match the design more closely; it is
+  kept only when it passes the same checks. When a draft cannot be made to pass, nothing is saved and
+  the user is told to try a simpler CV.
+- **Using it.** A saved template is chosen like a built-in one, can be the default, and exports PDFs
+  and drives the ATS page check as they do. Each custom card has the same live preview, "Set as
+  default", rename, "View source" (the Typst, read only: it cannot be edited) and delete.
+- **Deleting.** CVs that use the template switch to the user's default template, or to Classic when
+  the default was this one. The default resets to Classic. The uploaded CV is kept like an import's.
+- **Limits.** Free 1 custom template, Pro 10 (Plans and limits). Making one takes one AI run, however
+  many corrections it needed; on Free a failed attempt counts, on Pro it does not. The limit and the
+  AI usage are checked before Claude is called, so a refused request costs nothing. Without an
+  Anthropic key the server cannot make templates, and the card says so.
+- **Privacy.** The uploaded CV is sent to Claude to draft the template and stored like an import's
+  upload (privacy policy); the template's source is stored with the account and deleted with it.
+
+Done when:
+
+- Uploading the sample PDF in `templates/fixtures/` produces a draft whose preview shows the sample
+  CV in that design, and saving it lists the template after the built-in ones in the Templates page
+  and in the new CV, Tailor and editor pickers.
+- A CV in the template previews, exports a PDF whose text is selectable and shows every part of the
+  CV, and fits one page where its content does; switching it to a built-in template and back loses
+  nothing.
+- A template that does not compile, or copies the uploaded CV's name or text, is repaired or refused,
+  and a refused generation saves nothing.
+- A DOCX is refused with a clear message; the limit and the AI usage are checked before any model is
+  called; a second user cannot preview, read, rename, delete or use the first user's template.
+- Deleting a template moves its CVs to the default template, or to Classic.
+- The dialog and the cards fit at 1280px and 768px.
 
 ### 7. Settings
 
@@ -395,30 +450,37 @@ takes one AI run and never a second, and the dialog fits at 1280px and 768px.
 Values live in one config module (`apps/api/src/api/billing/plans.py`) so they can change without code
 changes elsewhere.
 
-| Plan | Price | CVs | Profiles | AI runs per month |
-|---|---|---|---|---|
-| Free | 0 | 4 | 2 | 20 |
-| Pro | Set in Paystack dashboard (monthly) | 100 | 10 | 150 |
+| Plan | Price | CVs | Profiles | Custom templates | AI runs per month |
+|---|---|---|---|---|---|
+| Free | 0 | 4 | 2 | 1 | 20 |
+| Pro | Set in Paystack dashboard (monthly) | 100 | 10 | 10 | 150 |
 
-- An AI run is one import, one job analysis, one tailoring, one AI edit request or one request for
-  drafted answers (Draft answers or Redraft in the extension, however many questions it covers),
-  regardless of model. Tailoring for a new job takes two runs (the analysis and the tailoring);
-  tailoring a saved job again takes one. The ATS score takes none.
+- An AI run is one import, one job analysis, one tailoring, one AI edit request, one request for
+  drafted answers (Draft answers or Redraft in the extension, however many questions it covers) or
+  one custom template (however many corrections it took), regardless of model. Tailoring for a new
+  job takes two runs (the analysis and the tailoring); tailoring a saved job again takes one. The ATS
+  score takes none.
 - AI runs count per calendar month (UTC). On Free every attempt counts, failed ones included; on Pro
   only successful runs count.
 - Free plans use the free models (MiMo Flash, Claude Haiku, Gemini Flash-Lite); Pro adds MiMo Pro,
   Gemini Flash and Claude Sonnet. Each model's plan is in `apps/api/src/api/ai/models.py`; it is
   enforced while `ENFORCE_AI_PLANS` is on (the default). New users start on MiMo Flash, the cheapest.
+- Custom templates always run on Claude, whatever model the user chose for other tasks, because how
+  faithfully a design is copied and how good the Typst is matter most there: the user's own Claude
+  model when they chose one, else Claude Sonnet on Pro and Claude Haiku on Free (the plan rule above
+  still holds).
 - Users never see run counts: the UI calls them **AI usage** and shows the share of the month's
   allowance used as a percentage ("15%"). Plans compare by multiple ("7 times the AI usage", Pro's
   allowance divided by Free's, rounded down).
 - At the limit, the action is disabled with the message "You have used all of this month's AI usage.
   Upgrade to Pro for 7 times as much." (multiple from config).
 - Downgrade keeps existing CVs readable and exportable but blocks creating new ones above the limit.
+  Custom templates work the same way: those above the limit keep working, and no new one can be made.
 - Cancelling keeps Pro until the end of the paid period. A failed renewal keeps Pro until the paid
   period ends, then the user is on Free until a payment goes through.
-- The side nav shows only the plan, no usage. Settings shows all three limits: AI usage as a
-  percentage, CVs and profiles as counts ("2 of 4").
+- The side nav shows only the plan, no usage. Settings shows all four limits: AI usage as a
+  percentage, CVs, profiles and custom templates as counts ("2 of 4"). A template that is not yet
+  saved does not count.
 
 ## Copy rules (summary; full rules in DESIGN.md)
 

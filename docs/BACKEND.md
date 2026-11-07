@@ -74,6 +74,7 @@ packages/cvcore/src/cvcore/
   application.py     to_application_data(content): CvContent -> what application forms ask for
   ats.py             score(cv, analysis): the ATS report of a CV for one job, and its checks
   answers.py         finishing drafted answers: number placeholders, limits, the skills hint
+  user_templates.py  custom template ids and the checks a generated template must pass
   places.py          countries and US states, to read "London, UK" as city and country
   llm_schema.py      Pydantic model -> JSON schema subset accepted by both providers
   ids.py             id helpers
@@ -90,10 +91,11 @@ apps/api/src/api/
   repositories/
     base.py          UserScopedRepository[T]: get/list/create/update/delete, always filtered by user_id
     users.py profiles.py documents.py jobs.py uploads.py ai_runs.py subscriptions.py webhooks.py
-    extension_tokens.py
+    extension_tokens.py user_templates.py
   services/
     users.py profiles.py documents.py versions.py jobs.py imports.py tailoring.py ai_edits.py
-    ats.py rendering.py billing.py quotas.py account.py extension.py answers.py
+    ats.py rendering.py billing.py quotas.py account.py extension.py answers.py templates.py
+    user_templates.py
   ports/             Protocols (interfaces) + implementations for external systems
     llm/
       base.py        LLMProvider Protocol, LLMRequest, LLMResult, ProviderName enum
@@ -109,8 +111,9 @@ apps/api/src/api/
     auth.py          AuthVerifier Protocol, FirebaseVerifier, DevVerifier
   ai/
     prompts/         one module per task with SYSTEM text and builders; versioned PROMPT_VERSION
-    tasks.py         extract_profile, analyze_job, tailor_cv, edit_cv, draft_answers: build
-                     request, call provider, validate
+    tasks.py         extract_profile, analyze_job, tailor_cv, edit_cv, draft_answers,
+                     draft_template, repair_template, refine_template: build request, call
+                     provider, validate
     pricing.py       per-model token prices for cost tracking
   routers/
     me.py profiles.py documents.py jobs.py imports.py tailor.py templates.py render.py billing.py webhooks.py
@@ -151,7 +154,10 @@ One envelope for every error response:
 
 `errors.py` defines `AppError(code, message, status, details)` and subclasses: `NotFound` (404),
 `Forbidden` (403), `ValidationFailed` (422), `QuotaExceeded` (402), `ProviderError` (502),
-`ProviderTimeout` (504), `RenderFailed` (422, with Typst diagnostics in `details`), `Conflict` (409).
+`ProviderTimeout` (504), `RenderFailed` (422, with Typst diagnostics in `details`), `Conflict` (409),
+`ClaudeUnavailable` (503, `claude_unavailable`: no Anthropic key, so no custom templates) and
+`TemplateFailed` (422, `template_failed`, with the codes of the checks a draft still failed in
+`details.issues`).
 A single exception handler maps them. Pydantic validation errors are converted to the same envelope.
 
 ## Settings
@@ -178,6 +184,7 @@ A single exception handler maps them. Pydantic validation errors are converted t
 | `STORAGE_MODE` | `gcs` or `local` |
 | `LOCAL_STORAGE_DIR` | Where `local` storage writes (default `.data/uploads` in the repository) |
 | `SAMPLE_PROFILE_PATH` | Profile shown in template previews for users without one (the image copies `templates/fixtures/profile-sample.json`) |
+| `TEMPLATES_DIR` | What drafting a custom template reads: `_lib/cv.typ` and `classic/main.typ` for the prompt, `fixtures/profile-sample.json` and `profile-edge.json` to test a draft with (the image copies just those; default `templates/` in the repository) |
 | `RENDERER_URL` | renderer base URL |
 | `RENDERER_AUTH` | `oidc` (Cloud Run) or `none` (local) |
 | `PAYSTACK_SECRET_KEY`, `PAYSTACK_PRO_PLAN_CODE`, `PAYSTACK_CALLBACK_URL` | Billing; upgrades are offered only when all three are set. The callback is the SPA's `/app/settings?tab=billing` |
@@ -201,10 +208,11 @@ in Python.
 | `users` | `firebase_uid` unique, `email`, `display_name`, `preferred_ai_model` (null: the server's default), `plan` (`free`/`pro`), `default_template_id`, `deleted_at` | Created on first authenticated request. |
 | `profiles` | `user_id`, `name`, `is_default`, `content` jsonb (CvContent) | One default per user (partial unique index). |
 | `jobs` | `user_id`, `title`, `company`, `url`, `description` text, `analysis` jsonb null | Description is user content: never logged. |
-| `documents` | `user_id`, `profile_id` null, `job_id` null, `name`, `template_id`, `mode` (`structured`/`ejected`), `content` jsonb, `source_files` jsonb null, `page_count` | `source_files` holds `{"main.typ": "...", "data.json": "..."}` once ejected. |
+| `documents` | `user_id`, `profile_id` null, `job_id` null, `name`, `template_id` (a built-in template's id or a custom template's `slug`), `mode` (`structured`/`ejected`), `content` jsonb, `source_files` jsonb null, `page_count` | `source_files` holds `{"main.typ": "...", "data.json": "..."}` once ejected. |
 | `document_versions` | `document_id`, `number`, `reason` (`tailor`/`manual`/`restore`/`autosave`), `content` jsonb, `source_files` jsonb null | Autosave versions older than 7 days are pruned by a daily Cloud Scheduler call. |
 | `uploads` | `user_id`, `storage_key`, `filename`, `mime_type`, `size_bytes` | File itself in GCS. |
-| `ai_runs` | `user_id`, `task` (`import`/`analyze_job`/`tailor`/`edit`/`answers`), `provider`, `model`, `prompt_version`, `status`, `error_code`, `input_tokens`, `output_tokens`, `cost_usd` numeric(10,6), `duration_ms` | No prompt or output content. Drives quotas and cost reporting. |
+| `ai_runs` | `user_id`, `task` (`import`/`analyze_job`/`tailor`/`edit`/`answers`/`template`), `provider`, `model`, `prompt_version`, `status`, `error_code`, `input_tokens`, `output_tokens`, `cost_usd` numeric(10,6), `duration_ms` | No prompt or output content. Drives quotas and cost reporting. A `template` row holds all the model calls of one generation, with tokens, cost and duration summed. |
+| `user_templates` | `user_id`, `slug` unique, `name` (60), `description` (200), `main_typ` text, `paper_sizes` jsonb, `target_pages`, `status` (`draft`/`ready`), `upload_id` null (SET NULL), `prompt_version` | A template made from the user's own CV. `slug` (`u-` and 10 base32 characters) is its template id in `documents.template_id` and `users.default_template_id`. The source is user content: never logged. |
 | `subscriptions` | `user_id` unique, `paystack_customer_code`, `paystack_subscription_code` null, `plan_code`, `status` (`active`/`non_renewing`/`attention`/`cancelled`), `current_period_end` null | Mirrors Paystack state. The subscription code arrives with `subscription.create`; `current_period_end` is the next payment date Paystack last reported, so the date the user has paid up to. |
 | `webhook_events` | `provider`, `event_key` unique, `event_type`, `processed_at` | Idempotency for webhooks. No payload is stored. |
 | `extension_tokens` | `user_id`, `label` ("Chrome on macOS"), `token_hash` unique (SHA-256 hex), `last_used_at` null | A browser the extension is connected in. The token is shown once and never stored. `last_used_at` is written at most hourly. At most 10 per user: an eleventh replaces the least recently used. |
@@ -433,6 +441,13 @@ A request names the model; else the user's choice runs, else `DEFAULT_AI_MODEL`,
 the server offers. Plans are checked in `services/ai_models.py` while `ENFORCE_AI_PLANS` is on (the
 default), against the user's current plan (see Billing).
 
+Custom templates are the exception: `choose_claude_model` picks the model, and it is always a Claude
+model, whatever the user chose for other tasks. It is the user's own Claude model when they chose one
+their plan includes, else the best Claude model the plan includes (Sonnet on Pro, Haiku on Free). The
+router calls it before the service, so a server without an Anthropic key refuses with
+`503 claude_unavailable` before any quota check or AI run. The SPA can tell beforehand: with no Claude
+model in `ai_models` of `GET /client-config`, it does not offer "Add your own".
+
 ### Provider abstraction
 
 ```python
@@ -442,11 +457,12 @@ class ProviderName(StrEnum):
 
 @dataclass(frozen=True)
 class LLMRequest(Generic[T]):
-    task: Literal["import", "analyze_job", "tailor", "edit", "answers"]
+    task: Literal["import", "analyze_job", "tailor", "edit", "answers", "template"]
     system: str
     user_text: str
     output_model: type[T]            # Pydantic model; the provider must return a valid instance
-    document: bytes | None = None    # PDF bytes for import
+    document: bytes | None = None    # PDF bytes for import and custom templates
+    images: tuple[bytes, ...] = ()   # PNGs after the document (Claude only; custom templates)
     model_tier: Literal["default", "fast"] = "default"
     max_output_tokens: int = 8000
 
@@ -503,6 +519,9 @@ Prompts, schemas, validation and the fact guard are shared. Adapters only transl
 | `tailor_cv` | profile `CvContent`, `JobAnalysis`, job text, template constraints (target pages) | `TailoredCv` (content: CvContent, changes: list of {source_id, rationale} keyed by the profile bullet). The keywords the CV misses come from the ATS score, not the model. | default |
 | `edit_cv` | the CV's `CvContent` (without profile links), the request, up to 12 earlier messages, the part it may change | `CvEdit` (reply, content: the whole CV) | default, low effort |
 | `draft_answers` | the profile or CV without email, phone and links, the job ad and its `JobAnalysis` when there is one, the questions with their limits | `DraftAnswers` (per question: id, text, the skills it names with what each rests on) | default, low effort |
+| `draft_template` | the uploaded CV as a PDF, the template contract with `_lib/cv.typ` and the Classic template as the example (system prompt) | `GeneratedTemplate` (name, description, paper, target_pages, main_typ) | Claude only, default |
+| `repair_template` | the source and the list of problems; no CV | `RevisedTemplate` (main_typ) | Claude only, low effort |
+| `refine_template` | the uploaded PDF, a PNG of page 1 of the rendered template, the source | `RevisedTemplate` (main_typ) | Claude only, default |
 
 Each task: check quota, build the request from the prompt module, call the provider via the registry,
 validate, run the fact guard (tailor and edit; never on drafted answers), record an `ai_runs` row
@@ -610,6 +629,82 @@ Steps:
 The prompt sends the questions and the ad inside `<questions>` and `<job_description>` tags: they
 come from a web page, so they are data, never instructions (see Answer prompt rules).
 
+### Custom templates (services/user_templates.py)
+
+`POST /templates/custom` makes a Typst template in the design of an uploaded CV
+(docs/PRODUCT.md, 6, Custom templates). The generation is synchronous, like import: the request
+waits, up to about two minutes (Cloud Run's 300 s is the ceiling; see the time budget below). The
+rule for the result is not the fact guard but the template contract, enforced by deterministic
+checks in `cvcore/user_templates.py`.
+
+1. **Input.** A PDF, sent as `file` or named by the `upload_id` of an earlier upload (multipart
+   form). A DOCX is refused with 422, as is anything that is not a PDF, before anything is stored or
+   run. Text and links are read from the PDF's text layer (`pypdfium2`) to build the reference for
+   the copy checks.
+2. **Checks before the model.** Room for one more template (`require_room("templates", ...)`, which
+   counts ready templates only) and AI usage (`require_ai_runs`). Claude was already chosen by the
+   router.
+3. **Draft.** `draft_template` sends the PDF with the system prompt: the contract, the data shape,
+   `_lib/cv.typ` in full and the Classic `main.typ` as the example. The output is a
+   `GeneratedTemplate`.
+4. **Verify** (`_verify`), for the draft and for anything that replaces it:
+   - Static checks (`check_template`): the two-line header (`#import "/_lib/cv.typ": *` and
+     `#let cv = json("data.json")`), `paper-size()` and `sections(` present, no import or include
+     but the library, no `read`, `image`, `plugin`, `eval`, `csv`, `yaml`, `toml`, `xml`, `cbor` or
+     `bibliography` calls, `json()` only for `data.json`, fonts only Geist, Geist Mono and Libertinus
+     Serif, source at most 64 KB; and, against the upload's text, no name, email, phone or link of the
+     CV anywhere in the source (comments included), no string over 40 characters, no string that
+     repeats the CV's text unless it is only heading words, no run of seven plain words in markup.
+     Comments and the insides of strings are skipped for the call checks by a small scanner. The
+     problem messages never repeat the upload's text.
+   - A test render through the renderer port with `source` (PDF), with the sample profile and with
+     `profile-edge.json` (most fields empty). Typst diagnostics become problems with their line.
+     No render runs for a source that may not run (forbidden imports or calls).
+   - `check_render` on the PDF's text layer: the name, headline, contact details, summary, every
+     section title and entry, and at least half the bullets must appear, so a template cannot silently
+     drop data. `check_pages`: the sample fits `target_pages` (the model's reading of the PDF,
+     clamped to 1 or 2).
+5. **Repair.** A draft with problems goes back through `repair_template` (source and problems, never
+   the PDF or any CV) up to twice (`MAX_REPAIRS`). Still failing: `422 template_failed` with
+   `details.issues`, and nothing is saved.
+6. **Refine.** One pass, only for a passing draft: `refine_template` gets the original PDF, a PNG of
+   page 1 of the sample render (`pdf_to_pngs`) and the source, and returns a corrected source. It is
+   verified like a draft and kept only when it passes; a refinement that fails, does not compile, or
+   cannot run (provider or renderer error) leaves the passing draft as it was.
+7. **Time budget.** No repair or refinement call starts after 120 seconds (`TIME_BUDGET_SECONDS`), so
+   a slow provider cannot push the request past Cloud Run's limit.
+8. **Save.** The upload is stored now (a refused or failed generation stores nothing), the user's
+   earlier unconfirmed draft is deleted, and the template is saved with `status = draft`. The name
+   and description are the model's, trimmed to 60 and 200 characters; one that names the CV's owner
+   is replaced by "Custom template" (and an empty description).
+
+**One generation is one AI run.** `tasks.combined_run` stands in for the run recorder while the
+calls happen and writes a single `ai_runs` row at the end (task `template`, tokens, cost and
+duration summed, the last call's model): `succeeded` when the generation returns, `failed` with the
+error's code when it raises, even if an optional refinement call failed along the way. Free counts a
+failed generation, Pro does not (Quotas).
+
+**Drafts.** The draft is a `user_templates` row with `status = draft`. It can be previewed
+(`GET /templates/{id}/preview`) and read (`.../source`) by its owner, but is not listed by
+`GET /templates` and cannot be used (`template_id` of a document, the default, tailoring): `PATCH`
+with `status: "ready"` confirms it (room under the limit is checked again), and `DELETE` discards it.
+A new generation deletes the user's earlier drafts. Drafts take no room under the plan limit.
+
+**Resolving ids.** Everything that names or renders a template goes through `TemplateCatalog`
+(`services/templates.py`), built per user from the renderer and the user's `UserTemplateRepository`:
+`available()` (the built-in templates, then the user's ready ones, `custom: true`), `get`, `require`
+(metadata for a CV that is about to use it), `render_svg` and `render_pdf`. An id that looks like a
+custom one (`^u-[a-z2-7]{10}$`) is looked up in the user's own rows only: not found, someone else's,
+or a draft where a ready template is needed is `404 not_found`, so ids tell nothing about other
+users. An unknown built-in id stays `422` with `details.field = "template_id"`. A custom template
+renders by sending its `main.typ` to the renderer in `files` (below). The extension's PDF export gets
+a catalog for the token's user.
+
+**Deleting.** `DELETE /templates/custom/{id}` moves the user's CVs that use it to their default
+template (when it is another template that still resolves), else to Classic, clears their stored page
+count, resets `default_template_id` to Classic when it pointed at the template, and deletes the row.
+The upload stays; deleting an upload keeps the template (`upload_id` is set to null).
+
 ### Quotas (services/quotas.py)
 
 Limits come from `billing/plans.py` (docs/PRODUCT.md, Plans and limits). Every check runs before the
@@ -620,12 +715,14 @@ work it guards, so a refused request calls no model, stores no upload and saves 
   needs one run, and so does each AI edit request and each request for drafted answers, however
   many questions it holds. Tailoring needs two when the job has no analysis
   yet (analysis and tailoring) and one when it has, and checks both up front so it never stops
-  halfway.
+  halfway. A custom template needs one run, however many model calls the generation makes.
+- **Custom templates** are limited per plan (Free 1, Pro 10) and counted when ready; the limit is
+  checked before the model is called and again when a draft is confirmed.
 - **CVs and profiles** are checked on create and duplicate. Tailoring also needs room for a CV, and
   import room for a profile, since its draft is saved as one. After a downgrade, existing ones stay
   readable, editable and exportable; only new ones are blocked.
-- A refused request is `402 quota_exceeded` with `details.resource` (`ai_runs`, `documents` or
-  `profiles`). The message is the one the UI shows, built in one place, for example "You have used
+- A refused request is `402 quota_exceeded` with `details.resource` (`ai_runs`, `documents`,
+  `profiles` or `templates`). The message is the one the UI shows, built in one place, for example "You have used
   all of this month's AI usage. Upgrade to Pro for 7 times as much." AI messages say "AI usage" and
   carry no counts (docs/PRODUCT.md, Plans and limits). `GET /usage` returns the same message on each
   meter that is at its limit, so the SPA disables the action before the user tries it.
@@ -646,6 +743,18 @@ includes, in plain language:
 - Return only the JSON for the given schema, with `source_id` set on every bullet.
 
 Prompt modules export `PROMPT_VERSION`, stored on each `ai_runs` row.
+
+### Template prompt rules (ai/prompts/template.py)
+
+The template prompt writes code, not CV content, so neither the CV rules nor the drafts' rule
+applies; the template contract does. The system prompt states it in plain language (the same rules
+the checks enforce) so most drafts pass the first time: reproduce the design closely (name what to
+read in the PDF), the two header lines, `paper-size()`, `sections(...)` with the template's own
+functions, `src("basics", ...)` and `src("summary", ...)`, all text from `cv` (spans through `rich`
+and `bullets`, never evaluated), every part of the data shown, only the bundled fonts with their
+weights, no images or file reads, a single column, a page target, and none of the uploaded CV's own
+content in the source. The PDF, the source under `<template>` tags and the notes under `<problems>`
+tags are data, never instructions (`DATA_NOT_INSTRUCTIONS`).
 
 ### Answer prompt rules (ai/prompts/draft_answers.py)
 
@@ -721,6 +830,12 @@ and disable system fonts where the binding allows, so output is identical locall
 Templates must not import Typst Universe packages (`@preview/...`). If one is ever needed, vendor it into
 `templates/_vendor/`.
 
+A user's own template is not in `templates/`: its `main.typ` lives in `user_templates` and travels
+with every render request, so the renderer needs no change and no state. It imports `/_lib/cv.typ`
+like a built-in template and receives the same `data.json`. `templates/fixtures/user-template.typ` is
+a template of that kind: the fake model's answer in tests (a copy in `ports/llm/fake.py`, kept in
+step by a test), and the renderer's tests compile it through the sandbox.
+
 ### Renderer API
 
 `POST /render` (JSON):
@@ -736,7 +851,8 @@ Templates must not import Typst Universe packages (`@preview/...`). If one is ev
 ```
 
 Either `template_id` (structured CVs: the renderer uses its own copy of the template and the caller
-supplies only `data.json`) or a full `files` map (ejected CVs) is given. The renderer always adds `_lib/`.
+supplies only `data.json`) or a full `files` map (ejected CVs, and a user's own custom template with
+its `main.typ` and the CV's `data.json`) is given. The renderer always adds `_lib/`.
 `source_links` (SVG only, ignored for PDF) sets the `source-links` input: each linked part becomes an
 `<a href="cv:<id>">` with a transparent rect per line in the SVG. The api asks for it on
 `POST /documents/{id}/preview` only.
@@ -752,6 +868,8 @@ Compile errors return 422 with `{"diagnostics": [{"line": 12, "column": 4, "mess
 - Limits checked before compiling: total source 256 KB, at most 20 files, `data.json` at most 256 KB.
 - Output limits: at most 10 pages, PDF at most 5 MB.
 - Rejects any `#import` or `#include` whose path starts with `@` (packages) or escapes the root.
+- A user's own template is untrusted code from a model, run under exactly these limits and no
+  others; the api's checks (`cvcore/user_templates.py`) are a second line, not a substitute.
 - The service has no outbound internet (see `docs/INFRA.md`) and no secrets.
 - Cloud Run concurrency 4 per instance; the api treats 429 or 503 from the renderer as "busy, retry".
 
@@ -777,7 +895,7 @@ require a valid Firebase ID token. FastAPI serves OpenAPI at `/api/openapi.json`
 | `GET /me`, `PATCH /me` | Current user; update display name, preferred AI model, default template |
 | `DELETE /me` | Delete account and all data (typed email confirmation in body) |
 | `GET /me/export` | All user data as JSON |
-| `GET /usage` | Current plan; a meter (`used`, `limit`, `message` once the limit is reached) for AI runs this month, CVs and profiles; the period's start and end; the subscription's status, paid-up date and whether it can be managed yet |
+| `GET /usage` | Current plan; a meter (`used`, `limit`, `message` once the limit is reached) for AI runs this month, CVs, profiles and custom templates; the period's start and end; the subscription's status, paid-up date and whether it can be managed yet |
 | `GET/POST /profiles`, `GET/PATCH/DELETE /profiles/{id}`, `POST /profiles/{id}/duplicate` | Profiles |
 | `POST /imports` (multipart: a file, pasted text, or the `upload_id` of an earlier upload; `ai_model`) | Extract a profile draft; returns `{upload_id, draft: CvContent, profile_name}`, where `profile_name` is the model's suggestion ("Data engineering") or else the CV's headline. Nothing is saved as a profile: after review the SPA saves the draft with `POST /profiles`. |
 | `GET /uploads`, `DELETE /uploads/{id}` | Files the user uploaded for import; deleting removes the object from storage |
@@ -792,8 +910,12 @@ require a valid Firebase ID token. FastAPI serves OpenAPI at `/api/openapi.json`
 | `POST /documents/{id}/ai-edit` (message, scope, history, ai_model) | The CV with the requested change, checked by the fact guard; returns `{reply, content, changed, issues, ai_model, model}` and saves nothing. One AI run; 409 for ejected CVs |
 | `GET /documents/{id}/export.pdf` | Stream PDF, named for the company of the CV's job when it has one; 409 if placeholders remain unless `?force=true` |
 | `GET /documents/{id}/versions`, `POST /documents/{id}/versions`, `POST /documents/{id}/versions/{n}/restore` | Version history |
-| `GET /templates` | Template metadata (proxied from the renderer, cached in memory) |
-| `GET /templates/{id}/preview` | SVG pages of the template with the user's default profile, or the sample profile |
+| `GET /templates` | The built-in templates (metadata proxied from the renderer, cached in memory), then the user's ready custom templates; `custom` is true for those |
+| `GET /templates/{id}/preview` | SVG pages of the template with the user's default profile, or the sample profile. Works for the user's own templates, drafts included; another user's is 404 |
+| `POST /templates/custom` (multipart: `file` or `upload_id`) | Draft a template from a PDF with Claude (see Custom templates): 201 with the draft (`id`, `name`, `description`, `status` `draft`, `paper_sizes`, `target_pages`, `upload_id`, timestamps, `ai_model`, `provider`, `model`). One AI run, up to about two minutes. 402 at a plan limit (`details.resource` `templates` or `ai_runs`), 422 for a DOCX or a PDF that cannot be read (`validation_failed`) or a draft that cannot be made to pass (`template_failed`), 503 `claude_unavailable` without a Claude key |
+| `PATCH /templates/custom/{id}` | `name`, `description` and `status: "ready"` (confirms a draft; 402 when there is no room); returns the template |
+| `DELETE /templates/custom/{id}` | Delete a template or discard a draft; the user's CVs switch to their default template, or Classic |
+| `GET /templates/custom/{id}/source` | `{id, name, main_typ}`: the Typst source, to read |
 | `POST /billing/checkout` | Paystack transaction initialize with the Pro plan; returns `authorization_url`; 409 when already on Pro, or when a failed renewal is waiting for a new card (the manage link fixes that) |
 | `POST /billing/verify` (reference) | Verify after redirect back from Paystack; switches to Pro at once and returns the current plan. Repeatable: a payment is applied once, by this call or by its `charge.success` webhook (both record the same `webhook_events` key), so an old reference cannot bring Pro back after it ended. |
 | `GET /billing/manage-link` | Paystack hosted subscription management link |
@@ -886,22 +1008,25 @@ response is sent.
 
 - JSON logs to stdout (Cloud Logging parses them). Fields: `severity`, `message`, `request_id`, `user_id`,
   `route`, `status`, `duration_ms`, and for AI runs `provider`, `model`, tokens, `cost_usd`.
-- Never log bodies of requests or responses for profile, document, job, import, tailor, preview or
-  extension routes. For drafted answers that means no question text, job ad, draft or prompt in any
-  log or error message; the run log has ids, counts, tokens and durations only.
+- Never log bodies of requests or responses for profile, document, job, import, tailor, preview,
+  template or extension routes. For drafted answers that means no question text, job ad, draft or
+  prompt in any log or error message; the run log has ids, counts, tokens and durations only. For
+  custom templates it means no uploaded CV, its text, template source, prompt or model output; the
+  log has ids, counts of model calls and repairs, whether the refinement was kept, durations and the
+  codes of failed checks.
 - Error reporting: Cloud Error Reporting picks up logged exceptions with stack traces.
 
 ## Testing
 
 | Layer | Tooling | What is covered |
 |---|---|---|
-| `cvcore` | pytest, hypothesis | rich-text round trip, fact guard cases, llm_schema output for every model, ATS matching rules and the fixture CV's score, finishing drafted answers (numbers, limits, the skills hint) |
-| Services | pytest with fakes | business rules: quotas, versions, eject, tailoring flow with `FakeLLMProvider`, drafted answers (one run per request, nothing saved, refusal before any call), account deletion |
+| `cvcore` | pytest, hypothesis | rich-text round trip, fact guard cases, llm_schema output for every model, ATS matching rules and the fixture CV's score, finishing drafted answers (numbers, limits, the skills hint), the custom template checks (every built-in template passes them; each rule, with false-positive cases; no check message repeats the upload's text) |
+| Services | pytest with fakes | business rules: quotas, versions, eject, tailoring flow with `FakeLLMProvider`, drafted answers (one run per request, nothing saved, refusal before any call), custom templates (quota before any model call, repair, refinement kept or dropped, one run per generation, nothing saved on failure, another user's template is 404 everywhere, delete falls CVs back), account deletion |
 | Repositories | pytest against Postgres (compose locally, service container in CI) | user scoping (a test proves user A cannot read user B), cascades, indexes used by list queries |
 | API | httpx `AsyncClient` + dependency overrides | status codes, error envelope, auth required, schema of responses |
 | LLM adapters | respx-mocked HTTP with recorded fixtures | request shape (PDF block, schema), parsing, retries; `@pytest.mark.live` tests for real calls run manually |
 | Paystack | respx + signed fixture payloads | signature check, idempotency, each event's state change |
-| Renderer | pytest | every template x every fixture compiles; page counts; placeholder highlight present; limits and timeouts enforced; `@` imports rejected |
+| Renderer | pytest | every template x every fixture compiles; page counts; placeholder highlight present; limits and timeouts enforced; `@` imports rejected; a user-style template (`files` with `main.typ`) compiles and stays inside the sandbox |
 | Frontend | vitest + @testing-library/svelte; Playwright | primitives, token test, editor flows against a mocked API |
 | Extension | vitest (jsdom) with a fake `chrome`; Playwright with the built extension in Chromium | field and open question detection on Greenhouse, Lever, Workday, Ashby and custom form fixtures; limits and the AI notice; filling a React form; the side panel's review and fill; drafting, editing, filling and undoing answers; job ad reading; the connect handshake; attaching a PDF in a real browser |
 

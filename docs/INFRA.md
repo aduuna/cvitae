@@ -76,14 +76,19 @@ COPY --from=py /srv/.venv /srv/.venv
 COPY --from=py /srv/apps/api/alembic.ini /srv/apps/api/alembic.ini
 COPY --from=web /src/apps/web/build /srv/static
 COPY templates/fixtures/profile-sample.json /srv/sample-profile.json
-ENV PATH="/srv/.venv/bin:$PATH" STATIC_DIR=/srv/static SAMPLE_PROFILE_PATH=/srv/sample-profile.json
+COPY templates/_lib /srv/templates/_lib
+COPY templates/classic/main.typ /srv/templates/classic/main.typ
+COPY templates/fixtures/profile-sample.json templates/fixtures/profile-edge.json /srv/templates/fixtures/
+ENV PATH="/srv/.venv/bin:$PATH" STATIC_DIR=/srv/static SAMPLE_PROFILE_PATH=/srv/sample-profile.json \
+    TEMPLATES_DIR=/srv/templates
 USER app
 CMD ["python", "-m", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8080", "--proxy-headers"]
 ```
 
 `--no-editable` installs `api` and `cvcore` into the venv as regular packages, so the runtime image needs
-only the venv and the static files. The renderer's `pyproject.toml` is copied because uv resolves the
-whole workspace lockfile.
+only the venv, the static files and the few template files that drafting a custom template reads
+(`TEMPLATES_DIR`). The renderer's `pyproject.toml` is copied because uv resolves the whole workspace
+lockfile.
 
 `apps/renderer/Dockerfile`: same uv pattern without the web stage; copies `templates/` to `/templates`
 and `apps/renderer/fonts/` to `/fonts`; runs as a non-root user; `CMD` runs uvicorn on port 8080.
