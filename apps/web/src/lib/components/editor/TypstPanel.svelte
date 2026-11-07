@@ -72,7 +72,9 @@
 		).then(
 			(value) => (data = JSON.stringify(value, null, 2)),
 			(error: unknown) => {
-				if (!controller.signal.aborted) dataError = errorMessage(error);
+				if (controller.signal.aborted) return;
+				data = null;
+				dataError = errorMessage(error);
 			}
 		);
 		return () => controller.abort();
@@ -113,6 +115,7 @@
 							value={text}
 							language="typst"
 							label="main.typ"
+							fill
 							diagnostics={layoutDiagnostics}
 							{onchange}
 						/>
@@ -121,10 +124,11 @@
 					{:else}
 						<Skeleton lines={8} />
 					{/if}
-				{:else if data !== null}
-					<CodeEditor value={data} language="json" label="data.json, read-only" readonly />
 				{:else if dataError}
+					<!-- Not the old data: it no longer matches the content or the preview. -->
 					<p role="alert" class="text-sm text-danger">{dataError}</p>
+				{:else if data !== null}
+					<CodeEditor value={data} language="json" label="data.json, read-only" readonly fill />
 				{:else}
 					<Skeleton lines={8} />
 				{/if}

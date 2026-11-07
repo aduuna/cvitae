@@ -42,6 +42,7 @@
 			bind:value={text}
 			language="markdown"
 			label="CV as Markdown"
+			fill
 			diagnostics={errors}
 			{onchange}
 		/>

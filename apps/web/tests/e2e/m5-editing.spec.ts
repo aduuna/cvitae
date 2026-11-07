@@ -300,3 +300,71 @@ test.describe('a CV with a custom layout', () => {
 		await expect(page.getByRole('textbox', { name: 'Name', exact: true }).first()).toBeFocused();
 	});
 });
+
+test.describe('what leaving or switching does to unsaved and replaced work', () => {
+	test.use({ viewport: { width: 1280, height: 900 } });
+
+	test('keeps the layout a template switch replaces in version history', async ({ page, api }) => {
+		const doc = seedDocument(api);
+		doc.layout = '#let mine = 1\n';
+		doc.custom_layout = true;
+		await page.goto(`/app/documents/${doc.id}`);
+
+		await page.getByRole('combobox', { name: 'Template' }).selectOption('compact');
+		await page
+			.getByRole('dialog', { name: 'Switch template?' })
+			.getByRole('button', { name: 'Switch template' })
+			.click();
+		await expect.poll(() => api.documents[0]?.layout).toBeNull();
+		await expect(page.getByText('Custom layout', { exact: true })).toBeHidden();
+
+		await page.getByRole('button', { name: 'Version history' }).click();
+		await expect(page.getByRole('list', { name: 'Versions' })).toContainText(
+			'Kept before a change'
+		);
+		await page.getByRole('button', { name: 'Restore version 1' }).click();
+
+		await expect(page.getByText('Custom layout', { exact: true })).toBeVisible();
+		expect(api.documents[0]?.layout).toBe('#let mine = 1\n');
+	});
+
+	test('asks before leaving Markdown that has errors, in the app and on closing the tab', async ({
+		page,
+		api
+	}) => {
+		const doc = seedDocument(api);
+		await page.goto(`/app/documents/${doc.id}`);
+		await editingMode(page).getByRole('radio', { name: 'Markdown' }).click();
+		await typeAtEnd(page, 'CV as Markdown', '\nloose text');
+		await expect(page.getByText('Not saved: fix these lines first.')).toBeVisible();
+
+		await page.getByRole('link', { name: 'Profiles' }).click();
+		const leave = page.getByRole('dialog', { name: 'Leave this page?' });
+		await leave.getByRole('button', { name: 'Keep editing' }).click();
+		await expect(page).toHaveURL(/\/app\/documents\/doc-1$/);
+		await expect(page.getByRole('textbox', { name: 'CV as Markdown' })).toContainText('loose text');
+
+		const prompt = page.waitForEvent('dialog');
+		await page.close({ runBeforeUnload: true });
+		const closing = await prompt;
+		expect(closing.type()).toBe('beforeunload');
+		await closing.dismiss();
+
+		await page.getByRole('link', { name: 'Profiles' }).click();
+		await leave.getByRole('button', { name: 'Discard changes' }).click();
+		await expect(page).toHaveURL(/\/app\/profiles/);
+	});
+
+	test('does not ask when there is nothing unsaved', async ({ page, api }) => {
+		const doc = seedDocument(api);
+		await page.goto(`/app/documents/${doc.id}`);
+		await editingMode(page).getByRole('radio', { name: 'Markdown' }).click();
+		await typeAtEnd(page, 'CV as Markdown', '\n## Volunteering {custom}\n\n- Mentor.');
+		await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+
+		await page.getByRole('link', { name: 'Profiles' }).click();
+
+		await expect(page).toHaveURL(/\/app\/profiles/);
+		await expect(page.getByRole('dialog')).toHaveCount(0);
+	});
+});

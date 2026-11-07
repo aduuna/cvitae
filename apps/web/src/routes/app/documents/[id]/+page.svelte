@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
-	import { beforeNavigate } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { AiEditChat } from '#lib/ai/edit.svelte.ts';
 	import { api, errorMessage, unwrap } from '#lib/api/client.ts';
@@ -70,6 +70,9 @@
 	// The preview part that asked to leave Markdown, to open once the form is showing.
 	let pendingTarget = $state<string | null>(null);
 	let discardOpen = $state(false);
+	// Where the user was heading when Markdown with errors stopped them.
+	let leaveTarget = $state<URL | null>(null);
+	let leaveOpen = $state(false);
 	let pendingTemplate = $state<string | null>(null);
 	let switchOpen = $state(false);
 	let resetOpen = $state(false);
@@ -171,12 +174,24 @@
 		chat?.dispose();
 	});
 
-	beforeNavigate(() => {
+	/** Markdown with errors holds edits that were never saved: leaving loses them. */
+	const unsavedMarkdown = $derived(mode === 'markdown' && markdownInvalid);
+
+	beforeNavigate((navigation) => {
+		if (unsavedMarkdown) {
+			// Closing the tab or leaving the site gets the browser's own prompt.
+			navigation.cancel();
+			if (navigation.type !== 'leave' && navigation.to) {
+				leaveTarget = navigation.to.url;
+				leaveOpen = true;
+			}
+			return;
+		}
 		if (autosave?.dirty) void autosave.flush();
 	});
 
 	function onbeforeunload(event: BeforeUnloadEvent) {
-		if (autosave?.dirty) event.preventDefault();
+		if (autosave?.dirty || unsavedMarkdown) event.preventDefault();
 	}
 
 	async function flush() {
@@ -495,11 +510,29 @@
 />
 
 <ConfirmDialog
+	bind:open={leaveOpen}
+	title="Leave this page?"
+	message="Some Markdown lines have errors, so your latest Markdown changes are not saved. Leaving discards them; the CV keeps its last valid content."
+	confirmLabel="Discard changes"
+	cancelLabel="Keep editing"
+	danger
+	onconfirm={() => {
+		const target = leaveTarget;
+		leaveTarget = null;
+		markdownInvalid = false;
+		// The target is the address the navigation already resolved, so it is not resolved again.
+		// eslint-disable-next-line svelte/no-navigation-without-resolve
+		if (target) setTimeout(() => void goto(target), 0);
+	}}
+	oncancel={() => (leaveTarget = null)}
+/>
+
+<ConfirmDialog
 	bind:open={switchOpen}
 	title="Switch template?"
 	message="Switching to {templates.name(
 		pendingTemplate ?? ''
-	)} replaces your custom layout. Save a version first if you want to keep it."
+	)} replaces your custom layout. The layout stays in version history, so you can restore it."
 	confirmLabel="Switch template"
 	danger
 	onconfirm={async () => {
@@ -514,10 +547,12 @@
 	title="Reset layout?"
 	message="This CV goes back to the {templates.name(
 		doc?.template_id ?? ''
-	)} layout. Save a version first if you want to keep your Typst changes."
+	)} layout. Your Typst changes stay in version history."
 	confirmLabel="Reset to template"
 	danger
-	onconfirm={() => {
+	onconfirm={async () => {
+		// Save what was typed last, so the version kept for the restore holds it.
+		await flush();
 		if (doc) doc.layout = null;
 	}}
 />

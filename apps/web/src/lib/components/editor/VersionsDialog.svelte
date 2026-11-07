@@ -20,7 +20,7 @@
 	const reasons: Record<Version['reason'], string> = {
 		manual: 'Saved by you',
 		restore: 'Restored',
-		autosave: 'Kept before a restore',
+		autosave: 'Kept before a change',
 		tailor: 'Tailored'
 	};
 
