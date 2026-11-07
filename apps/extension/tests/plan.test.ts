@@ -118,7 +118,13 @@ describe('looksLikeApplication', () => {
 			url: '',
 			title: '',
 			fields: kinds.map((kind) => field({ kind: kind as never })),
-			files: Array.from({ length: files }, (_, i) => ({ id: `u${i}`, label: 'CV', hasFile: false }))
+			files: Array.from({ length: files }, (_, i) => ({
+				id: `u${i}`,
+				label: 'CV',
+				hasFile: false
+			})),
+			questions: [],
+			aiPolicy: null
 		});
 
 		expect(looksLikeApplication(page(['email', 'name.full']))).toBe(true);

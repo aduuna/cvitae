@@ -77,7 +77,7 @@ def _token(match: re.Match[str]) -> tuple[str, str]:
     return value, (match["suffix"] or "").lower()
 
 
-def _number_allowed(token: tuple[str, str], allowed: set[tuple[str, str]]) -> bool:
+def number_allowed(token: tuple[str, str], allowed: set[tuple[str, str]]) -> bool:
     value, suffix = token
     return any(
         value == known and (not suffix or suffix == known_suffix) for known, known_suffix in allowed
@@ -88,7 +88,7 @@ def _key(*parts: str) -> tuple[str, ...]:
     return tuple(" ".join(part.split()).casefold() for part in parts)
 
 
-def _mentioned(term: str, text: str) -> bool:
+def mentioned(term: str, text: str) -> bool:
     return re.search(rf"(?<!\w){re.escape(term.casefold())}(?!\w)", text) is not None
 
 
@@ -178,7 +178,7 @@ class _Source:
         return best if best_overlap >= TRACE_OVERLAP else None
 
     def has_skill(self, skill: str) -> bool:
-        return skill.casefold() in self.skills or _mentioned(skill, self.text)
+        return skill.casefold() in self.skills or mentioned(skill, self.text)
 
 
 class _Guard:
@@ -216,7 +216,7 @@ class _Guard:
                 continue
             position = 0
             for match in NUMBER.finditer(span.t):
-                if _number_allowed(_token(match), allowed):
+                if number_allowed(_token(match), allowed):
                     continue
                 if match.start() > position:
                     spans.append(Span(t=span.t[position : match.start()], b=span.b))
@@ -289,7 +289,7 @@ class _Guard:
         own_text = " ".join(plain_text(b.text) for b in own_bullets).casefold()
         item.stack = self.skills(
             item.stack,
-            lambda entry: entry.casefold() in own_stack or _mentioned(entry, own_text),
+            lambda entry: entry.casefold() in own_stack or mentioned(entry, own_text),
         )
         owner = f"experience:{source.id}"
         item.bullets = self.bullets(item.bullets, owner)
@@ -401,7 +401,7 @@ def check(source: CvContent, tailored: CvContent, *, where: str = "your profile"
         guard.revert(label, content.basics, source.basics, field)
     # The headline is plain text, so it cannot hold a placeholder: a new number reverts it.
     numbers = guard.source.numbers
-    if not all(_number_allowed(token, numbers) for token in number_tokens(content.basics.headline)):
+    if not all(number_allowed(token, numbers) for token in number_tokens(content.basics.headline)):
         guard.revert("headline", content.basics, source.basics, "headline")
     content.summary = guard.numbers(content.summary, numbers, None)
 

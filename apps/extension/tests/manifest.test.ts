@@ -13,6 +13,7 @@ describe('manifest', () => {
 			side_panel: { default_path: 'sidepanel.html' }
 		});
 		expect(chrome['permissions']).toEqual(['storage', 'activeTab', 'scripting', 'sidePanel']);
+		expect((chrome['description'] as string).length).toBeLessThanOrEqual(132);
 		expect(chrome).not.toHaveProperty('sidebar_action');
 	});
 

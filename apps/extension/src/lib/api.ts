@@ -7,6 +7,8 @@ import type { SourceRef } from './settings.ts';
 
 export type ExtensionSession = Schemas['ExtensionSession'];
 export type SavedJob = Schemas['SavedJob'];
+export type AnswersRequest = Schemas['AnswersRequest'];
+export type AnswersResult = Schemas['AnswersResult'];
 
 /** The api, called with the extension's token (only the /extension routes accept it). */
 export function connectApi(token: string, fetchImpl: typeof fetch = (r) => fetch(r)) {
@@ -98,6 +100,11 @@ export function saveJob(api: Api, job: JobDraft): Promise<SavedJob> {
 			}
 		})
 	);
+}
+
+/** Drafted answers to the form's open questions; one AI run. Nothing is saved. */
+export function draftAnswers(api: Api, body: AnswersRequest): Promise<AnswersResult> {
+	return unwrap(api.POST('/api/v1/extension/answers', { body }));
 }
 
 /** Revoke this browser's token. */

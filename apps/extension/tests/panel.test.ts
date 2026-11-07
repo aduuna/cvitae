@@ -338,3 +338,211 @@ describe('side panel', () => {
 		await vi.waitFor(() => expect(fake.store['offer']).toBe(false));
 	});
 });
+
+describe('answer questions', () => {
+	let fake: FakeChrome;
+
+	type Body = {
+		source: unknown;
+		job_id: string | null;
+		job: { description: string } | null;
+		questions: { id: string; text: string; max_words: number | null; previous: string | null }[];
+	};
+
+	/** The api's answer to each question, by the start of its text. */
+	function answering(texts: Record<string, string>, bodies: Body[] = []): Route {
+		return async (request) => {
+			const body = (await request.json()) as Body;
+			bodies.push(body);
+			return json({
+				answers: body.questions.map((q) => {
+					const text = Object.entries(texts).find(([start]) => q.text.startsWith(start))?.[1];
+					return {
+						id: q.id,
+						text: text ?? '',
+						inferred: q.text.startsWith('Describe')
+							? [{ skill: 'Databricks', based_on: ['Spark'] }]
+							: [],
+						placeholders: (text ?? '').includes('[[') ? 1 : 0,
+						shortened: false
+					};
+				}),
+				ai_model: 'mimo-flash',
+				ai_model_label: 'MiMo Flash',
+				model: 'mimo-v2.6-flash'
+			});
+		};
+	}
+
+	const DRAFTS = {
+		Describe: 'At Northwind I moved [[how many]] Spark jobs to Databricks.',
+		Why: 'Harbour Bank builds the platforms I like to work on.',
+		Tell: ''
+	};
+
+	beforeEach(async () => {
+		fake = installChrome({ id: 7, url: 'https://careers.example.com/apply', windowId: 1 });
+		runScriptsHere(fake);
+		await fake.chrome.storage.local.set({ token: 'cvx_good' });
+	});
+
+	it('finds questions, drafts them in one request, and fills what the user approves', async () => {
+		const bodies: Body[] = [];
+		const calls = fakeApi({
+			'GET /api/v1/extension/session': () => json(session),
+			'POST /api/v1/extension/answers': answering(DRAFTS, bodies)
+		});
+		loadFixture('questions');
+		render(App, { panel: new Panel() });
+
+		await userEvent.click(await screen.findByRole('button', { name: 'Find questions' }));
+
+		// The page asks applicants not to use AI: the notice comes before any drafting.
+		expect(
+			await screen.findByText('This application asks applicants not to use AI.')
+		).toBeVisible();
+		expect(
+			screen.getByText(/^"Please write your answers yourself: applications that use AI/)
+		).toBeVisible();
+		expect(
+			screen.getByText(/From your Data engineering profile and the job ad on this page/)
+		).toBeVisible();
+		expect(screen.getByRole('checkbox', { name: /Describe a time you used dbt/ })).toBeChecked();
+		expect(screen.getByText('200 words')).toBeVisible();
+		// The field that has a value is listed, unticked.
+		expect(screen.getByRole('checkbox', { name: /How did you handle/ })).not.toBeChecked();
+		expect(calls).toEqual(['GET /api/v1/extension/session']);
+
+		await userEvent.click(screen.getByRole('button', { name: 'Draft 3 answers' }));
+
+		const dbt = await screen.findByRole('textbox', { name: /Answer to Describe a time/ });
+		expect(dbt).toHaveValue(DRAFTS.Describe);
+		expect(screen.getByText('Mentions Databricks, from your Spark work.')).toBeVisible();
+		expect(screen.getByText('10 of 200 words')).toBeVisible();
+		expect(screen.getByText('Not drafted. Answer this one yourself.')).toBeVisible();
+		expect(screen.getByText(/1 placeholder in square brackets/)).toBeVisible();
+		expect(screen.getByText(/Drafted with MiMo Flash/)).toBeVisible();
+		expect(calls).toEqual(['GET /api/v1/extension/session', 'POST /api/v1/extension/answers']);
+		const [sent] = bodies;
+		expect(sent?.source).toEqual({ kind: 'profile', id: 'p1' });
+		expect(sent?.job_id).toBeNull();
+		expect(sent?.job?.description).toMatch(/We build data platforms for banks/);
+		expect(sent?.questions.map((q) => [q.text, q.max_words])).toEqual([
+			['Describe a time you used dbt in production.\nPlease answer in 150 to 200 words.', 200],
+			['Why do you want to work at Harbour Bank?', null],
+			['Tell us about a project you are proud of', null]
+		]);
+		// Nothing goes into the page before Fill.
+		expect(document.querySelector<HTMLTextAreaElement>('#q_dbt')!.value).toBe('');
+
+		await userEvent.clear(dbt);
+		await userEvent.type(dbt, 'At Northwind I moved 40 Spark jobs to Databricks.');
+		await userEvent.click(screen.getByRole('checkbox', { name: /Why do you want to work/ }));
+		await userEvent.click(screen.getByRole('button', { name: 'Fill 1 answer' }));
+
+		expect(await screen.findByText(/Filled 1 answer/)).toBeVisible();
+		expect(document.querySelector<HTMLTextAreaElement>('#q_dbt')!.value).toBe(
+			'At Northwind I moved 40 Spark jobs to Databricks.'
+		);
+		expect(document.querySelector<HTMLInputElement>('#q_why')!.value).toBe('');
+
+		await userEvent.click(screen.getByRole('button', { name: 'Undo' }));
+		expect(document.querySelector<HTMLTextAreaElement>('#q_dbt')!.value).toBe('');
+		expect(await screen.findByText('Put back 1 field.')).toBeVisible();
+		// Back to the drafts, as they were.
+		expect(screen.getByRole('textbox', { name: /Answer to Describe a time/ })).toHaveValue(
+			'At Northwind I moved 40 Spark jobs to Databricks.'
+		);
+	});
+
+	it('redrafts one answer, sending the draft it replaces', async () => {
+		const bodies: Body[] = [];
+		fakeApi({
+			'GET /api/v1/extension/session': () => json(session),
+			'POST /api/v1/extension/answers': answering(DRAFTS, bodies)
+		});
+		loadFixture('questions');
+		render(App, { panel: new Panel() });
+		await userEvent.click(await screen.findByRole('button', { name: 'Find questions' }));
+		await userEvent.click(await screen.findByRole('button', { name: 'Draft 3 answers' }));
+		await screen.findByRole('textbox', { name: /Answer to Describe a time/ });
+
+		const [redraft] = screen.getAllByRole('button', { name: 'Redraft this answer' });
+		await userEvent.click(redraft!);
+
+		await vi.waitFor(() => expect(bodies).toHaveLength(2));
+		expect(bodies[1]?.questions.map((q) => [q.text.split('\n')[0], q.previous])).toEqual([
+			['Describe a time you used dbt in production.', DRAFTS.Describe]
+		]);
+	});
+
+	it('uses the saved job of the page, and lists questions when the form is filled', async () => {
+		const bodies: Body[] = [];
+		const job = {
+			id: 'j1',
+			title: 'Data engineer',
+			company: 'Harbour Bank',
+			url: 'https://careers.example.com/apply',
+			created_at: at,
+			updated_at: at
+		};
+		fakeApi({
+			'GET /api/v1/extension/session': () => json({ ...session, jobs: [job] }),
+			'GET /api/v1/extension/profiles/p1/application': () => json(sampleData()),
+			'POST /api/v1/extension/answers': answering(DRAFTS, bodies)
+		});
+		loadFixture('questions');
+		render(App, { panel: new Panel() });
+
+		await userEvent.click(await screen.findByRole('button', { name: 'Fill form' }));
+
+		expect(
+			await screen.findByText(
+				'From your Data engineering profile and the job ad you saved for Data engineer at Harbour Bank.'
+			)
+		).toBeVisible();
+		await userEvent.click(screen.getByRole('button', { name: 'Draft 3 answers' }));
+		await vi.waitFor(() => expect(bodies).toHaveLength(1));
+		expect([bodies[0]?.job_id, bodies[0]?.job]).toEqual(['j1', null]);
+	});
+
+	it('shows why it could not draft, with a way to the plan', async () => {
+		fakeApi({
+			'GET /api/v1/extension/session': () => json(session),
+			'POST /api/v1/extension/answers': () =>
+				json(
+					{
+						error: {
+							code: 'quota_exceeded',
+							message: "You have used all of this month's AI usage.",
+							details: { resource: 'ai_runs' }
+						}
+					},
+					402
+				)
+		});
+		loadFixture('questions');
+		render(App, { panel: new Panel() });
+		await userEvent.click(await screen.findByRole('button', { name: 'Find questions' }));
+
+		await userEvent.click(await screen.findByRole('button', { name: 'Draft 3 answers' }));
+
+		expect(await screen.findByRole('alert')).toHaveTextContent(
+			"You have used all of this month's AI usage."
+		);
+		await userEvent.click(screen.getByRole('button', { name: 'Open settings' }));
+		expect(fake.chrome.tabs.create).toHaveBeenCalledWith({
+			url: 'http://localhost:5173/app/settings'
+		});
+	});
+
+	it('says when the page has no questions', async () => {
+		fakeApi({ 'GET /api/v1/extension/session': () => json(session) });
+		loadFixture('workday');
+		render(App, { panel: new Panel() });
+
+		await userEvent.click(await screen.findByRole('button', { name: 'Find questions' }));
+
+		expect(await screen.findByText(/No open questions on this page/)).toBeVisible();
+	});
+});

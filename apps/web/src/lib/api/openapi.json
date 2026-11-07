@@ -3104,6 +3104,98 @@
           }
         }
       }
+    },
+    "/api/v1/extension/answers": {
+      "post": {
+        "tags": [
+          "extension"
+        ],
+        "summary": "Draft Answers",
+        "description": "Drafted answers to a form's open questions, from a profile or CV and the job ad. Takes one\nAI run, however many questions; saves nothing.",
+        "operationId": "draft_answers_api_v1_extension_answers_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswersRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnswersResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "A plan limit is reached; the message says which",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The AI provider failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The AI provider took too long",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3250,6 +3342,206 @@
         },
         "type": "object",
         "title": "AnalyzeRequest"
+      },
+      "AnswerJob": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "maxLength": 30000,
+            "minLength": 1,
+            "title": "Description"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Title",
+            "default": ""
+          },
+          "company": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Company",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "description"
+        ],
+        "title": "AnswerJob",
+        "description": "A job ad read from the page; not saved."
+      },
+      "AnswerQuestion": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "multiline": {
+            "type": "boolean",
+            "title": "Multiline",
+            "default": true
+          },
+          "max_words": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 2000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Words"
+          },
+          "max_chars": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 20000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Chars"
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "text"
+        ],
+        "title": "AnswerQuestion"
+      },
+      "AnswerSource": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "profile",
+              "document"
+            ],
+            "title": "Kind"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "id"
+        ],
+        "title": "AnswerSource"
+      },
+      "AnswersRequest": {
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/AnswerSource"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "job": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnswerJob"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/AnswerQuestion"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Questions"
+          },
+          "ai_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AiModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "questions"
+        ],
+        "title": "AnswersRequest"
+      },
+      "AnswersResult": {
+        "properties": {
+          "answers": {
+            "items": {
+              "$ref": "#/components/schemas/FinishedAnswer"
+            },
+            "type": "array",
+            "title": "Answers"
+          },
+          "ai_model": {
+            "$ref": "#/components/schemas/AiModel"
+          },
+          "ai_model_label": {
+            "type": "string",
+            "title": "Ai Model Label"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          }
+        },
+        "type": "object",
+        "required": [
+          "answers",
+          "ai_model",
+          "ai_model_label",
+          "model"
+        ],
+        "title": "AnswersResult"
       },
       "ApplicationData": {
         "properties": {
@@ -4923,6 +5215,43 @@
         ],
         "title": "FactIssue"
       },
+      "FinishedAnswer": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "inferred": {
+            "items": {
+              "$ref": "#/components/schemas/InferredSkill"
+            },
+            "type": "array",
+            "title": "Inferred"
+          },
+          "placeholders": {
+            "type": "integer",
+            "title": "Placeholders"
+          },
+          "shortened": {
+            "type": "boolean",
+            "title": "Shortened"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "text",
+          "inferred",
+          "placeholders",
+          "shortened"
+        ],
+        "title": "FinishedAnswer"
+      },
       "FirebaseConfig": {
         "properties": {
           "api_key": {
@@ -5018,6 +5347,28 @@
           "model"
         ],
         "title": "ImportResult"
+      },
+      "InferredSkill": {
+        "properties": {
+          "skill": {
+            "type": "string",
+            "title": "Skill"
+          },
+          "based_on": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Based On"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "skill",
+          "based_on"
+        ],
+        "title": "InferredSkill"
       },
       "Job": {
         "properties": {

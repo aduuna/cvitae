@@ -7,6 +7,7 @@
 	import Skeleton from '@web/components/ui/Skeleton.svelte';
 	import Toast from '@web/components/ui/Toast.svelte';
 	import { theme } from '@web/theme.svelte.ts';
+	import AnswerCard from './AnswerCard.svelte';
 	import DetailsCard from './DetailsCard.svelte';
 	import FillCard from './FillCard.svelte';
 	import JobCard from './JobCard.svelte';
@@ -57,6 +58,7 @@
 	{:else}
 		<SourceCard {panel} />
 		<FillCard {panel} />
+		<AnswerCard {panel} />
 		<JobCard {panel} />
 		<DetailsCard {panel} />
 		<SettingsCard {panel} />

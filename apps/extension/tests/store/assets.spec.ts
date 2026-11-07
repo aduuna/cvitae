@@ -111,12 +111,16 @@ test('store assets', async () => {
 		'The CV made for the job on the page is chosen for you, and goes into the form as a PDF.'
 	);
 
-	await panel.getByRole('button', { name: 'Show details' }).click();
-	await panel.getByText('Lead data engineer at Northwind Consulting').scrollIntoViewIfNeeded();
-	const details = await shot(
+	// Filling listed the form's open question; draft it (the mock api answers).
+	await panel.getByRole('button', { name: 'Draft 1 answer' }).click();
+	const answer = panel.getByRole('textbox', { name: 'Answer to Why do you want to join us?' });
+	await expect(answer).toHaveValue(/^At Northwind Consulting/);
+	await panel.getByRole('button', { name: 'Fill 1 answer' }).scrollIntoViewIfNeeded();
+	await site.locator('#why').scrollIntoViewIfNeeded();
+	const answers = await shot(
 		site,
-		'Copy what a form asks for, detail by detail',
-		'For fields a site builds in its own way, every detail from your profile has a copy button.'
+		'Draft answers to the open questions',
+		'Written from your own experience, for you to edit. Nothing goes into the form until you choose.'
 	);
 
 	// A job ad not saved yet, in another tab; the panel opens on it.
@@ -147,7 +151,7 @@ test('store assets', async () => {
 		address: address(page)
 	};
 
-	for (const [index, screen] of [review, offer, attach, save, details].entries()) {
+	for (const [index, screen] of [review, answers, offer, attach, save].entries()) {
 		await render(context, screenLayout(screen), `screenshot-${index + 1}.jpg`);
 	}
 	await render(context, smallTile(), 'promo-small.jpg', { width: 440, height: 280 });

@@ -42,6 +42,7 @@ describe('the browser extension page', () => {
 		render(ExtensionPage);
 
 		expect(screen.getByText(/Attaches the CV you tailored for the job/)).toBeVisible();
+		expect(screen.getByText(/Drafts answers to a form's open questions/)).toBeVisible();
 		expect(screen.getByRole('link', { name: 'How it handles your data' })).toHaveAttribute(
 			'href',
 			'/privacy'

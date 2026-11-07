@@ -14,13 +14,14 @@ from pydantic import BaseModel
 
 from api.ai.pricing import cost_usd
 from api.ai.prompts import analyze_job as analyze_prompt
+from api.ai.prompts import draft_answers as answers_prompt
 from api.ai.prompts import edit_cv as edit_prompt
 from api.ai.prompts import extract_profile as extract_prompt
 from api.ai.prompts import tailor_cv as tailor_prompt
 from api.errors import ProviderError, ProviderTimeout
 from api.ports.llm.base import LLMProvider, LLMRequest, LLMResult
 from api.services.ai_models import ModelChoice
-from cvcore.ai import BulletChange, CvEdit, ImportedCv, JobAnalysis, TailoredCv
+from cvcore.ai import BulletChange, CvEdit, DraftAnswers, ImportedCv, JobAnalysis, TailoredCv
 from cvcore.models import CvContent
 from cvcore.wire import WireCvEdit, WireImportedCv, WireTailoredCv, from_wire
 
@@ -194,3 +195,25 @@ async def edit_cv(
     # The reply is shown as plain text; models sometimes quote the CV's bold markers in it.
     reply = wire.reply.replace("**", "").strip()
     return _with_output(result, CvEdit(reply=reply, content=from_wire(wire.content)))
+
+
+async def draft_answers(
+    choice: ModelChoice,
+    runs: RunRecorder,
+    *,
+    material: CvContent,
+    questions: Sequence[answers_prompt.Question],
+    job: answers_prompt.JobAd | None = None,
+    analysis: JobAnalysis | None = None,
+) -> LLMResult[DraftAnswers]:
+    """Drafts for application questions. Not CV content: no fact guard runs on them."""
+    request = LLMRequest(
+        task="answers",
+        system=answers_prompt.SYSTEM,
+        user_text=answers_prompt.build(material, questions, job, analysis),
+        output_model=DraftAnswers,
+        model=choice.option.model,
+        effort="low",
+        max_output_tokens=12000,
+    )
+    return await run(choice.provider, runs, request, answers_prompt.PROMPT_VERSION)

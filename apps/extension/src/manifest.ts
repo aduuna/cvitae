@@ -4,8 +4,9 @@ import { JOB_SITE_PATTERNS } from './sites.ts';
 export type Target = 'chrome' | 'firefox';
 
 const NAME = 'Chameleon vitae';
+/** At most 132 characters: the Chrome Web Store's limit. */
 const DESCRIPTION =
-	'Fill job applications from your Chameleon vitae profile, attach a tailored CV and save job ads to tailor for.';
+	'Fill job applications from your Chameleon vitae profile, draft answers to their questions, attach a tailored CV and save job ads.';
 const ICONS = { 16: 'icons/16.png', 32: 'icons/32.png', 48: 'icons/48.png', 128: 'icons/128.png' };
 
 /** A match pattern for the app's origin. Patterns cannot name a port, and match every port. */

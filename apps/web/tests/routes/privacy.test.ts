@@ -31,6 +31,14 @@ describe('privacy policy', () => {
 		expect(screen.getByText(/It does not record which pages you visit/)).toBeVisible();
 	});
 
+	it('says what drafting answers sends, and that nothing of it is stored', () => {
+		render(Privacy);
+
+		const drafts = screen.getByText(/Draft answers and Redraft send the questions you ticked/);
+		expect(drafts).toHaveTextContent(/without your email, phone number or links/);
+		expect(drafts).toHaveTextContent(/are not stored, and neither are the drafts/);
+	});
+
 	it('says how to reach us', () => {
 		render(Privacy);
 

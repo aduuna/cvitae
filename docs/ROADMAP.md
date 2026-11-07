@@ -128,12 +128,50 @@ Built on a branch after M6, like it (`docs/PRODUCT.md`, 9).
 Done when: the checks in `docs/PRODUCT.md`, 9 pass, with API, unit and Playwright tests at 1280px
 and 768px.
 
+## M8: Drafted answers in the extension
+
+Built after M7 on top of M6, also ahead of M5 (`docs/PRODUCT.md`, 8, Answer questions;
+`docs/BACKEND.md`, Drafted answers).
+
+- Docs: the CV rule and the drafts' rule stated apart (`AGENTS.md` rule 8, `docs/PRODUCT.md`
+  principles 1 and 4, `docs/BACKEND.md` prompt rules).
+- `cvcore`: `DraftAnswers` output models in `ai.py` (through `llm_schema`); `answers.py` (number
+  placeholders, word and character limits, the skills hint); the fact guard's number pattern and
+  mention test exported for it, the guard itself unchanged.
+- api: migration `0008` (`answers` in `ai_runs.task`); `ai/prompts/draft_answers.py` with
+  `ANSWER_RULES`; `tasks.draft_answers`; `services/answers.py`; `POST /extension/answers` with the
+  token user's plan, AI runs and models; a `FakeLLMProvider` responder. Service tests with the fake
+  provider, API tests for the route.
+- Web app: `bun run gen:api`; the privacy policy and the Extension page describe drafted answers.
+- `apps/extension`: open question detection, limits and the AI notice in the content script; undo
+  kept per fill (fields, answers); the Answer questions card; the mock api; vitest and Playwright
+  tests; the store listing, manifest description and store screenshots; version 0.2.0 and
+  `bun run package`.
+
+Done when:
+
+- `uv run pytest` passes, with tests that one request takes one AI run, the quota is checked before
+  any model call, a refused or failed request saves nothing, a number not in the material becomes a
+  placeholder, answers fit their limits, the hint lists only skills the material does not mention,
+  and another user's profile, CV or job is a 404; Firebase tokens are refused on the route.
+- The fact guard's tests pass unchanged, and no code path puts a draft into a CV or a profile.
+- The extension's vitest covers question detection on the Greenhouse, Lever, Ashby and careers
+  fixtures (open questions found; excluded, hidden and already classified fields not), limits from
+  `maxlength` and labels, the AI notice, and the card from finding questions to Undo.
+- The extension's Playwright test finds questions, drafts them against the mock api, edits one,
+  fills, checks the page, and undoes.
+- Every check in `AGENTS.md`'s definition of done and `bun run lint:firefox` pass, and coverage for
+  `apps/api` and `packages/cvcore` stays at or above 85%.
+- `apps/extension` is at 0.2.0 and `bun run package` has written the three zips; `listing.md` (with no
+  job platform names in its description), the privacy policy and the manifest describe the feature,
+  and the Chrome data usage answers and Firefox `data_collection_permissions` match it with no new
+  browser permission.
+
 ---
 
 ## Later (not scheduled)
 
 Cover letters from the same profile and job, DOCX export, in-browser Typst preview via WASM to cut
 renderer calls, bring-your-own API key, shareable read-only CV links, OpenAI models as a fourth
-provider. For the extension: AI drafts for free-text application questions (under the
-no-new-facts rule, counted as AI usage), filling custom list widgets (Workday's, react-select), and
-remembering per site which fields the user corrected.
+provider. For the extension: filling custom list widgets (Workday's, react-select), drafting cover
+letters once the app has them, and remembering per site which fields the user corrected.

@@ -35,6 +35,33 @@ class CvEdit(CvModel):
     content: CvContent = Field(description="The whole CV after the change.")
 
 
+class SkillMention(CvModel):
+    skill: str = Field(description="A skill, tool or technology the answer names.")
+    based_on: list[str] = Field(
+        description="The skills, tools or roles in the applicant's material it rests on."
+    )
+
+
+class DraftAnswer(CvModel):
+    id: str = Field(description="The id of the question this answers.")
+    text: str = Field(
+        description="The answer in plain text; empty when the question must not be answered."
+    )
+    skills: list[SkillMention] = Field(
+        description=(
+            "Every skill, tool or technology the answer names, including those the question "
+            "asks about."
+        )
+    )
+
+
+class DraftAnswers(CvModel):
+    """Drafted answers to application questions. Not CV content: they follow the drafts' rule
+    (docs/PRODUCT.md, 8, Answer questions) and never pass through the fact guard."""
+
+    answers: list[DraftAnswer] = Field(description="One answer per question, in order.")
+
+
 class TailoredCv(CvModel):
     content: CvContent = Field(description="The tailored CV.")
     changes: list[BulletChange] = Field(description="One entry per bullet that was reworded.")

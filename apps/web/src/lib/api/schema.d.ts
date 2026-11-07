@@ -661,6 +661,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/extension/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draft Answers
+         * @description Drafted answers to a form's open questions, from a profile or CV and the job ad. Takes one
+         *     AI run, however many questions; saves nothing.
+         */
+        post: operations["draft_answers_api_v1_extension_answers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -711,6 +732,75 @@ export interface components {
         /** AnalyzeRequest */
         AnalyzeRequest: {
             ai_model?: components["schemas"]["AiModel"] | null;
+        };
+        /**
+         * AnswerJob
+         * @description A job ad read from the page; not saved.
+         */
+        AnswerJob: {
+            /** Description */
+            description: string;
+            /**
+             * Title
+             * @default
+             */
+            title?: string;
+            /**
+             * Company
+             * @default
+             */
+            company?: string;
+        };
+        /** AnswerQuestion */
+        AnswerQuestion: {
+            /** Id */
+            id: string;
+            /** Text */
+            text: string;
+            /**
+             * Multiline
+             * @default true
+             */
+            multiline?: boolean;
+            /** Max Words */
+            max_words?: number | null;
+            /** Max Chars */
+            max_chars?: number | null;
+            /** Previous */
+            previous?: string | null;
+        };
+        /** AnswerSource */
+        AnswerSource: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "profile" | "document";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
+        /** AnswersRequest */
+        AnswersRequest: {
+            source: components["schemas"]["AnswerSource"];
+            /** Job Id */
+            job_id?: string | null;
+            job?: components["schemas"]["AnswerJob"] | null;
+            /** Questions */
+            questions: components["schemas"]["AnswerQuestion"][];
+            ai_model?: components["schemas"]["AiModel"] | null;
+        };
+        /** AnswersResult */
+        AnswersResult: {
+            /** Answers */
+            answers: components["schemas"]["FinishedAnswer"][];
+            ai_model: components["schemas"]["AiModel"];
+            /** Ai Model Label */
+            ai_model_label: string;
+            /** Model */
+            model: string;
         };
         /** ApplicationData */
         ApplicationData: {
@@ -1367,6 +1457,19 @@ export interface components {
             /** Value */
             value?: string | null;
         };
+        /** FinishedAnswer */
+        FinishedAnswer: {
+            /** Id */
+            id: string;
+            /** Text */
+            text: string;
+            /** Inferred */
+            inferred: components["schemas"]["InferredSkill"][];
+            /** Placeholders */
+            placeholders: number;
+            /** Shortened */
+            shortened: boolean;
+        };
         /** FirebaseConfig */
         FirebaseConfig: {
             /** Api Key */
@@ -1403,6 +1506,13 @@ export interface components {
             provider: components["schemas"]["ProviderName"];
             /** Model */
             model: string;
+        };
+        /** InferredSkill */
+        InferredSkill: {
+            /** Skill */
+            skill: string;
+            /** Based On */
+            based_on: string[];
         };
         /** Job */
         Job: {
@@ -4634,6 +4744,84 @@ export interface operations {
             };
             /** @description Invalid request */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    draft_answers_api_v1_extension_answers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswersRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnswersResult"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description A plan limit is reached; the message says which */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description The AI provider failed */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description The AI provider took too long */
+            504: {
                 headers: {
                     [name: string]: unknown;
                 };

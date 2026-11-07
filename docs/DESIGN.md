@@ -201,6 +201,8 @@ No font sizes outside the scale; the display sizes (`3xl`, `4xl`) appear on the 
 | Browser extension, Connect extension | `Puzzle` |
 | Copy a detail (extension) | `Copy` |
 | Attach CV (extension) | `File` |
+| Draft answers (extension) | `Sparkles` |
+| Redraft one answer (extension) | `RefreshCw` |
 | Edit with AI | `Sparkles` |
 | Send | `Send` |
 | Undo | `Undo2` |
@@ -393,13 +395,32 @@ store links once published), This browser (connect) and Connected browsers. The 
 
 - **Side panel** (Chrome's side panel, Firefox's sidebar): one column of cards on `bg-canvas`, 12px
   around and between them, the logo and name at the top. Cards in order: Fill from (a `Select` of
-  profiles and CVs, with why it was chosen as help text), Fill this application, Job ad, Copy your
-  details, Settings. It imports `app.css` and the primitives from `apps/web/src/lib` (`@web`), so
-  there is one set of tokens and components; the theme follows the device.
+  profiles and CVs, with why it was chosen as help text), Fill this application, Answer questions,
+  Job ad, Copy your details, Settings. It imports `app.css` and the primitives from
+  `apps/web/src/lib` (`@web`), so there is one set of tokens and components; the theme follows the
+  device.
 - **Review before filling:** each field is a `Checkbox` with the page's label, and its value under it
   (an `Input`, a `Textarea` for long text, plain text for lists and boxes), grouped under
   `text-sm font-medium text-fg-muted` headings. `Badge` (outline) marks "Has a value", "Pick from
   list" and "Shortened". The primary action names the count: "Fill 16 fields".
+- **Answer questions** (`AnswerCard.svelte`, docs/PRODUCT.md, 8, Answer questions): drafts answers to
+  a form's open questions for the user to edit. Before drafting, a line in `text-sm text-fg-muted`
+  says what the drafts use (the chosen profile or CV, and which job ad); when the page bans AI, a
+  notice above the list in `text-sm text-fg` with the `placeholder-warning` icon quotes the ban. The
+  found questions are `Checkbox` rows like the fill review, each with its limit beside the label in
+  `text-xs text-fg-muted` ("200 words", "1,000 characters") and an outline `Badge` "Has a value" when
+  the field is not empty. The primary button (the `ai-draft` icon) names the count: "Draft 3
+  answers". After drafting, each ticked question keeps its label, then its
+  draft in a `Textarea` (one row for a single-line field, four otherwise) with a live count under it
+  ("143 of 200 words", `text-danger` when over), a `ghost` "Redraft" `IconButton` (the `redraft`
+  icon) by the label, and, when the draft names skills not in the material, the hint in
+  `text-xs text-fg-muted` ("Mentions dbt, from your Spark and Databricks work"). An empty answer
+  reads "Not drafted. Answer this one yourself." in `text-sm text-fg-muted`. Notes below the list
+  follow the fill review's wording for shortened answers and remaining placeholders. The footer has a
+  `ghost` Cancel and the primary "Fill 3 answers"; after filling, "Filled 3 answers", Undo and Edit
+  answers (back to the drafts), as the fill card does. Drafting and Redraft show the button `loading`. When the api refuses
+  a draft for the AI limit or for a Pro model on Free, the card shows its message in
+  `text-sm text-danger` with an "Open settings" button. `aria-live="polite"` on the card.
 - **The offer inside job sites** is drawn in a shadow root the site's CSS cannot reach: a 320px card
   in the bottom right corner (16px from the edges), `surface`, `line` border, radius `lg`,
   `shadow-pop`, title, one line of text and two buttons ("Close", then the primary "Fill fields").

@@ -86,11 +86,35 @@ export interface FileField {
 	hasFile: boolean;
 }
 
+/**
+ * An open question on the form: a free-text field the profile does not fill, which the user can
+ * have drafted (docs/PRODUCT.md, 8, Answer questions). Like a field, it never carries its value.
+ */
+export interface QuestionInfo {
+	id: string;
+	/** The question as the form labels it. */
+	label: string;
+	/** Help text the form gives for it, such as "Please answer in 200 words or fewer". */
+	help: string;
+	/** A text area; false for a single-line field. */
+	multiline: boolean;
+	/** The field's own length limit. */
+	maxLength: number | null;
+	/** A word limit the label or help text states. */
+	maxWords: number | null;
+	/** The tighter of the field's length limit and one the label or help text states. */
+	maxChars: number | null;
+	filled: boolean;
+}
+
 export interface PageScan {
 	url: string;
 	title: string;
 	fields: FieldInfo[];
 	files: FileField[];
+	questions: QuestionInfo[];
+	/** A sentence on the page asking applicants not to use AI, when there is one. */
+	aiPolicy: string | null;
 }
 
 /** One field to fill and the value it gets. */
@@ -128,11 +152,14 @@ export interface JobDraft {
 	from: 'posting' | 'selection' | 'page';
 }
 
+/** Fills that are undone separately: the profile's fields, and drafted answers. */
+export type FillBatch = 'fields' | 'answers';
+
 /** What the content script exposes to the extension's own scripts (scripting.executeScript). */
 export interface ContentApi {
 	scan(): PageScan;
-	fill(assignments: Pick<Assignment, 'fieldId' | 'value'>[]): number;
-	undo(): number;
+	fill(assignments: Pick<Assignment, 'fieldId' | 'value'>[], batch?: FillBatch): number;
+	undo(batch?: FillBatch): number;
 	attach(fieldId: string, file: { name: string; type: string; base64: string }): boolean;
 	job(): JobDraft | null;
 }

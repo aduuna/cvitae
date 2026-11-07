@@ -1,4 +1,5 @@
-"""Real calls to the AI providers (the M3 done-when check, and AI edits). Never run by default.
+"""Real calls to the AI providers (the M3 done-when check, AI edits and drafted answers). Never run
+by default.
 
 uv run pytest -m live apps/api/tests/test_llm_live.py -s
 
@@ -16,10 +17,12 @@ import pytest
 
 from api.ai import tasks
 from api.ai.models import AiModel
+from api.ai.prompts.draft_answers import JobAd, Question
 from api.main import build_providers
 from api.services.ai_models import ModelChoice
 from api.settings import Settings
 from cvcore import factguard
+from cvcore.answers import Limits, Material, finish, for_drafting, word_count
 from cvcore.models import CvContent
 from cvcore.render import iter_bullets
 from cvcore.richtext import plain_text
@@ -152,3 +155,52 @@ async def test_an_edit_changes_only_what_was_asked(model: AiModel) -> None:
         (b.id, words(b.text)) for b in iter_bullets(SAMPLE)
     ]
     assert roles(edit.content) == roles(SAMPLE)
+
+
+@pytest.mark.parametrize("model", list(AiModel))
+async def test_drafted_answers_fit_their_questions(model: AiModel) -> None:
+    choice = make_choice(model)
+    runs = MemoryRuns()
+    questions = [
+        Question(id="q1", text="Describe a time you used Databricks in production.", max_words=120),
+        Question(
+            id="q2",
+            text="Why do you want to work at Lumen Payments?",
+            single_line=True,
+            max_chars=300,
+        ),
+        Question(id="q3", text="What are your salary expectations?"),
+    ]
+    # The fixture ad is for Lumen Payments, a made-up company.
+    job = JobAd(description=JOB_AD, title="Senior data engineer", company="Lumen Payments")
+
+    result = await tasks.draft_answers(
+        choice, runs, material=for_drafting(SAMPLE), questions=questions, job=job
+    )
+
+    report(runs)
+    drafts = {draft.id: draft for draft in result.output.answers}
+    material = Material(SAMPLE, JOB_AD)
+    finished = {}
+    for question in questions:
+        draft = drafts.get(question.id)
+        finished[question.id] = finish(
+            question.id,
+            draft.text if draft else "",
+            draft.skills if draft else [],
+            question=question.text,
+            limits=Limits(
+                multiline=not question.single_line,
+                max_words=question.max_words,
+                max_chars=question.max_chars,
+            ),
+            material=material,
+        )
+        print(f"\n{question.text}\n{finished[question.id].model_dump_json(indent=2)}")
+    first, second, salary = finished["q1"], finished["q2"], finished["q3"]
+    assert first.text and word_count(first.text) <= 120
+    # Databricks is not in the sample profile: the hint names it.
+    assert "databricks" in [skill.skill.casefold() for skill in first.inferred]
+    assert second.text and "\n" not in second.text and len(second.text) <= 300
+    assert salary.text == "", "questions only the applicant can answer stay empty"
+    assert all("\u2014" not in answer.text for answer in finished.values())

@@ -1,15 +1,17 @@
-import { errorMessage } from '@web/api/client.ts';
+import { ApiError, errorMessage } from '@web/api/client.ts';
 import { CONNECT_PATH } from '@web/extension/protocol.ts';
 import { APP_URL } from '../config.ts';
 import type { ApplicationData, FileField, JobDraft } from '../content/types.ts';
 import {
 	connectApi,
 	disconnect,
+	draftAnswers,
 	isRevoked,
 	loadApplication,
 	loadCvPdf,
 	loadSession,
 	saveJob,
+	type AnswersResult,
 	type Api,
 	type ExtensionSession,
 	type SavedJob
@@ -25,7 +27,8 @@ import {
 	readJobFromTab,
 	scanTab,
 	sitePattern,
-	undoTab
+	undoTab,
+	type FrameScan
 } from '../lib/page.ts';
 import {
 	DEFAULTS,
@@ -38,6 +41,15 @@ import {
 } from '../lib/settings.ts';
 import { sourceName, suggestSource, type Suggestion } from '../lib/sources.ts';
 import { jobSite } from '../sites.ts';
+import {
+	aiPolicyOf,
+	answersByFrame,
+	draftOf,
+	draftRequest,
+	questionRows,
+	type JobContext,
+	type QuestionRow
+} from './answers.ts';
 import { byFrame, review, type Row } from './review.ts';
 
 export type FillState =
@@ -56,6 +68,10 @@ export type JobState =
 	| { step: 'saving'; draft: JobDraft }
 	| { step: 'saved'; saved: SavedJob }
 	| { step: 'error'; message: string };
+
+/** The Answer questions card, from finding the questions to filling the drafts. */
+export type AnswerStep =
+	'idle' | 'finding' | 'none' | 'questions' | 'drafting' | 'drafts' | 'filling' | 'filled';
 
 export type AttachState =
 	| { step: 'idle' }
@@ -93,6 +109,18 @@ export class Panel {
 	attach = $state<AttachState>({ step: 'idle' });
 	job = $state<JobState>({ step: 'idle' });
 	details = $state<ApplicationData | null>(null);
+	answerStep = $state<AnswerStep>('idle');
+	questions = $state<QuestionRow[]>([]);
+	/** A sentence on the page asking applicants not to use AI. */
+	aiPolicy = $state<string | null>(null);
+	jobContext = $state<JobContext>({ kind: 'none' });
+	/** "Claude Haiku": the model that wrote the drafts. */
+	answersModel = $state('');
+	answersFilled = $state(0);
+	/** Why drafting or filling failed; `settings` when the plan or the AI model is the reason. */
+	answerProblem = $state<{ message: string; settings: boolean } | null>(null);
+	/** The question being redrafted. */
+	redrafting = $state<string | null>(null);
 
 	#api: Api | null = null;
 	#data: { key: string; data: ApplicationData } | null = null;
@@ -172,6 +200,8 @@ export class Panel {
 		this.job = { step: 'idle' };
 		this.attach = { step: 'idle' };
 		this.files = [];
+		// Drafts belong to the page they were written for, and are not kept.
+		this.#resetAnswers();
 		const tab = await activeTab();
 		const url = tab?.url ?? null;
 		this.tab = tab?.id === undefined ? null : { id: tab.id, url };
@@ -205,6 +235,8 @@ export class Panel {
 		this.fill = { step: 'idle' };
 		this.attach = { step: 'idle' };
 		this.details = null;
+		// Drafts came from the other source: draft again from this one.
+		if (this.questions.some((row) => row.answer)) this.cancelDrafts();
 		await saveSettings({ source });
 	}
 
@@ -235,6 +267,9 @@ export class Panel {
 			);
 			const { rows, notes } = review(frames, data, this.sourceLabel);
 			this.fill = rows.length ? { step: 'review', rows, notes } : { step: 'empty' };
+			if (['idle', 'none', 'questions'].includes(this.answerStep)) {
+				await this.#setQuestions(tab.id, frames);
+			}
 		} catch (error) {
 			this.fill = { step: 'error', message: await this.#failure(error) };
 		}
@@ -309,6 +344,134 @@ export class Panel {
 		} catch (error) {
 			this.job = { step: 'error', message: await this.#failure(error) };
 		}
+	}
+
+	#resetAnswers(): void {
+		this.answerStep = 'idle';
+		this.questions = [];
+		this.aiPolicy = null;
+		this.jobContext = { kind: 'none' };
+		this.answerProblem = null;
+		this.redrafting = null;
+	}
+
+	async #setQuestions(tabId: number, frames: FrameScan[]): Promise<void> {
+		this.questions = questionRows(frames);
+		this.aiPolicy = aiPolicyOf(frames);
+		this.jobContext = this.questions.length ? await this.#jobContext(tabId) : { kind: 'none' };
+		this.answerStep = this.questions.length ? 'questions' : 'none';
+	}
+
+	/** The job ad drafts use: the saved job this page belongs to, else the ad on the page. */
+	async #jobContext(tabId: number): Promise<JobContext> {
+		const saved = this.pageJob;
+		if (saved) return { kind: 'saved', id: saved.id, title: saved.title, company: saved.company };
+		const draft = await readJobFromTab(tabId).catch(() => null);
+		return draft ? { kind: 'page', draft } : { kind: 'none' };
+	}
+
+	/** Read the form's open questions, without loading the profile. */
+	async findQuestions(): Promise<void> {
+		const tab = this.tab;
+		if (!tab) return;
+		this.answerStep = 'finding';
+		this.answerProblem = null;
+		try {
+			if (!(await prepare(tab.id))) {
+				this.access = 'no';
+				this.answerStep = 'idle';
+				return;
+			}
+			await this.#setQuestions(tab.id, await scanTab(tab.id));
+		} catch (error) {
+			this.answerStep = 'idle';
+			this.answerProblem = { message: await this.#failure(error), settings: false };
+		}
+	}
+
+	#applyDrafts(result: AnswersResult): void {
+		for (const row of this.questions) {
+			const answer = result.answers.find((candidate) => candidate.id === row.key);
+			if (answer) row.answer = draftOf(answer, row.question);
+		}
+		this.answersModel = result.ai_model_label;
+	}
+
+	async #answerFailure(error: unknown): Promise<{ message: string; settings: boolean }> {
+		// 402: the month's AI usage is spent, or the chosen model needs Pro.
+		const settings = error instanceof ApiError && error.status === 402;
+		return { message: await this.#failure(error), settings };
+	}
+
+	/** Draft every ticked question in one request: one AI run. */
+	async draftAnswers(): Promise<void> {
+		const rows = this.questions.filter((row) => row.draft);
+		if (!this.#api || !this.source || rows.length === 0) return;
+		this.answerStep = 'drafting';
+		this.answerProblem = null;
+		try {
+			this.#applyDrafts(
+				await draftAnswers(this.#api, draftRequest(this.source, rows, this.jobContext))
+			);
+			this.answerStep = 'drafts';
+		} catch (error) {
+			this.answerStep = 'questions';
+			this.answerProblem = await this.#answerFailure(error);
+		}
+	}
+
+	/** A different draft of one answer: one AI run. */
+	async redraft(key: string): Promise<void> {
+		const row = this.questions.find((candidate) => candidate.key === key);
+		if (!this.#api || !this.source || !row?.answer) return;
+		this.redrafting = key;
+		this.answerProblem = null;
+		try {
+			const previous = { [key]: row.answer.text };
+			this.#applyDrafts(
+				await draftAnswers(this.#api, draftRequest(this.source, [row], this.jobContext, previous))
+			);
+		} catch (error) {
+			this.answerProblem = await this.#answerFailure(error);
+		} finally {
+			this.redrafting = null;
+		}
+	}
+
+	/** Back to the list of questions, without the drafts. */
+	cancelDrafts(): void {
+		for (const row of this.questions) row.answer = null;
+		this.answerStep = this.questions.length ? 'questions' : 'idle';
+		this.answerProblem = null;
+	}
+
+	editAnswers(): void {
+		this.answerStep = 'drafts';
+	}
+
+	/** Write the ticked drafts into the page. */
+	async fillAnswers(): Promise<void> {
+		const tab = this.tab;
+		if (!tab || this.answerStep !== 'drafts') return;
+		this.answerStep = 'filling';
+		try {
+			let count = 0;
+			for (const [frameId, list] of answersByFrame(this.questions)) {
+				count += await fillFrame(tab.id, frameId, list, 'answers');
+			}
+			this.answersFilled = count;
+			this.answerStep = 'filled';
+		} catch (error) {
+			this.answerStep = 'drafts';
+			this.answerProblem = { message: await this.#failure(error), settings: false };
+		}
+	}
+
+	/** Put back what the answers replaced; the fields' fill keeps its own undo. */
+	async undoAnswers(): Promise<number> {
+		const restored = this.tab ? await undoTab(this.tab.id, 'answers').catch(() => 0) : 0;
+		this.answerStep = 'drafts';
+		return restored;
 	}
 
 	/** Your details, to copy into fields the extension cannot fill. */

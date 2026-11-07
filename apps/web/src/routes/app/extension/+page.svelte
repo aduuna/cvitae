@@ -34,14 +34,18 @@
 		<div class="flex flex-col gap-4">
 			<ul class="flex list-disc flex-col gap-1 pl-5 text-base text-fg">
 				<li>Fills job application forms from a profile or CV, after you check what goes where.</li>
+				<li>
+					Drafts answers to a form's open questions from your profile, for you to edit before they
+					are filled. Drafting uses AI usage.
+				</li>
 				<li>Attaches the CV you tailored for the job, as a PDF.</li>
 				<li>Saves the job ad you are reading, so you can tailor a CV for it.</li>
 			</ul>
 			<p class="text-sm text-fg-muted">
-				It reads your profiles and CVs only when you choose to fill a form, never changes or deletes
-				them, and never submits an application. Check every field before you send it. <a
-					href={resolve('/privacy')}
-					class="text-fg underline underline-offset-4">How it handles your data</a
+				It reads your profiles and CVs only when you choose to fill a form or draft answers, never
+				changes or deletes them, and never submits an application. Check every field before you send
+				it. <a href={resolve('/privacy')} class="text-fg underline underline-offset-4"
+					>How it handles your data</a
 				>.
 			</p>
 			{#if published.length}
