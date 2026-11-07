@@ -68,8 +68,8 @@ function watchForForms(): void {
 if (!globalThis.__cvitae) {
 	globalThis.__cvitae = {
 		scan: () => scan(document),
-		fill: (assignments) => fillFields(assignments, element),
-		undo: undoFill,
+		fill: (assignments, batch) => fillFields(assignments, element, batch),
+		undo: (batch) => undoFill(batch),
 		attach: (fieldId, file) => attachFile(element(fieldId), file),
 		job: () => readJob(document)
 	};

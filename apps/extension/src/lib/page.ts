@@ -1,4 +1,4 @@
-import type { JobDraft, PageScan } from '../content/types.ts';
+import type { FillBatch, JobDraft, PageScan } from '../content/types.ts';
 import type { CvFile } from './api.ts';
 
 /**
@@ -49,20 +49,23 @@ export async function scanTab(tabId: number): Promise<FrameScan[]> {
 export async function fillFrame(
 	tabId: number,
 	frameId: number,
-	assignments: { fieldId: string; value: string }[]
+	assignments: { fieldId: string; value: string }[],
+	batch: FillBatch = 'fields'
 ): Promise<number> {
 	const [result] = await chrome.scripting.executeScript({
 		target: { tabId, frameIds: [frameId] },
-		func: (list: { fieldId: string; value: string }[]) => globalThis.__cvitae?.fill(list) ?? 0,
-		args: [assignments]
+		func: (list: { fieldId: string; value: string }[], kind: FillBatch) =>
+			globalThis.__cvitae?.fill(list, kind) ?? 0,
+		args: [assignments, batch]
 	});
 	return (result?.result as number | undefined) ?? 0;
 }
 
-export async function undoTab(tabId: number): Promise<number> {
+export async function undoTab(tabId: number, batch: FillBatch = 'fields'): Promise<number> {
 	const results = await chrome.scripting.executeScript({
 		target: { tabId, allFrames: true },
-		func: () => globalThis.__cvitae?.undo() ?? 0
+		func: (kind: FillBatch) => globalThis.__cvitae?.undo(kind) ?? 0,
+		args: [batch]
 	});
 	return results.reduce((sum, { result }) => sum + ((result as number | undefined) ?? 0), 0);
 }

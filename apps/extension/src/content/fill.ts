@@ -1,11 +1,12 @@
 import { FILLED_STYLE } from './tokens.ts';
+import type { FillBatch } from './types.ts';
 
 type Control = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
 const FILLED = 'data-cvitae-filled';
 
-/** What a fill changed, so it can be undone. */
-const history: { el: Control; value: string; checked: boolean }[] = [];
+/** What the last fill of each batch changed, so each can be undone on its own. */
+const history = new Map<FillBatch, { el: Control; value: string; checked: boolean }[]>();
 
 /**
  * Set a value the way typing does, so frameworks that track input (React, Vue, Angular) see it.
@@ -58,12 +59,17 @@ function mark(el: Control): void {
 	el.addEventListener('pointerdown', clear, { once: true });
 }
 
-/** Fill fields found by `lookup`; returns how many were written. A new fill replaces the undo. */
+/**
+ * Fill fields found by `lookup`; returns how many were written. A new fill replaces the undo of
+ * its batch: filling answers keeps the fields' undo, and the other way round.
+ */
 export function fillFields(
 	assignments: { fieldId: string; value: string }[],
-	lookup: (id: string) => Element | undefined
+	lookup: (id: string) => Element | undefined,
+	batch: FillBatch = 'fields'
 ): number {
-	history.length = 0;
+	const changed: { el: Control; value: string; checked: boolean }[] = [];
+	history.set(batch, changed);
 	let count = 0;
 	for (const { fieldId, value } of assignments) {
 		const el = lookup(fieldId);
@@ -77,7 +83,7 @@ export function fillFields(
 		) {
 			continue;
 		}
-		history.push({ el, value: el.value, checked: 'checked' in el ? el.checked : false });
+		changed.push({ el, value: el.value, checked: 'checked' in el ? el.checked : false });
 		write(el, value);
 		mark(el);
 		count += 1;
@@ -85,16 +91,16 @@ export function fillFields(
 	return count;
 }
 
-/** Put back what the last fill replaced; returns how many fields changed back. */
-export function undoFill(): number {
+/** Put back what the batch's last fill replaced; returns how many fields changed back. */
+export function undoFill(batch: FillBatch = 'fields'): number {
 	let count = 0;
-	for (const { el, value, checked } of history.reverse()) {
+	for (const { el, value, checked } of (history.get(batch) ?? []).reverse()) {
 		if (!el.isConnected) continue;
 		write(el, el instanceof HTMLInputElement && el.type === 'checkbox' ? String(checked) : value);
 		el.removeAttribute(FILLED);
 		count += 1;
 	}
-	history.length = 0;
+	history.delete(batch);
 	return count;
 }
 

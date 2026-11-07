@@ -1,11 +1,14 @@
 import { classify, isRepeated, words, type Described } from './classify.ts';
-import type { FieldInfo, FileField, PageScan } from './types.ts';
+import { aiPolicy, isQuestion, statedLimits } from './questions.ts';
+import type { FieldInfo, FileField, PageScan, QuestionInfo } from './types.ts';
 
 type Control = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
 const CONTROLS = 'input, textarea, select';
 const HEADINGS = 'h1, h2, h3, h4, h5, h6, legend, [role="heading"]';
 const MAX_FIELDS = 400;
+/** As many as one request for drafted answers takes. */
+const MAX_QUESTIONS = 20;
 const MAX_OPTIONS = 400;
 /** Attributes that sites put on fields and their wrappers to name them (Workday, Lever, tests). */
 const NAMING_ATTRIBUTES = ['data-automation-id', 'data-qa', 'data-testid', 'data-field', 'data-ui'];
@@ -82,15 +85,19 @@ export function ownText(el: Element): string {
 	return text;
 }
 
+const MAX_LABEL = 150;
+/** Questions can be long: "Describe a time you ... What did you learn?" */
+const MAX_QUESTION = 1000;
+
 /** A label's text without required markers: "First name *" reads "First name". */
-export function cleanLabel(text: string): string {
+export function cleanLabel(text: string, max = MAX_LABEL): string {
 	return text
 		.replace(/[*\u2731\u2022]/g, ' ')
 		.replace(/\((required|optional)\)/gi, ' ')
 		.replace(/\s+/g, ' ')
 		.replace(/\s*:\s*$/, '')
 		.trim()
-		.slice(0, 150);
+		.slice(0, max);
 }
 
 function byIds(el: Element, attribute: string): string {
@@ -105,7 +112,7 @@ function byIds(el: Element, attribute: string): string {
 const SHORT_LABEL = 100;
 
 /** Text just before the field in its wrappers, as in Lever's "application-label" divs. */
-function nearbyText(el: Element): string {
+function nearbyText(el: Element, max: number): string {
 	let node: Element | null = el;
 	for (let depth = 0; depth < 4 && node?.parentElement; depth++) {
 		let sibling = node.previousElementSibling;
@@ -114,8 +121,8 @@ function nearbyText(el: Element): string {
 			if (sibling.matches(HEADINGS)) return '';
 			const forOther = sibling.matches('label[for]') && sibling.getAttribute('for') !== el.id;
 			if (!forOther && !sibling.querySelector(CONTROLS) && !sibling.matches(CONTROLS)) {
-				const text = cleanLabel(ownText(sibling));
-				if (text && text.length <= SHORT_LABEL) return text;
+				const text = cleanLabel(ownText(sibling), max);
+				if (text && text.length <= max) return text;
 			}
 			sibling = sibling.previousElementSibling;
 		}
@@ -125,18 +132,20 @@ function nearbyText(el: Element): string {
 	return '';
 }
 
-export function labelOf(el: Control): string {
+/** The field's label; `long` keeps a question's full text. */
+export function labelOf(el: Control, long = false): string {
+	const max = long ? MAX_QUESTION : MAX_LABEL;
 	const labels = 'labels' in el && el.labels ? [...el.labels] : [];
 	const candidates = [
 		labels.map((label) => ownText(label)).join(' '),
 		byIds(el, 'aria-labelledby'),
 		el.getAttribute('aria-label') ?? '',
-		nearbyText(el),
+		nearbyText(el, long ? MAX_QUESTION : SHORT_LABEL),
 		el.getAttribute('placeholder') ?? '',
 		el.getAttribute('title') ?? ''
 	];
 	for (const candidate of candidates) {
-		const text = cleanLabel(candidate);
+		const text = cleanLabel(candidate, max);
 		if (text) return text;
 	}
 	return '';
@@ -225,10 +234,31 @@ function fileField(el: HTMLInputElement): Omit<FileField, 'id'> | null {
 	return { label: labelOf(el) || 'CV', hasFile: (el.files?.length ?? 0) > 0 };
 }
 
-/** Every field the profile can fill, and the file inputs that take a CV. */
+/** An open question, with the limits its field and its words set. */
+function questionOf(el: Control, field: Described): QuestionInfo {
+	const help = cleanLabel(byIds(el, 'aria-describedby'), MAX_LABEL * 2);
+	const stated = statedLimits([field.label, help, field.placeholder].join(' '));
+	const chars = [field.maxLength, stated.chars].filter((n): n is number => n !== null);
+	return {
+		id: idFor(el, 'f'),
+		label: labelOf(el, true),
+		help,
+		multiline: field.tag === 'textarea',
+		maxLength: field.maxLength,
+		maxWords: stated.words,
+		maxChars: chars.length ? Math.min(...chars) : null,
+		filled: field.filled
+	};
+}
+
+/**
+ * Every field the profile can fill, the file inputs that take a CV, and the open questions the
+ * user can have drafted.
+ */
 export function scan(doc: Document = document): PageScan {
 	const fields: FieldInfo[] = [];
 	const files: FileField[] = [];
+	const questions: QuestionInfo[] = [];
 	const counts = new Map<string, number>();
 	for (const el of controls(doc)) {
 		if (el instanceof HTMLInputElement && el.type === 'file') {
@@ -240,13 +270,26 @@ export function scan(doc: Document = document): PageScan {
 		if (!visible(el)) continue;
 		const described = describe(el);
 		const classified = classify(described);
-		if (!classified) continue;
+		if (!classified) {
+			if (questions.length < MAX_QUESTIONS && isQuestion(described)) {
+				questions.push(questionOf(el, described));
+			}
+			continue;
+		}
 		const key = `${classified.kind}:${classified.part ?? ''}`;
 		const group = isRepeated(classified.kind) ? (counts.get(key) ?? 0) : 0;
 		counts.set(key, group + 1);
 		fields.push({ ...described, ...classified, group, id: idFor(el, 'f') });
 	}
-	return { url: doc.location?.href ?? '', title: doc.title, fields, files };
+	return {
+		url: doc.location?.href ?? '',
+		title: doc.title,
+		fields,
+		files,
+		questions,
+		// Read only where there is something to draft: it walks the page's text.
+		aiPolicy: questions.length ? aiPolicy(doc) : null
+	};
 }
 
 /** How many controls the page has: a cheap check for whether a form appeared. */

@@ -79,7 +79,25 @@ export function jobPage(): string {
 export interface MockApi {
 	requests: string[];
 	savedJobs: unknown[];
+	/** Bodies of requests for drafted answers. */
+	answerRequests: unknown[];
 	close(): Promise<void>;
+}
+
+/** A drafted answer for each question, as the api returns them. */
+function answers(request: { questions: { id: string }[] }): string {
+	return JSON.stringify({
+		answers: request.questions.map((question) => ({
+			id: question.id,
+			text: 'At Northwind Consulting I build the streaming pipelines behind fraud checks for a bank, on Kafka and Spark running on Databricks. Your fraud and payments teams need that same work, owned from ingestion to the dashboards analysts use, and that is the part I enjoy most.',
+			inferred: [{ skill: 'Databricks', based_on: ['Spark'] }],
+			placeholders: 0,
+			shortened: false
+		})),
+		ai_model: 'mimo-flash',
+		ai_model_label: 'MiMo Flash',
+		model: 'mimo-v2.6-flash'
+	});
 }
 
 function body(request: IncomingMessage): Promise<string> {
@@ -93,6 +111,7 @@ function body(request: IncomingMessage): Promise<string> {
 export function startServer(): Promise<MockApi> {
 	const requests: string[] = [];
 	const savedJobs: unknown[] = [];
+	const answerRequests: unknown[] = [];
 	const application = readFileSync(join(fixtures, 'application-sample.json'), 'utf8');
 	const server: Server = createServer(async (request, response) => {
 		const path = new URL(request.url ?? '/', E2E_APP_URL).pathname;
@@ -129,6 +148,11 @@ export function startServer(): Promise<MockApi> {
 					})
 				);
 			}
+			case 'POST /api/v1/extension/answers': {
+				const asked = JSON.parse(await body(request)) as { questions: { id: string }[] };
+				answerRequests.push(asked);
+				return send(200, answers(asked));
+			}
 			default:
 				return send(404, JSON.stringify({ error: { code: 'not_found', message: key } }));
 		}
@@ -138,6 +162,7 @@ export function startServer(): Promise<MockApi> {
 			resolve({
 				requests,
 				savedJobs,
+				answerRequests,
 				close: () => new Promise((done) => server.close(() => done()))
 			})
 		)

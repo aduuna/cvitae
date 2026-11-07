@@ -165,3 +165,52 @@ test('the side panel page loads and shows the account', async ({ context, extens
 	await expect(panel.getByText('The extension cannot work on this page.')).toBeVisible();
 	expect(errors).toEqual([]);
 });
+
+test('drafts an answer to an open question and fills it from the side panel', async ({
+	context,
+	extensionId,
+	api
+}) => {
+	await connect(context);
+	const worker = context.serviceWorkers()[0]!;
+	await worker.evaluate(() => chrome.storage.local.set({ offer: false }));
+	const page = await context.newPage();
+	await page.goto(JOB_URL);
+	const panel = await context.newPage();
+	// The panel works on the job's tab, as it would on the tab beside it.
+	await panel.addInitScript((url) => {
+		const query = chrome.tabs.query.bind(chrome.tabs);
+		chrome.tabs.query = (async () => query({ url: `${url}*` })) as typeof chrome.tabs.query;
+	}, JOB_URL);
+	await panel.goto(`chrome-extension://${extensionId}/sidepanel.html`);
+
+	await panel.getByRole('button', { name: 'Find questions' }).click();
+	await expect(
+		panel.getByText(
+			'From your Harbour Bank CV and the job ad you saved for Data engineer at Harbour Bank.'
+		)
+	).toBeVisible();
+	await panel.getByRole('button', { name: 'Draft 1 answer' }).click();
+
+	const answer = panel.getByRole('textbox', { name: 'Answer to Why do you want to join us?' });
+	await expect(answer).toHaveValue(/^At Northwind Consulting I build the streaming pipelines/);
+	await expect(panel.getByText('Mentions Databricks, from your Spark work.')).toBeVisible();
+	await expect(page.locator('#question_2')).toHaveValue('');
+	expect(api.answerRequests.at(-1)).toMatchObject({
+		source: { kind: 'document', id: 'd1' },
+		job_id: 'j1',
+		job: null,
+		questions: [{ text: 'Why do you want to join us?', multiline: true }]
+	});
+
+	await answer.fill('I want to build the payments data platform at Harbour Bank.');
+	await panel.getByRole('button', { name: 'Fill 1 answer' }).click();
+
+	await expect(panel.getByText(/^Filled 1 answer/)).toBeVisible();
+	await expect(page.locator('#question_2')).toHaveValue(
+		'I want to build the payments data platform at Harbour Bank.'
+	);
+	await expect(page.locator('#question_2')).toHaveAttribute('data-cvitae-filled', '');
+	await panel.getByRole('button', { name: 'Undo', exact: true }).click();
+	await expect(page.locator('#question_2')).toHaveValue('');
+});
