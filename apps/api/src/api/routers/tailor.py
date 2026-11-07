@@ -23,6 +23,7 @@ from api.routers.documents import Document
 from api.routers.jobs import JobCreate, JobSummary
 from api.services import tailoring as service
 from api.services.ai_models import choose_model
+from cvcore.ats import AtsReport
 from cvcore.factguard import FactIssue
 from cvcore.render import PlaceholderRef
 
@@ -72,8 +73,9 @@ class TailorResult(BaseModel):
     changes: list[BulletDiff]
     dropped: list[DroppedBullet]
     placeholders: list[PlaceholderRef]
-    missing_keywords: list[str]
-    """Job keywords the profile does not cover. Only add them if they are true."""
+    ats: AtsReport
+    """The new CV's ATS score for the job. Keywords it misses carry `in_profile`: put back the
+    ones the profile has; add the others to the profile only if they are true."""
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -134,5 +136,5 @@ async def tailor(
         ],
         dropped=[DroppedBullet.model_validate(d, from_attributes=True) for d in result.dropped],
         placeholders=result.placeholders,
-        missing_keywords=result.missing_keywords,
+        ats=result.ats,
     )
