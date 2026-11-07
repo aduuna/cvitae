@@ -219,6 +219,11 @@
 						/>
 						<UsageMeter label="CVs" used={usage.documents.used} limit={usage.documents.limit} />
 						<UsageMeter label="Profiles" used={usage.profiles.used} limit={usage.profiles.limit} />
+						<UsageMeter
+							label="Custom templates"
+							used={usage.templates.used}
+							limit={usage.templates.limit}
+						/>
 					</div>
 
 					{#if canUpgrade(usage, session.billingEnabled)}

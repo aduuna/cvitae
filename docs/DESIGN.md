@@ -207,6 +207,8 @@ No font sizes outside the scale; the display sizes (`3xl`, `4xl`) appear on the 
 | Send | `Send` |
 | Undo | `Undo2` |
 | Open a docked panel | `ChevronUp` (and `ChevronDown` to close it) |
+| Rename | `PenLine` |
+| View source (custom template) | `Code` |
 | Landing: checked against your facts | `ShieldCheck` |
 | Landing: typeset with Typst | `Type` |
 | Landing: choice of AI model | `Cpu` |
@@ -269,7 +271,7 @@ not by passing class strings from pages.
 | `SegmentedControl` | 2 to 4 options | Used for form/Typst mode and similar two-way switches (the AI model is a `Select`: there are more than four). Selected: `bg-surface` with `shadow-page` on a `bg-muted` track. |
 | `Checkbox`, `Switch` | One style | Accent when on. |
 | `Tabs` | Underline style | Active tab: fg text and 2px accent underline. |
-| `Dialog` | `sm` 400px, `md` 560px | Title, body, footer with actions right-aligned; primary action last. Escape closes; focus trapped. |
+| `Dialog` | `sm` 400px, `md` 560px, `lg` 800px | Title, body, footer with actions right-aligned; primary action last. Escape closes; focus trapped. |
 | `ConfirmDialog` | Built on Dialog | Destructive confirmations use a `danger` primary button and, for account deletion, typed confirmation. |
 | `Menu` | Dropdown | Items 32px, shortcuts in `text-xs text-fg-muted` aligned right. |
 | `Toast` | `info`, `error` | Bottom right, auto-dismiss after 4s (errors stay until dismissed). |
@@ -280,7 +282,7 @@ not by passing class strings from pages.
 | `Skeleton` | Lines, block | `bg-muted` with a slow pulse. |
 | `Kbd` | One style | `font-mono text-xs border-line rounded-sm`. |
 | `Splitter` | Vertical | Keyboard resizable with arrow keys. |
-| `Dropzone` | One style | Dashed `border-line-strong`, accepts PDF and DOCX, shows file name and size in mono. |
+| `Dropzone` | One style | Dashed `border-line-strong`, accepts PDF and DOCX (PDF only with `pdfOnly`, for custom templates), shows file name and size in mono. |
 | `Placeholder` | Inline | Used in form fields to show `[[...]]` gaps: `bg-placeholder` text `placeholder-fg`, radius `sm`. |
 
 ### States
@@ -310,6 +312,18 @@ not by passing class strings from pages.
   `border-line`, `border-line-strong` on hover): 3 columns on wide screens, 2 from 640px, 1 below.
   A tile has an icon (with a status badge such as Default beside it), the name, and meta in
   `fg-muted` at the bottom; the whole tile opens the item and its menu sits top-right.
+- **Templates** (`/app/templates`): two groups of cards in two columns, "Built-in templates" and "Your
+  templates", each group a `text-lg` 600 heading. A card is a `bg-surface` tile (radius `lg`,
+  `border-line`) with the live preview on a `bg-canvas` band, the name (with "Default" when it is),
+  one line of description and "Set as default"; a user's own card also has a "..." menu (Rename,
+  View source, Delete) beside the name. The group for the user's own templates ends with an "Add your
+  own" tile: dashed `border-line-strong`, a `Plus` icon and a title, disabled with a `LimitNotice`
+  above the group when AI usage or the template limit is reached, and absent when the server has no
+  Claude model. It opens a `md` dialog (explanation, `Dropzone` with `pdfOnly`, earlier PDF uploads, the
+  progress card without its border while Claude works), which becomes an `lg` dialog for the result:
+  the preview left, the name field right, "Discard" and "Save template". Closing it with a draft
+  asks "Discard this template?". "View source" opens an `lg` dialog with the Typst in a read-only
+  CodeMirror view: weight and `fg-muted` comments only, no colour.
 - **Form pages** (Profile editor, Settings): stacked cards, each with a heading and fields. Labels above
   fields, `text-sm font-medium`. Help text under fields in `text-sm text-fg-muted`.
 - **Generation progress** (Import, Tailor): a card with the current step text, a thin indeterminate

@@ -9,10 +9,12 @@
 		stepSeconds?: number;
 		/** For example "Generated with Claude". */
 		caption?: string;
+		/** Without the card around it, for use inside a dialog. */
+		plain?: boolean;
 		oncancel: () => void;
 	}
 
-	let { steps, stepSeconds = 8, caption, oncancel }: Props = $props();
+	let { steps, stepSeconds = 8, caption, plain = false, oncancel }: Props = $props();
 
 	let elapsed = $state(0);
 	const started = Date.now();
@@ -24,7 +26,7 @@
 	const step = $derived(steps[Math.min(Math.floor(elapsed / stepSeconds), steps.length - 1)]);
 </script>
 
-<Card>
+{#snippet body()}
 	<div class="flex flex-col gap-4">
 		<div class="flex items-center justify-between gap-4">
 			<p class="text-base font-medium text-fg" aria-live="polite">{step}</p>
@@ -47,4 +49,10 @@
 			<Button variant="ghost" size="sm" onclick={oncancel}>Cancel</Button>
 		</div>
 	</div>
-</Card>
+{/snippet}
+
+{#if plain}
+	{@render body()}
+{:else}
+	<Card>{@render body()}</Card>
+{/if}

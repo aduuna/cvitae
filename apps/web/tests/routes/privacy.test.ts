@@ -39,6 +39,19 @@ describe('privacy policy', () => {
 		expect(drafts).toHaveTextContent(/are not stored, and neither are the drafts/);
 	});
 
+	it('says a CV uploaded for a template goes to Claude, and what is kept', () => {
+		render(Privacy);
+
+		const template = screen.getByText(/Making a template from a CV you like always uses Claude/);
+		expect(template).toHaveTextContent(/whichever model you chose/);
+		expect(template).toHaveTextContent(/sent to Anthropic/);
+		expect(template).toHaveTextContent(
+			/does not copy your uploaded CV's name, contact details or text/
+		);
+		expect(template).toHaveTextContent(/we keep the code, not Claude's replies/);
+		expect(screen.getByText(/A CV you upload to make a template is kept like one/)).toBeVisible();
+	});
+
 	it('says how to reach us', () => {
 		render(Privacy);
 

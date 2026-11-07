@@ -198,7 +198,8 @@ Web app:
 - The Templates page: "Your templates" after the built-in ones with the "Add your own" card, the
   dialog (upload or reuse a PDF, what happens and that it uses one AI run on Claude, progress,
   preview with the name field, "Save template" and "Discard"), custom cards with the live preview,
-  "Set as default", rename, "View source" (read only, in the Typst editor component) and delete
+  "Set as default", rename, "View source" (read only, in a new `TypstEditor` component on CodeMirror 6
+  that the eject editor in M5 builds on) and delete
   with confirmation; the limit message at the limit and no card without a Claude model.
 - The shared template catalog (`lib/templates.svelte.ts`) lists custom templates after the built-in
   ones everywhere (new CV, Tailor, editor switch) and refreshes after create, rename and delete.

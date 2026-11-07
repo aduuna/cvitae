@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api, setAuthHeaders, unwrap, DEV_USER } from '#lib/api/client.ts';
 import { pendingEmail, providerFor, Session, type ClientConfig } from '#lib/auth/session.svelte.ts';
+import { templates } from '#lib/templates.svelte.ts';
 import { fakeProvider } from './fake-provider';
 
 const FIREBASE: ClientConfig = {
@@ -150,6 +151,26 @@ describe('Session', () => {
 		emit('bob@example.com');
 
 		expect(session.me).toBeNull();
+	});
+
+	it("forgets the user's templates when another user signs in", async () => {
+		const { session, emit } = sessionWith('ada@example.com');
+		vi.stubGlobal('fetch', async () => json(ME));
+		await session.start();
+		templates.list = [
+			{
+				id: 'u-aaaaaaaaa2',
+				name: 'Slate',
+				description: '',
+				paper_sizes: ['a4'],
+				target_pages: 1,
+				custom: true
+			}
+		];
+
+		emit('bob@example.com');
+
+		expect(templates.list).toEqual([]);
 	});
 
 	it('loads usage once per sign-in, and again when asked', async () => {

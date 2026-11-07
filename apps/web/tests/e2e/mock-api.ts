@@ -31,7 +31,15 @@ export interface MockApi {
 	uploads: UploadSummary[];
 	jobs: Job[];
 	/** Provider of every AI call, in order. */
-	aiCalls: { task: 'import' | 'tailor'; model: AiModel }[];
+	aiCalls: { task: 'import' | 'tailor' | 'template'; model: AiModel }[];
+	/** The user's own templates, drafts included. */
+	customTemplates: MockTemplate[];
+	/** Whether the server has an Anthropic key: without one, no Claude model is offered. */
+	claude: boolean;
+	/** How long making a template takes, so tests can see the progress state. */
+	templateDelayMs: number;
+	/** The error the next template generation fails with, once. */
+	templateFailure: { status: number; code: string; message: string; details?: object } | null;
 	profiles: Profile[];
 	documents: CvDocument[];
 	versions: Map<string, (Version & { content: CvContent })[]>;
@@ -39,6 +47,13 @@ export interface MockApi {
 }
 
 type Me = Schemas['Me'];
+
+/** A custom template as the mock keeps it: its metadata, its status and its Typst. */
+export interface MockTemplate extends TemplateMeta {
+	status: 'draft' | 'ready';
+	main_typ: string;
+	upload_id: string | null;
+}
 
 const PLANS: Schemas['PlanInfo'][] = [
 	{ id: 'free', label: 'Free', documents: 4, profiles: 2, templates: 1, ai_runs: 20 },
@@ -50,8 +65,13 @@ function limits(plan: Me['plan']): Schemas['PlanInfo'] {
 }
 
 /** The api's limit messages, for the cases the e2e tests reach. */
-function limitMessage(kind: 'ai_runs' | 'documents' | 'profiles', state: MockApi): string {
+function limitMessage(
+	kind: 'ai_runs' | 'documents' | 'profiles' | 'templates',
+	state: MockApi
+): string {
 	const plan = limits(state.me.plan);
+	if (kind === 'templates')
+		return `You have ${plan.templates} custom ${plan.templates === 1 ? 'template' : 'templates'}, the most on ${plan.label}. Delete one or upgrade to Pro for 10.`;
 	if (kind === 'ai_runs')
 		return "You have used all of this month's AI usage. Upgrade to Pro for 7 times as much.";
 	if (kind === 'documents')
@@ -59,9 +79,13 @@ function limitMessage(kind: 'ai_runs' | 'documents' | 'profiles', state: MockApi
 	return `You have ${plan.profiles} profiles, the most on ${plan.label}. Delete one or upgrade to Pro for 10.`;
 }
 
+function readyTemplates(state: MockApi): MockTemplate[] {
+	return state.customTemplates.filter((template) => template.status === 'ready');
+}
+
 function usageOf(state: MockApi): Schemas['Usage'] {
 	const plan = limits(state.me.plan);
-	const meter = (kind: 'ai_runs' | 'documents' | 'profiles', used: number) => ({
+	const meter = (kind: 'ai_runs' | 'documents' | 'profiles' | 'templates', used: number) => ({
 		used,
 		limit: plan[kind],
 		message: used >= plan[kind] ? limitMessage(kind, state) : null
@@ -73,7 +97,7 @@ function usageOf(state: MockApi): Schemas['Usage'] {
 		ai_runs: meter('ai_runs', state.aiRuns),
 		documents: meter('documents', state.documents.length),
 		profiles: meter('profiles', state.profiles.length),
-		templates: { used: 0, limit: plan.templates, message: null },
+		templates: meter('templates', readyTemplates(state).length),
 		subscription: state.subscription
 	};
 }
@@ -265,7 +289,7 @@ async function reply(route: Route, status: number, body?: unknown, headers = {})
 function overLimit(
 	route: Route,
 	state: MockApi,
-	kind: 'ai_runs' | 'documents' | 'profiles',
+	kind: 'ai_runs' | 'documents' | 'profiles' | 'templates',
 	needed = 1
 ) {
 	const usage = usageOf(state)[kind];
@@ -277,6 +301,31 @@ function overLimit(
 			details: { resource: kind }
 		}
 	});
+}
+
+function metaOf(template: MockTemplate): TemplateMeta {
+	return {
+		id: template.id,
+		name: template.name,
+		description: template.description,
+		paper_sizes: template.paper_sizes,
+		target_pages: template.target_pages,
+		custom: true
+	};
+}
+
+function customOf(template: MockTemplate) {
+	return {
+		id: template.id,
+		name: template.name,
+		description: template.description,
+		status: template.status,
+		paper_sizes: template.paper_sizes,
+		target_pages: template.target_pages,
+		upload_id: template.upload_id,
+		created_at: '2026-11-07T10:00:00Z',
+		updated_at: '2026-11-07T10:00:00Z'
+	};
 }
 
 function notFound(route: Route) {
@@ -303,6 +352,10 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 		uploads: [],
 		jobs: [],
 		aiCalls: [],
+		customTemplates: [],
+		claude: true,
+		templateDelayMs: 400,
+		templateFailure: null,
 		profiles: [],
 		documents: [],
 		versions: new Map(),
@@ -327,7 +380,9 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 			return reply(route, 200, {
 				auth_mode: 'dev',
 				firebase: null,
-				ai_models: AI_MODELS,
+				ai_models: state.claude
+					? AI_MODELS
+					: AI_MODELS.filter((model) => model.provider !== 'claude'),
 				default_ai_model: 'mimo-flash',
 				plans_enforced: state.plansEnforced,
 				plans: PLANS,
@@ -368,6 +423,99 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 			return reply(route, 200, state.me);
 		}
 
+		if (resource === 'templates' && id === 'custom') {
+			if (method === 'POST' && !action) {
+				const file = field('file');
+				const uploadId = field('upload_id')?.[2];
+				if (state.templateFailure) {
+					const { status, code, message, details } = state.templateFailure;
+					state.templateFailure = null;
+					return reply(route, status, { error: { code, message, details: details ?? {} } });
+				}
+				if (file?.[1]?.toLowerCase().endsWith('.docx')) {
+					return reply(route, 422, {
+						error: {
+							code: 'validation_failed',
+							message:
+								'A template copies how a CV looks, which a DOCX does not keep. Save it as a PDF and upload that.',
+							details: {}
+						}
+					});
+				}
+				const refused = overLimit(route, state, 'templates') ?? overLimit(route, state, 'ai_runs');
+				if (refused) return refused;
+				if (state.templateDelayMs) {
+					await new Promise((resolve) => setTimeout(resolve, state.templateDelayMs));
+				}
+				state.aiRuns += 1;
+				const model: AiModel = state.me.plan === 'pro' ? 'claude-sonnet' : 'claude-haiku';
+				state.aiCalls.push({ task: 'template', model });
+				let upload: UploadSummary | undefined = state.uploads.find((row) => row.id === uploadId);
+				if (file) {
+					upload = {
+						id: uuid(),
+						filename: file[1] ?? 'cv.pdf',
+						mime_type: 'application/pdf',
+						size_bytes: 2048,
+						created_at: now()
+					};
+					state.uploads.unshift(upload);
+				}
+				// A new generation replaces the earlier unconfirmed draft.
+				state.customTemplates = state.customTemplates.filter((row) => row.status === 'ready');
+				const draft: MockTemplate = {
+					id: `u-${String(counter + 1).padStart(10, 'a')}`,
+					name: 'Slate',
+					description: 'Navy rules, tight spacing and a sans-serif header.',
+					paper_sizes: ['a4', 'us-letter'],
+					target_pages: 1,
+					custom: true,
+					status: 'draft',
+					main_typ: '#import "/_lib/cv.typ": *\n#let cv = json("data.json")\n// Slate\n',
+					upload_id: upload?.id ?? null
+				};
+				counter += 1;
+				state.customTemplates.push(draft);
+				return reply(route, 201, {
+					...customOf(draft),
+					ai_model: model,
+					provider: modelInfo(model).provider,
+					model: `fake-${model}`
+				});
+			}
+			const template = state.customTemplates.find((row) => row.id === action);
+			if (!template) return notFound(route);
+			if (number === 'source' || subaction === 'source') {
+				return reply(route, 200, {
+					id: template.id,
+					name: template.name,
+					main_typ: template.main_typ
+				});
+			}
+			if (method === 'PATCH') {
+				if (body.status === 'ready' && template.status !== 'ready') {
+					const refused = overLimit(route, state, 'templates');
+					if (refused) return refused;
+				}
+				if (body.name !== undefined) template.name = body.name;
+				if (body.description !== undefined) template.description = body.description;
+				if (body.status === 'ready') template.status = 'ready';
+				return reply(route, 200, customOf(template));
+			}
+			if (method === 'DELETE') {
+				state.customTemplates = state.customTemplates.filter((row) => row !== template);
+				const fallback =
+					state.me.default_template_id && state.me.default_template_id !== template.id
+						? state.me.default_template_id
+						: 'classic';
+				for (const doc of state.documents) {
+					if (doc.template_id === template.id) doc.template_id = fallback;
+				}
+				if (state.me.default_template_id === template.id) state.me.default_template_id = 'classic';
+				return reply(route, 204);
+			}
+		}
+
 		if (resource === 'templates' && id && action === 'preview') {
 			const fallback = state.profiles.find((profile) => profile.is_default)?.content;
 			const content = fallback?.basics.name
@@ -375,7 +523,9 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 				: { ...starterContent(), basics: { ...starterContent().basics, name: 'Sample' } };
 			return reply(route, 200, { pages: [page(content, id)], page_count: 1 });
 		}
-		if (resource === 'templates') return reply(route, 200, TEMPLATES);
+		if (resource === 'templates') {
+			return reply(route, 200, [...TEMPLATES, ...readyTemplates(state).map(metaOf)]);
+		}
 
 		if (resource === 'uploads') {
 			if (method === 'GET') return reply(route, 200, state.uploads);

@@ -29,6 +29,17 @@ describe('validateUpload', () => {
 		);
 	});
 
+	it('takes only PDFs when asked, and says why a DOCX will not do', () => {
+		const pdf = makeFile('cv.pdf', 'application/pdf');
+		expect(validateUpload(pdf, DEFAULT_MAX_BYTES, true)).toBeNull();
+		expect(validateUpload(makeFile('cv.docx', DOCX), DEFAULT_MAX_BYTES, true)).toBe(
+			'A DOCX does not keep how a CV looks. Save it as a PDF and choose that.'
+		);
+		expect(validateUpload(makeFile('cv.txt', 'text/plain'), DEFAULT_MAX_BYTES, true)).toBe(
+			'This file type is not supported. Choose a PDF file.'
+		);
+	});
+
 	it('rejects files over the limit', () => {
 		const big = makeFile('cv.pdf', 'application/pdf', DEFAULT_MAX_BYTES + 1);
 		expect(validateUpload(big, DEFAULT_MAX_BYTES)).toBe(
@@ -94,6 +105,20 @@ describe('Dropzone', () => {
 		expect(zone).toHaveClass('border-danger');
 		expect(zone).toHaveAccessibleDescription(/not supported/);
 		expect(onfile).not.toHaveBeenCalled();
+	});
+
+	it('asks for a PDF and offers PDF files only with pdfOnly', async () => {
+		render(Dropzone, { file: null, pdfOnly: true });
+		const input = screen.getByTestId('dropzone-input') as HTMLInputElement;
+		expect(screen.getByRole('group', { name: 'CV file' })).toHaveTextContent(
+			'Drop a PDF file here'
+		);
+		expect(input.accept).toContain('.pdf');
+		expect(input.accept).not.toContain('.docx');
+
+		await choose(input, makeFile('cv.docx', DOCX));
+		expect(screen.getByRole('alert')).toHaveTextContent('A DOCX does not keep how a CV looks');
+		expect(screen.queryByText('cv.docx')).toBeNull();
 	});
 
 	it('removes the chosen file', async () => {

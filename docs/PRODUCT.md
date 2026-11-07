@@ -224,8 +224,8 @@ user, next to the five built-in ones. It renders their CVs like any other templa
   your own" card. Every template picker (new CV, Tailor, the editor's template switch, the default
   template in Templates) lists a user's own templates after the built-in ones.
 - **Adding one.** The card opens a dialog: upload a PDF (the same upload as Import, and an earlier
-  upload can be reused), a short explanation that this takes one AI run, runs on Claude whatever
-  model the user chose, and takes up to about two minutes, a progress state, then the result: a
+  upload can be reused), a short explanation that this takes a little AI usage (one AI run), runs
+  on Claude whatever model the user chose, and takes up to about two minutes, a progress state, then the result: a
   preview rendered with the user's default profile (or the sample), a name field, "Save template"
   and "Discard". Nothing is usable until "Save template"; discarding deletes it. A DOCX is refused
   with a clear message, because how a CV looks cannot be read from its text.
@@ -249,7 +249,7 @@ user, next to the five built-in ones. It renders their CVs like any other templa
 - **Limits.** Free 1 custom template, Pro 10 (Plans and limits). Making one takes one AI run, however
   many corrections it needed; on Free a failed attempt counts, on Pro it does not. The limit and the
   AI usage are checked before Claude is called, so a refused request costs nothing. Without an
-  Anthropic key the server cannot make templates, and the card says so.
+  Anthropic key the server cannot make templates, and the page does not offer "Add your own".
 - **Privacy.** The uploaded CV is sent to Claude to draft the template and stored like an import's
   upload (privacy policy); the template's source is stored with the account and deleted with it.
 
