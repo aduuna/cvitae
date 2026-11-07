@@ -72,3 +72,16 @@ variable "deletion_protection" {
   type    = bool
   default = true
 }
+
+variable "vpc_egress" {
+  description = <<-EOT
+    Direct VPC egress: the network and subnetwork the instances join, with all outbound traffic
+    routed into the VPC. With no NAT on that network the service has no internet access. null:
+    no VPC.
+  EOT
+  type = object({
+    network    = string
+    subnetwork = string
+  })
+  default = null
+}

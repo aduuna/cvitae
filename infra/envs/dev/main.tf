@@ -8,11 +8,19 @@ locals {
     "mimo-api-key"      = "MIMO_API_KEY"
   }
 
+  # The api checks the scheduler's OIDC token against its own public URL (PUBLIC_BASE_URL). The
+  # scheduler needs that URL before the service exists, so it is the custom domain's.
+  public_base_url = var.custom_domain == "" ? "" : "https://${var.custom_domain}"
+  scheduler_env = local.public_base_url == "" ? {} : {
+    PUBLIC_BASE_URL    = local.public_base_url
+    SCHEDULER_SA_EMAIL = google_service_account.scheduler.email
+  }
+
   # Billing turns on once the Pro plan code is set (and paystack-secret-key has a value).
-  billing = var.paystack_pro_plan_code != "" && var.custom_domain != ""
+  billing = var.paystack_pro_plan_code != "" && local.public_base_url != ""
   billing_env = local.billing ? {
     PAYSTACK_PRO_PLAN_CODE = var.paystack_pro_plan_code
-    PAYSTACK_CALLBACK_URL  = "https://${var.custom_domain}/app/settings?tab=billing"
+    PAYSTACK_CALLBACK_URL  = "${local.public_base_url}/app/settings?tab=billing"
   } : {}
 
   api_sa      = "serviceAccount:${google_service_account.api.email}"
@@ -29,6 +37,12 @@ resource "google_service_account" "api" {
 resource "google_service_account" "renderer" {
   account_id   = "renderer-sa"
   display_name = "renderer service"
+}
+
+# No roles: its OIDC token only tells the api who is calling.
+resource "google_service_account" "scheduler" {
+  account_id   = "scheduler-sa"
+  display_name = "Cloud Scheduler jobs"
 }
 
 module "uploads" {
@@ -54,6 +68,13 @@ module "secrets" {
   accessors = each.value
 }
 
+# The renderer compiles user-supplied Typst, so it gets no internet: Direct VPC egress into a
+# subnet with no NAT and no internet route.
+module "renderer_vpc" {
+  source = "../../modules/renderer_vpc"
+  region = var.region
+}
+
 module "renderer" {
   source          = "../../modules/cloud_run_service"
   name            = "renderer"
@@ -67,6 +88,10 @@ module "renderer" {
   timeout_seconds     = 30
   health_path         = "/healthz"
   deletion_protection = false
+  vpc_egress = {
+    network    = module.renderer_vpc.network
+    subnetwork = module.renderer_vpc.subnetwork
+  }
 }
 
 module "api" {
@@ -94,7 +119,7 @@ module "api" {
     GCS_BUCKET           = module.uploads.name
     RENDERER_URL         = module.renderer.uri
     RENDERER_AUTH        = "oidc"
-  }, local.billing_env)
+  }, local.billing_env, local.scheduler_env)
   secret_env = merge(
     { DATABASE_URL = module.secrets["database-url"].id },
     { for id in var.ai_keys : local.ai_key_env[id] => module.secrets[id].id },
@@ -102,6 +127,18 @@ module "api" {
   )
 
   depends_on = [module.secrets]
+}
+
+# Deletes autosave versions older than 7 days (docs/BACKEND.md, API).
+module "prune_versions" {
+  count                 = local.public_base_url == "" ? 0 : 1
+  source                = "../../modules/scheduler_job"
+  name                  = "prune-versions"
+  region                = var.region
+  schedule              = "0 3 * * *"
+  uri                   = "${local.public_base_url}/api/v1/internal/prune-versions"
+  audience              = local.public_base_url
+  service_account_email = google_service_account.scheduler.email
 }
 
 resource "google_cloud_run_domain_mapping" "api" {

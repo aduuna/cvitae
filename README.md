@@ -179,10 +179,11 @@ output is the same on every machine.
 
 ## Deployment
 
-Infrastructure is OpenTofu in `infra/` (see [docs/INFRA.md](docs/INFRA.md)). `infra/bootstrap` was
-applied once by hand; after that, `.github/workflows/deploy.yml` builds both images, runs migrations,
-applies `infra/envs/dev` with the new image digests and runs a smoke test, every time CI passes on
-`main`. Nothing is deployed with `gcloud run deploy`.
+Infrastructure is OpenTofu in `infra/` (see [docs/INFRA.md](docs/INFRA.md)). `infra/bootstrap/<env>`
+was applied once by hand per project; after that, `.github/workflows/deploy.yml` builds both images,
+runs migrations, applies `infra/envs/dev` with the new image digests and runs a smoke test, every
+time CI passes on `main`. A version tag deploys `infra/envs/prod` the same way, after approval,
+with the images dev already built. Nothing is deployed with `gcloud run deploy`.
 
 ## Repository layout
 

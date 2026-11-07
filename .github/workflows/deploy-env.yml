@@ -1,0 +1,177 @@
+name: Deploy environment
+
+# Builds (or promotes), migrates, applies and smoke tests one environment (docs/INFRA.md, CI/CD).
+# Called by deploy.yml for dev and prod, so both run the same steps. Dev builds the images from the
+# commit; prod sets promote_from and copies the images dev already built and ran, by digest.
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub environment and infra/envs folder to deploy (dev or prod).
+        required: true
+        type: string
+      sha:
+        description: Commit to build and deploy.
+        required: true
+        type: string
+      project_id:
+        required: true
+        type: string
+      wif_provider:
+        description: Workload Identity provider of the project (from infra/bootstrap/<env>); the first step fails when it is empty.
+        required: false
+        default: ""
+        type: string
+      app_url:
+        description: Shown on the deployment.
+        required: false
+        default: ""
+        type: string
+      promote_from:
+        description: Registry whose <image>:<sha> images to copy into this project's registry instead of building them. Empty builds from the commit.
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    # The environment name is part of the OIDC subject the deployer trusts (infra/modules/project_bootstrap).
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ inputs.app_url }}
+    env:
+      # Not secrets: ids from `tofu output` in infra/bootstrap/<env>.
+      PROJECT_ID: ${{ inputs.project_id }}
+      REGION: europe-west1
+      REGISTRY: europe-west1-docker.pkg.dev/${{ inputs.project_id }}/cvitae
+      WIF_PROVIDER: ${{ inputs.wif_provider }}
+      DEPLOYER: deployer@${{ inputs.project_id }}.iam.gserviceaccount.com
+      SHA: ${{ inputs.sha }}
+    steps:
+      - name: Require the project settings
+        run: |
+          if [ -z "$WIF_PROVIDER" ]; then
+            echo "::error::No Workload Identity provider for ${{ inputs.environment }}. Set the repository variable PROD_WIF_PROVIDER (docs/INFRA.md, Production)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.SHA }}
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOYER }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - run: gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+
+      - uses: docker/setup-buildx-action@v3
+
+      - id: api
+        name: Build and push the api image
+        if: inputs.promote_from == ''
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          provenance: false
+          tags: ${{ env.REGISTRY }}/api:${{ env.SHA }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - id: renderer
+        name: Build and push the renderer image
+        if: inputs.promote_from == ''
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/renderer/Dockerfile
+          push: true
+          provenance: false
+          tags: ${{ env.REGISTRY }}/renderer:${{ env.SHA }}
+          cache-from: type=gha,scope=renderer
+          cache-to: type=gha,mode=max,scope=renderer
+
+      # What runs in prod is byte for byte what ran in dev: the digest of <image>:<sha> in dev's
+      # registry is copied (the manifest and its layers, so the digest is unchanged). A missing tag
+      # fails the deploy; dev's registry keeps only its three most recent images per package.
+      - id: promote
+        name: Promote the images dev built
+        if: inputs.promote_from != ''
+        shell: bash
+        env:
+          FROM: ${{ inputs.promote_from }}
+        run: |
+          for image in api renderer; do
+            digest="$(docker buildx imagetools inspect "$FROM/$image:$SHA" --format '{{json .Manifest}}' | jq -r '.digest // empty')" || digest=""
+            if [ -z "$digest" ]; then
+              echo "::error::$FROM/$image:$SHA does not exist. Tag a commit that dev built recently; its registry keeps the last three images."
+              exit 1
+            fi
+            docker buildx imagetools create --tag "$REGISTRY/$image:$SHA" "$FROM/$image@$digest"
+            copied="$(docker buildx imagetools inspect "$REGISTRY/$image:$SHA" --format '{{json .Manifest}}' | jq -r '.digest // empty')"
+            if [ "$copied" != "$digest" ]; then
+              echo "::error::$image was copied as $copied, expected $digest."
+              exit 1
+            fi
+            echo "$image=$digest" >> "$GITHUB_OUTPUT"
+          done
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - run: uv sync --frozen --no-dev --package api
+
+      # Migrations must work with the release still running (expand now, contract later).
+      - name: Run migrations
+        working-directory: apps/api
+        run: |
+          url="$(gcloud secrets versions access latest --secret=database-url-direct --project="$PROJECT_ID")"
+          echo "::add-mask::$url"
+          DATABASE_URL="$url" DATABASE_URL_DIRECT="$url" uv run --package api alembic upgrade head
+
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.9.0
+          tofu_wrapper: false
+
+      # OpenTofu owns the whole service definition, including the image digests.
+      - name: Apply infrastructure
+        working-directory: infra/envs/${{ inputs.environment }}
+        run: |
+          tofu init -input=false
+          tofu apply -input=false -auto-approve \
+            -var "api_image=$REGISTRY/api@${{ steps.api.outputs.digest || steps.promote.outputs.api }}" \
+            -var "renderer_image=$REGISTRY/renderer@${{ steps.renderer.outputs.digest || steps.promote.outputs.renderer }}"
+          {
+            echo "API_URL=$(tofu output -raw api_url)"
+            echo "RENDERER_URL=$(tofu output -raw renderer_url)"
+            echo "FIREBASE_API_KEY=$(tofu output -raw firebase_api_key)"
+          } >> "$GITHUB_ENV"
+
+      - name: Smoke test
+        run: |
+          uv run --package api python apps/api/scripts/smoke.py \
+            --api-url "$API_URL" \
+            --renderer-url "$RENDERER_URL" \
+            --firebase-api-key "$FIREBASE_API_KEY" \
+            --project-id "$PROJECT_ID" \
+            --service-account "$DEPLOYER"
+
+      # The renderer compiles user-supplied Typst and must have no internet access.
+      - name: Check the renderer egress lock
+        run: infra/scripts/check-renderer-egress.sh "$PROJECT_ID" "$REGION"
