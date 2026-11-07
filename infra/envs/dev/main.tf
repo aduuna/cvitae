@@ -8,13 +8,6 @@ locals {
     "mimo-api-key"      = "MIMO_API_KEY"
   }
 
-  # Billing turns on once the Pro plan code is set (and paystack-secret-key has a value).
-  billing = var.paystack_pro_plan_code != "" && var.custom_domain != ""
-  billing_env = local.billing ? {
-    PAYSTACK_PRO_PLAN_CODE = var.paystack_pro_plan_code
-    PAYSTACK_CALLBACK_URL  = "https://${var.custom_domain}/app/settings?tab=billing"
-  } : {}
-
   # The api checks the scheduler's OIDC token against its own public URL (PUBLIC_BASE_URL). The
   # scheduler needs that URL before the service exists, so it is the custom domain's.
   public_base_url = var.custom_domain == "" ? "" : "https://${var.custom_domain}"
@@ -22,6 +15,13 @@ locals {
     PUBLIC_BASE_URL    = local.public_base_url
     SCHEDULER_SA_EMAIL = google_service_account.scheduler.email
   }
+
+  # Billing turns on once the Pro plan code is set (and paystack-secret-key has a value).
+  billing = var.paystack_pro_plan_code != "" && local.public_base_url != ""
+  billing_env = local.billing ? {
+    PAYSTACK_PRO_PLAN_CODE = var.paystack_pro_plan_code
+    PAYSTACK_CALLBACK_URL  = "${local.public_base_url}/app/settings?tab=billing"
+  } : {}
 
   api_sa      = "serviceAccount:${google_service_account.api.email}"
   renderer_sa = "serviceAccount:${google_service_account.renderer.email}"
