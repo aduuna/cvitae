@@ -72,6 +72,7 @@ packages/cvcore/src/cvcore/
   factguard.py       compare tailored content to its source profile
   render.py          to_render_json(content): CvContent -> data.json dict with bullet text replaced by spans
   application.py     to_application_data(content): CvContent -> what application forms ask for
+  ats.py             score(cv, analysis): the ATS report of a CV for one job, and its checks
   answers.py         finishing drafted answers: number placeholders, limits, the skills hint
   places.py          countries and US states, to read "London, UK" as city and country
   llm_schema.py      Pydantic model -> JSON schema subset accepted by both providers
@@ -92,7 +93,7 @@ apps/api/src/api/
     extension_tokens.py
   services/
     users.py profiles.py documents.py versions.py jobs.py imports.py tailoring.py ai_edits.py
-    rendering.py billing.py quotas.py account.py extension.py answers.py
+    ats.py rendering.py billing.py quotas.py account.py extension.py answers.py
   ports/             Protocols (interfaces) + implementations for external systems
     llm/
       base.py        LLMProvider Protocol, LLMRequest, LLMResult, ProviderName enum
@@ -375,6 +376,44 @@ only splits and reformats the CV's own text, never adds to it:
 - Text is plain: bold markers go, placeholders keep their brackets so a gap stays visible in a form,
   and `placeholders` counts them.
 
+### ATS score (cvcore/ats.py)
+
+`score(cv, analysis, *, title, description, profile, pages, target_pages) -> AtsReport` scores a CV
+against one job's stored `JobAnalysis` (docs/PRODUCT.md, 9). It is deterministic and runs no model,
+so it costs no AI run; `services/ats.py` calls it for a document, and tailoring for its new CV.
+
+- **Terms.** Each of the analysis's `keywords`, once (a keyword whose forms match an earlier one is
+  skipped). Its importance is `required` when its words appear in a `must_have` item, `preferred`
+  in a `nice_to_have` item, else `other`: 3, 2 and 1 points. The job title (`title`, else the
+  analysed one) counts 3 points after `core_title` cuts it at the team or place (",", "(", " at ",
+  a spaced dash) and drops seniority words.
+- **Words.** Text is NFKC-normalised and split into words that keep the dots and trailing `+`/`#`
+  of tech names (node.js, c++, c#). Abbreviation plurals lose their "s" (APIs), then each word is
+  folded: plain plurals to singular, British endings to American (isation, ise, yse, elling). Both
+  sides are folded the same way, so a phrase matches when its words appear in a row in one field.
+- **Same terms.** `SAME_TERMS` lists short and long forms a search treats as one (JS and
+  JavaScript, K8s and Kubernetes, AWS and Amazon Web Services), with no short form that is an
+  English word. "Full name (ABC)" in the ad, the analysis, the CV or the profile adds a pair when
+  the words' initials, with or without linking words, spell the abbreviation. "Apache X" also
+  matches "X".
+- **Where.** Each field of the CV is matched on its own: headline, summary, roles, organisations,
+  stack, bullets and engagements (experience), projects, degrees and institutions, skill groups and
+  items, certifications, custom bullets. Placeholders are not text. `found_in` lists the places in
+  reading order. A keyword the CV misses gets `in_profile` from the same match against the profile
+  (`None` without one).
+- **Title.** Found when its words appear in the headline or a role title, where parsers take job
+  titles from.
+- **Score.** Points found over points possible, times 100, rounded down; `None` when there is
+  nothing to match. Bands: `strong` from 80, `good` from 60, `partial` from 40, else `limited`.
+- **Checks** (`checks(cv, pages, target_pages)`): `contact` (email, phone, location), `headings`
+  (each non-custom section's title contains a word parsers know its kind by), `placeholders`, and
+  `length` (pages within the template's target) when both counts are known. Each has `ok` and the
+  message the UI shows.
+
+`services/ats.py`: `document_ats` returns the CV's linked job and its report, or no report when the
+CV has no job or the job has no analysis yet; 409 for ejected CVs. It reads the saved content, the
+profile the CV came from, `page_count` (kept by the preview) and the template's `target_pages`.
+
 ## AI pipeline
 
 ### AI models
@@ -461,7 +500,7 @@ Prompts, schemas, validation and the fact guard are shared. Adapters only transl
 |---|---|---|---|
 | `extract_profile` | PDF bytes, or text extracted from DOCX (python-docx) or pasted text | `CvContent` | default |
 | `analyze_job` | job description text | `JobAnalysis` (title, company, seniority, must_have[], nice_to_have[], keywords[], summary) | fast |
-| `tailor_cv` | profile `CvContent`, `JobAnalysis`, job text, template constraints (target pages) | `TailoredCv` (content: CvContent, changes: list of {source_id, rationale} keyed by the profile bullet, missing_keywords[]) | default |
+| `tailor_cv` | profile `CvContent`, `JobAnalysis`, job text, template constraints (target pages) | `TailoredCv` (content: CvContent, changes: list of {source_id, rationale} keyed by the profile bullet). The keywords the CV misses come from the ATS score, not the model. | default |
 | `edit_cv` | the CV's `CvContent` (without profile links), the request, up to 12 earlier messages, the part it may change | `CvEdit` (reply, content: the whole CV) | default, low effort |
 | `draft_answers` | the profile or CV without email, phone and links, the job ad and its `JobAnalysis` when there is one, the questions with their limits | `DraftAnswers` (per question: id, text, the skills it names with what each rests on) | default, low effort |
 
@@ -743,13 +782,15 @@ require a valid Firebase ID token. FastAPI serves OpenAPI at `/api/openapi.json`
 | `POST /imports` (multipart: a file, pasted text, or the `upload_id` of an earlier upload; `ai_model`) | Extract a profile draft; returns `{upload_id, draft: CvContent, profile_name}`, where `profile_name` is the model's suggestion ("Data engineering") or else the CV's headline. Nothing is saved as a profile: after review the SPA saves the draft with `POST /profiles`. |
 | `GET /uploads`, `DELETE /uploads/{id}` | Files the user uploaded for import; deleting removes the object from storage |
 | `GET/POST /jobs`, `GET/DELETE /jobs/{id}` | Saved job descriptions |
-| `POST /tailor` (profile_id, job_id or job text, template_id, ai_model) | Create a tailored CV; returns document, fact report, changes, missing keywords. Regenerating from the review screen deletes the draft CV and calls this again. |
-| `GET/POST /documents`, `GET/PATCH/DELETE /documents/{id}` | CVs |
+| `POST /jobs/{id}/analyze` (ai_model) | The job with its analysis: one AI run when it has none, none when it has (quota checked first) |
+| `POST /tailor` (profile_id, job_id or job text, template_id, ai_model) | Create a tailored CV; returns document, fact report, changes and `ats`, the new CV's `AtsReport` (no length check: it has not been rendered yet). Regenerating from the review screen deletes the draft CV and calls this again. |
+| `GET/POST /documents`, `GET/PATCH/DELETE /documents/{id}` | CVs. `PATCH` takes `job_id` to link a saved job (404 for a job that is not the user's) |
+| `GET /documents/{id}/ats` | `{job, report}`: the linked job and the saved CV's `AtsReport`; `report` is null without a job or before the job's analysis. No AI run; 409 for ejected CVs |
 | `POST /documents/{id}/duplicate` | Copy a CV |
 | `POST /documents/{id}/eject` | Switch to Typst mode (one-way) |
 | `POST /documents/{id}/preview` | SVG pages or diagnostics |
 | `POST /documents/{id}/ai-edit` (message, scope, history, ai_model) | The CV with the requested change, checked by the fact guard; returns `{reply, content, changed, issues, ai_model, model}` and saves nothing. One AI run; 409 for ejected CVs |
-| `GET /documents/{id}/export.pdf` | Stream PDF; 409 if placeholders remain unless `?force=true` |
+| `GET /documents/{id}/export.pdf` | Stream PDF, named for the company of the CV's job when it has one; 409 if placeholders remain unless `?force=true` |
 | `GET /documents/{id}/versions`, `POST /documents/{id}/versions`, `POST /documents/{id}/versions/{n}/restore` | Version history |
 | `GET /templates` | Template metadata (proxied from the renderer, cached in memory) |
 | `GET /templates/{id}/preview` | SVG pages of the template with the user's default profile, or the sample profile |
@@ -854,7 +895,7 @@ response is sent.
 
 | Layer | Tooling | What is covered |
 |---|---|---|
-| `cvcore` | pytest, hypothesis | rich-text round trip, fact guard cases, llm_schema output for every model, finishing drafted answers (numbers, limits, the skills hint) |
+| `cvcore` | pytest, hypothesis | rich-text round trip, fact guard cases, llm_schema output for every model, ATS matching rules and the fixture CV's score, finishing drafted answers (numbers, limits, the skills hint) |
 | Services | pytest with fakes | business rules: quotas, versions, eject, tailoring flow with `FakeLLMProvider`, drafted answers (one run per request, nothing saved, refusal before any call), account deletion |
 | Repositories | pytest against Postgres (compose locally, service container in CI) | user scoping (a test proves user A cannot read user B), cascades, indexes used by list queries |
 | API | httpx `AsyncClient` + dependency overrides | status codes, error envelope, auth required, schema of responses |

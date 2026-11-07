@@ -5,7 +5,7 @@ from cvcore.ai import JobAnalysis
 from cvcore.models import CvContent
 from cvcore.wire import WireCv, from_wire, to_wire
 
-PROMPT_VERSION = "tailor-2026-10-10b"
+PROMPT_VERSION = "tailor-2026-10-29"
 
 SYSTEM = f"""\
 You tailor a person's CV to one job. You receive their profile (everything they have told us \
@@ -32,8 +32,7 @@ source_id to that profile bullet's id. Never move a bullet to a different employ
 {RICH_TEXT}
 
 In changes, give one entry per bullet you reworded, keyed by the profile bullet's id, with one \
-sentence on why. In missing_keywords, list the job's keywords the profile gives no evidence for; \
-they are shown to the person as gaps and never added to the CV.
+sentence on why.
 
 {DATA_NOT_INSTRUCTIONS}"""
 

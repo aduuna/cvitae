@@ -3,6 +3,7 @@ import Check from '@lucide/svelte/icons/check';
 import ChevronDown from '@lucide/svelte/icons/chevron-down';
 import ChevronUp from '@lucide/svelte/icons/chevron-up';
 import CircleAlert from '@lucide/svelte/icons/circle-alert';
+import CircleCheck from '@lucide/svelte/icons/circle-check';
 import ClipboardPaste from '@lucide/svelte/icons/clipboard-paste';
 import Code from '@lucide/svelte/icons/code';
 import CircleUserRound from '@lucide/svelte/icons/circle-user-round';
@@ -12,6 +13,7 @@ import Download from '@lucide/svelte/icons/download';
 import Ellipsis from '@lucide/svelte/icons/ellipsis';
 import File from '@lucide/svelte/icons/file';
 import FileText from '@lucide/svelte/icons/file-text';
+import Gauge from '@lucide/svelte/icons/gauge';
 import GripVertical from '@lucide/svelte/icons/grip-vertical';
 import LayoutTemplate from '@lucide/svelte/icons/layout-template';
 import ListTree from '@lucide/svelte/icons/list-tree';
@@ -77,6 +79,9 @@ export const icons = {
 	send: Send,
 	undo: Undo2,
 	extension: Puzzle,
+	ats: Gauge,
+	'check-passed': CircleCheck,
+	'check-failed': CircleAlert,
 	'ai-draft': Sparkles,
 	redraft: RefreshCw
 } as const;

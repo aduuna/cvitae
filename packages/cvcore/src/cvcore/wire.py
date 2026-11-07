@@ -124,9 +124,6 @@ class WireChange(CvModel):
 class WireTailoredCv(CvModel):
     content: WireCv = Field(description="The tailored CV.")
     changes: list[WireChange] = Field(description="One entry per bullet that was reworded.")
-    missing_keywords: list[str] = Field(
-        description="Job keywords the profile does not cover. Never added to the CV."
-    )
 
 
 class WireCvEdit(CvModel):

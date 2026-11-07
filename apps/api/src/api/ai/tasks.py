@@ -169,7 +169,6 @@ async def tailor_cv(
     tailored = TailoredCv(
         content=from_wire(wire.content),
         changes=[BulletChange(source_id=c.source_id, rationale=c.rationale) for c in wire.changes],
-        missing_keywords=wire.missing_keywords,
     )
     return _with_output(result, tailored)
 

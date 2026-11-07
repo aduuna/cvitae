@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import ChangesPanel from '#lib/components/tailor/ChangesPanel.svelte';
 import NextSteps from '#lib/components/tailor/NextSteps.svelte';
-import type { TailorResult } from '#lib/cv/types.ts';
+import type { AtsKeyword, AtsReport, TailorResult } from '#lib/cv/types.ts';
 
 const mocks = vi.hoisted(() => ({ goto: vi.fn() }));
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
@@ -76,6 +76,23 @@ describe('ChangesPanel', () => {
 	});
 });
 
+function keyword(term: string, overrides: Partial<AtsKeyword> = {}): AtsKeyword {
+	return { term, importance: 'other', found_in: [], in_profile: false, ...overrides };
+}
+
+function report(keywords: AtsKeyword[]): AtsReport {
+	return {
+		score: 62,
+		band: 'good',
+		title: 'Data Engineer',
+		title_found: true,
+		keywords,
+		checks: []
+	};
+}
+
+const found = keyword('Python', { importance: 'required', found_in: ['experience'] });
+
 function result(overrides: Partial<TailorResult> = {}): TailorResult {
 	return {
 		document: { id: 'd1', profile_id: 'p1' },
@@ -90,13 +107,17 @@ function result(overrides: Partial<TailorResult> = {}): TailorResult {
 			{ text: 'number of analysts', bullet_id: 'b1' },
 			{ text: 'latency', bullet_id: 'b3' }
 		],
-		missing_keywords: Array.from({ length: 12 }, (_, i) => `Keyword ${i + 1}`),
+		ats: report([
+			found,
+			keyword('Kafka', { in_profile: true }),
+			...Array.from({ length: 12 }, (_, i) => keyword(`Keyword ${i + 1}`))
+		]),
 		...overrides
 	} as unknown as TailorResult;
 }
 
 describe('NextSteps', () => {
-	it('puts the gaps first, then the missing keywords, and folds the details away', async () => {
+	it('puts the gaps first, then the ATS match, and folds the details away', async () => {
 		const user = userEvent.setup();
 		render(NextSteps, { result: result() });
 
@@ -105,20 +126,32 @@ describe('NextSteps', () => {
 			screen
 				.getAllByRole('heading')
 				.map((h) => h.textContent?.trim())
-				.slice(0, 2)
-		).toEqual(['Fill in 2 gaps', 'Not in your profile (12)']);
+				.slice(0, 4)
+		).toEqual([
+			'Fill in 2 gaps',
+			'ATS match',
+			'Left out of this CV (1)',
+			'Not in your profile (12)'
+		]);
 		await user.click(screen.getByRole('button', { name: 'Fill in the editor' }));
 		expect(mocks.goto).toHaveBeenLastCalledWith('/app/documents/d1');
 
+		expect(screen.getByRole('meter', { name: 'ATS score' })).toHaveAttribute('aria-valuenow', '62');
+		expect(
+			screen.getByText(/the job asks for these\. add the ones that are true/i)
+		).toHaveTextContent('then tailor again');
 		const keywords = () =>
-			within(screen.getByRole('list', { name: 'Job keywords not in your profile' })).getAllByRole(
-				'listitem'
-			);
+			within(screen.getByRole('list', { name: 'Not in your profile' })).getAllByRole('listitem');
 		expect(keywords()).toHaveLength(10);
 		await user.click(screen.getByRole('button', { name: 'Show all 12' }));
 		expect(keywords()).toHaveLength(12);
+		expect(
+			screen.getByText('Your profile has these. Put back the ones that fit this job.')
+		).toBeVisible();
 		await user.click(screen.getByRole('button', { name: 'Edit profile' }));
 		expect(mocks.goto).toHaveBeenLastCalledWith('/app/profiles/p1');
+		// The review leaves the readability checks to the editor.
+		expect(screen.queryByRole('heading', { name: 'Readability' })).toBeNull();
 
 		const details = screen.getByText(/^What changed:/).closest('details');
 		expect(details).not.toHaveAttribute('open');
@@ -128,11 +161,15 @@ describe('NextSteps', () => {
 	});
 
 	it('says when there is nothing to fill in, and leaves out what does not apply', () => {
-		render(NextSteps, { result: result({ placeholders: [], missing_keywords: [], issues: [] }) });
+		render(NextSteps, {
+			result: result({ placeholders: [], ats: report([found]), issues: [] })
+		});
 
 		expect(screen.getByRole('heading', { name: 'Nothing to fill in' })).toBeVisible();
 		expect(screen.queryByRole('button', { name: 'Fill in the editor' })).toBeNull();
+		expect(screen.getByRole('heading', { name: 'In this CV (1)' })).toBeVisible();
 		expect(screen.queryByText(/Not in your profile/)).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Edit profile' })).toBeNull();
 		expect(screen.getByText(/^What changed:/)).toHaveTextContent(
 			'What changed: 2 reworded, 1 kept as written, 1 left out'
 		);

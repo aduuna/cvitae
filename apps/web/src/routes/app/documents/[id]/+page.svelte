@@ -6,6 +6,7 @@
 	import { AiEditChat } from '#lib/ai/edit.svelte.ts';
 	import { api, errorMessage, unwrap } from '#lib/api/client.ts';
 	import { Autosave } from '#lib/autosave.svelte.ts';
+	import AtsDialog from '#lib/components/ats/AtsDialog.svelte';
 	import CvEditor from '#lib/components/cv/CvEditor.svelte';
 	import SaveStatus from '#lib/components/cv/SaveStatus.svelte';
 	import AiEditPanel from '#lib/components/editor/AiEditPanel.svelte';
@@ -26,7 +27,7 @@
 	import { toast } from '#lib/components/ui/toasts.svelte.ts';
 	import { exportPdf } from '#lib/cv/export.ts';
 	import { sourceField } from '#lib/source-links.ts';
-	import type { CvContent, CvDocument, PlaceholderRef } from '#lib/cv/types.ts';
+	import type { CvContent, CvDocument, DocumentAts, PlaceholderRef } from '#lib/cv/types.ts';
 	import { formatPages } from '#lib/format.ts';
 	import { PreviewState } from '#lib/preview.svelte.ts';
 	import { templates } from '#lib/templates.svelte.ts';
@@ -45,6 +46,8 @@
 	let chat = $state<AiEditChat | null>(null);
 
 	let versionsOpen = $state(false);
+	let atsOpen = $state(false);
+	let ats = $state<DocumentAts | null>(null);
 	let exporting = $state(false);
 	let placeholders = $state<PlaceholderRef[] | null>(null);
 	let narrowView = $state<'form' | 'preview'>('form');
@@ -62,6 +65,7 @@
 		doc = null;
 		loadError = null;
 		placeholders = null;
+		ats = null;
 		try {
 			const loaded = await unwrap(
 				api.GET('/api/v1/documents/{document_id}', {
@@ -84,6 +88,7 @@
 			});
 			doc = loaded;
 			void preview.refresh();
+			void refreshAts();
 		} catch (error) {
 			loadError = errorMessage(error);
 		}
@@ -98,7 +103,32 @@
 		);
 		if (doc?.id === documentId) doc.updated_at = updated.updated_at;
 		void preview?.refresh();
+		void refreshAts();
 	}
+
+	/** The saved CV's ATS score: no AI, so it follows every save. Form-mode CVs only. */
+	async function refreshAts() {
+		const current = doc;
+		if (!current || current.mode !== 'structured') return;
+		try {
+			const result = await unwrap(
+				api.GET('/api/v1/documents/{document_id}/ats', {
+					params: { path: { document_id: current.id } }
+				})
+			);
+			if (doc?.id === current.id) {
+				ats = result;
+				doc.job_id = result.job?.id ?? null;
+			}
+		} catch {
+			// The button keeps the last score; the next save tries again.
+		}
+	}
+
+	// The preview records the page count the length check reads, so check again when it changes.
+	$effect(() => {
+		if (preview?.pageCount != null) untrack(() => void refreshAts());
+	});
 
 	$effect(() => {
 		void load(id);
@@ -143,6 +173,7 @@
 				})
 			);
 			void preview?.refresh();
+			void refreshAts();
 		} catch (error) {
 			doc.template_id = previous;
 			toast.error(errorMessage(error));
@@ -177,6 +208,7 @@
 		doc.updated_at = updated.updated_at;
 		placeholders = null;
 		void preview?.refresh();
+		void refreshAts();
 	}
 
 	// Briefly rings what a jump landed on, so the eye finds it: the item, section or header the
@@ -209,7 +241,26 @@
 		{#if doc}
 			{#if autosave}<SaveStatus {autosave} />{/if}
 			{#if preview?.pageCount}
-				<Badge variant="outline">{formatPages(preview.pageCount)}</Badge>
+				<!-- Under 1024px the preview header's page count is enough, and the title needs the room. -->
+				<span class="max-lg:hidden">
+					<Badge variant="outline">{formatPages(preview.pageCount)}</Badge>
+				</span>
+			{/if}
+			{#if doc.mode === 'structured'}
+				{@const score = ats?.report?.score ?? null}
+				<Button
+					variant="secondary"
+					icon="ats"
+					aria-label={score !== null ? `ATS score ${score} of 100` : 'ATS score'}
+					onclick={() => (atsOpen = true)}
+				>
+					{#if score !== null}
+						<span class="max-lg:hidden">ATS</span>
+						<span class="tabular-nums">{score}</span>
+					{:else}
+						ATS<span class="max-lg:hidden">&nbsp;score</span>
+					{/if}
+				</Button>
 			{/if}
 			<div class="w-36">
 				<Select
@@ -318,3 +369,5 @@
 	beforeChange={flush}
 	onrestored={restored}
 />
+
+<AtsDialog bind:open={atsOpen} documentId={id} {ats} onchange={refreshAts} />

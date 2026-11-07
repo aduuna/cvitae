@@ -13,11 +13,13 @@ from api.repositories.documents import DocumentRepository, DocumentVersionReposi
 from api.repositories.jobs import JobRepository
 from api.repositories.profiles import ProfileRepository
 from api.services.ai_models import ModelChoice
+from api.services.ats import score_cv
 from api.services.jobs import create_job, ensure_analysis, get_job
 from api.services.profiles import get_profile
 from api.services.quotas import require_ai_runs, require_room
 from api.services.templates import DEFAULT_TEMPLATE_ID, require_template
 from cvcore import factguard
+from cvcore.ats import AtsReport
 from cvcore.models import Bullet, CvContent
 from cvcore.render import PlaceholderRef, find_placeholders
 from cvcore.richtext import plain_text
@@ -59,7 +61,8 @@ class TailorResult:
     changes: list[BulletDiff]
     dropped: list[DroppedBullet]
     placeholders: list[PlaceholderRef]
-    missing_keywords: list[str]
+    ats: AtsReport
+    """The new CV's ATS score for the job, with the keywords it misses looked up in the profile."""
 
 
 def bullets_with_entries(content: CvContent) -> Iterator[tuple[Bullet, str]]:
@@ -168,7 +171,6 @@ async def tailor(
 
     rationales = {change.source_id: change.rationale for change in result.output.changes}
     changes, dropped = compare(source, report.content, rationales)
-    missing = list(dict.fromkeys(k.strip() for k in result.output.missing_keywords if k.strip()))
     return TailorResult(
         document=document,
         job=job,
@@ -178,5 +180,5 @@ async def tailor(
         changes=changes,
         dropped=dropped,
         placeholders=find_placeholders(report.content),
-        missing_keywords=missing,
+        ats=score_cv(report.content, job, analysis, profile=source),
     )

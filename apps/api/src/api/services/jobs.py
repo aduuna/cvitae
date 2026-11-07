@@ -4,11 +4,13 @@ import uuid
 from collections.abc import Sequence
 
 from api.ai import tasks
+from api.billing.plans import Plan
 from api.db.models import Job
 from api.errors import NotFound
 from api.repositories.ai_runs import AiRunRepository
 from api.repositories.jobs import JobRepository
 from api.services.ai_models import ModelChoice
+from api.services.quotas import require_ai_runs
 from cvcore.ai import JobAnalysis
 
 
@@ -39,6 +41,23 @@ async def create_job(
 async def delete_job(jobs: JobRepository, job_id: uuid.UUID) -> None:
     """Deleting a job keeps the CVs made for it; they just lose the link."""
     await jobs.delete((await get_job(jobs, job_id)).id)
+
+
+async def analyze_job(
+    jobs: JobRepository,
+    runs: AiRunRepository,
+    choice: ModelChoice,
+    job_id: uuid.UUID,
+    *,
+    plan: Plan,
+) -> Job:
+    """The job with its analysis, made now if it has none (one AI run), for example to score a
+    CV against a job saved from the browser extension."""
+    job = await get_job(jobs, job_id)
+    if job.analysis is None:
+        await require_ai_runs(runs, plan, 1)
+        await ensure_analysis(jobs, job, choice, runs)
+    return job
 
 
 async def ensure_analysis(

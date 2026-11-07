@@ -127,15 +127,9 @@ async def document_pdf(
     renderer: RendererClient,
     document_id: uuid.UUID,
 ) -> rendering.Pdf:
-    """The CV as a PDF to attach to an application, named for the job's company when it was
-    tailored for one. Refused while placeholders remain, so a gap never reaches an employer."""
-    pdf = await rendering.export_pdf(documents, renderer, document_id)
-    document = await get_document(documents, document_id)
-    job = await jobs.get(document.job_id) if document.job_id else None
-    if job and job.company:
-        name = CvContent.model_validate(document.content).basics.name
-        return rendering.Pdf(pdf.content, rendering.pdf_filename(name, job.company))
-    return pdf
+    """The CV as a PDF to attach to an application, named for the job's company when it is linked
+    to one. Refused while placeholders remain, so a gap never reaches an employer."""
+    return await rendering.export_pdf(documents, jobs, renderer, document_id)
 
 
 async def save_job(

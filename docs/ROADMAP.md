@@ -116,10 +116,22 @@ Done when: the checks in `docs/PRODUCT.md`, 8 pass in Chrome and Firefox against
 reports no errors, and both store listings are drafted (privacy text: what is read, when, and that
 nothing is stored or sent elsewhere).
 
+## M7: ATS score
+
+Built on a branch after M6, like it (`docs/PRODUCT.md`, 9).
+
+- `cvcore/ats.py` with tests: term matching, short forms, abbreviations, title, score, bands, checks.
+- `services/ats.py`; `GET /documents/{id}/ats`, `POST /jobs/{id}/analyze`, `job_id` on
+  `PATCH /documents/{id}`; tailoring returns `ats` and the model no longer lists missing keywords.
+- Web app: the ATS report in Next steps; the editor's ATS button and dialog.
+
+Done when: the checks in `docs/PRODUCT.md`, 9 pass, with API, unit and Playwright tests at 1280px
+and 768px.
+
 ## M8: Drafted answers in the extension
 
-Built after M6, also ahead of M5 (`docs/PRODUCT.md`, 8, Answer questions; `docs/BACKEND.md`,
-Drafted answers).
+Built after M7 on top of M6, also ahead of M5 (`docs/PRODUCT.md`, 8, Answer questions;
+`docs/BACKEND.md`, Drafted answers).
 
 - Docs: the CV rule and the drafts' rule stated apart (`AGENTS.md` rule 8, `docs/PRODUCT.md`
   principles 1 and 4, `docs/BACKEND.md` prompt rules).

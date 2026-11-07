@@ -147,6 +147,26 @@ export interface paths {
         patch: operations["update_document_api_v1_documents__document_id__patch"];
         trace?: never;
     };
+    "/api/v1/documents/{document_id}/ats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Document Ats
+         * @description How the saved CV reads to an ATS search for its job. No AI run. 409 for ejected CVs.
+         */
+        get: operations["document_ats_api_v1_documents__document_id__ats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents/{document_id}/duplicate": {
         parameters: {
             query?: never;
@@ -378,6 +398,26 @@ export interface paths {
         post?: never;
         /** Delete Job */
         delete: operations["delete_job_api_v1_jobs__job_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs/{job_id}/analyze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Analyze Job
+         * @description The job with its analysis. One AI run when it has none yet; none when it has.
+         */
+        post: operations["analyze_job_api_v1_jobs__job_id__analyze_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -689,6 +729,10 @@ export interface components {
              */
             plan: "free" | "pro";
         };
+        /** AnalyzeRequest */
+        AnalyzeRequest: {
+            ai_model?: components["schemas"]["AiModel"] | null;
+        };
         /**
          * AnswerJob
          * @description A job ad read from the page; not saved.
@@ -785,6 +829,47 @@ export interface components {
             certifications: components["schemas"]["Certification"][];
             /** Placeholders */
             placeholders: number;
+        };
+        /** AtsCheck */
+        AtsCheck: {
+            /**
+             * Id
+             * @enum {string}
+             */
+            id: "contact" | "headings" | "placeholders" | "length";
+            /** Ok */
+            ok: boolean;
+            /** Message */
+            message: string;
+        };
+        /** AtsKeyword */
+        AtsKeyword: {
+            /** Term */
+            term: string;
+            /**
+             * Importance
+             * @enum {string}
+             */
+            importance: "required" | "preferred" | "other";
+            /** Found In */
+            found_in: ("headline" | "summary" | "experience" | "projects" | "education" | "skills" | "certifications" | "other")[];
+            /** In Profile */
+            in_profile?: boolean | null;
+        };
+        /** AtsReport */
+        AtsReport: {
+            /** Score */
+            score: number | null;
+            /** Band */
+            band: ("strong" | "good" | "partial" | "limited") | null;
+            /** Title */
+            title: string;
+            /** Title Found */
+            title_found: boolean;
+            /** Keywords */
+            keywords: components["schemas"]["AtsKeyword"][];
+            /** Checks */
+            checks: components["schemas"]["AtsCheck"][];
         };
         /** Basics */
         "Basics-Input": {
@@ -1049,6 +1134,11 @@ export interface components {
             updated_at: string;
             content: components["schemas"]["CvContent-Output"];
         };
+        /** DocumentAts */
+        DocumentAts: {
+            job: components["schemas"]["JobSummary"] | null;
+            report: components["schemas"]["AtsReport"] | null;
+        };
         /** DocumentCreate */
         DocumentCreate: {
             /**
@@ -1101,6 +1191,8 @@ export interface components {
             /** Template Id */
             template_id?: string | null;
             content?: components["schemas"]["CvContent-Input"] | null;
+            /** Job Id */
+            job_id?: string | null;
         };
         /** DroppedBullet */
         DroppedBullet: {
@@ -1999,8 +2091,7 @@ export interface components {
             dropped: components["schemas"]["DroppedBullet"][];
             /** Placeholders */
             placeholders: components["schemas"]["PlaceholderRef"][];
-            /** Missing Keywords */
-            missing_keywords: string[];
+            ats: components["schemas"]["AtsReport"];
         };
         /** TemplateMeta */
         TemplateMeta: {
@@ -2790,6 +2881,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Document"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    document_ats_api_v1_documents__document_id__ats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentAts"];
                 };
             };
             /** @description Not signed in */
@@ -3707,6 +3856,86 @@ export interface operations {
             };
             /** @description Invalid request */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    analyze_job_api_v1_jobs__job_id__analyze_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnalyzeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description A plan limit is reached; the message says which */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description The AI provider failed */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description The AI provider took too long */
+            504: {
                 headers: {
                     [name: string]: unknown;
                 };

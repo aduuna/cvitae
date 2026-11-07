@@ -65,6 +65,3 @@ class DraftAnswers(CvModel):
 class TailoredCv(CvModel):
     content: CvContent = Field(description="The tailored CV.")
     changes: list[BulletChange] = Field(description="One entry per bullet that was reworded.")
-    missing_keywords: list[str] = Field(
-        description="Job keywords the profile does not cover. Never added to the CV."
-    )

@@ -9,6 +9,7 @@ from urllib.parse import quote
 from api.errors import Conflict
 from api.ports.renderer import RendererClient
 from api.repositories.documents import DocumentRepository
+from api.repositories.jobs import JobRepository
 from api.services.documents import get_document
 from cvcore.models import CvContent
 from cvcore.render import find_placeholders, to_render_json
@@ -48,12 +49,14 @@ async def preview(
 
 async def export_pdf(
     documents: DocumentRepository,
+    jobs: JobRepository,
     renderer: RendererClient,
     document_id: uuid.UUID,
     *,
     force: bool = False,
 ) -> Pdf:
-    """The CV as a PDF. Refused while placeholders remain, unless `force`."""
+    """The CV as a PDF, named for the company of the job it is linked to. Refused while
+    placeholders remain, unless `force`."""
     document = await get_document(documents, document_id)
     content = CvContent.model_validate(document.content)
     placeholders = find_placeholders(content)
@@ -65,7 +68,10 @@ async def export_pdf(
             {"placeholders": [ref.model_dump() for ref in placeholders]},
         )
     pdf = await renderer.render_pdf(document.template_id, to_render_json(content), DEFAULT_PAPER)
-    return Pdf(content=pdf, filename=pdf_filename(content.basics.name))
+    job = await jobs.get(document.job_id) if document.job_id is not None else None
+    return Pdf(
+        content=pdf, filename=pdf_filename(content.basics.name, job.company if job else None)
+    )
 
 
 def pdf_filename(name: str, company: str | None = None) -> str:
