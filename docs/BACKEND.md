@@ -161,7 +161,7 @@ One envelope for every error response:
 `ClaudeUnavailable` (503, `claude_unavailable`: no Anthropic key, so no custom templates) and
 `TemplateFailed` (422, `template_failed`, with the codes of the checks a draft still failed in
 `details.issues`).
-A single exception handler maps them. Pydantic validation errors are converted to the same envelope.
+A single exception handler maps them. Pydantic validation errors are converted to the same envelope. An exception nothing handles becomes a 500 with the code `internal_error` and no detail.
 
 ## Settings
 
@@ -896,7 +896,7 @@ require a valid Firebase ID token. FastAPI serves OpenAPI at `/api/openapi.json`
 |---|---|
 | `GET /client-config` | No auth. How the SPA signs in (`auth_mode` and, for Firebase, the web config), the AI models the server offers (`ai_models`, with each one's plan), `default_ai_model` and `plans_enforced` |
 | `GET /me`, `PATCH /me` | Current user; update display name, preferred AI model, default template |
-| `DELETE /me` | Delete account and all data: `{email}` in the body must be the account's address (any case; 422 otherwise). Removes the user row (every user-owned table cascades from it) and the user's `uploads/<user_id>/` prefix in storage, in one request: the rows go first inside the request's transaction, so a storage failure rolls them back and the account is whole for another try. 409 while a subscription is `active` or `attention` (Paystack would keep charging a user it can no longer match; `non_renewing` and `cancelled` are fine). 204. The Firebase user is not touched |
+| `DELETE /me` | Delete account and all data: `{email}` in the body must be the account's address (any case; 422 otherwise). Removes the user row (every user-owned table cascades from it), commits that, and then removes the user's `uploads/<user_id>/` prefix in storage. Storage cannot join the transaction (a bucket deletes object by object), so the rows are the point of no return and the files follow: if clearing storage fails the request still answers 204, because the account is gone, and an error-severity log line with the user's id and an error code (no content) marks the objects left under the prefix for a sweep. 409 while a subscription is `active` or `attention` (Paystack would keep charging a user it can no longer match; `non_renewing` and `cancelled` are fine), with `details.reason` `subscription_active` (cancel it with Manage subscription) or, while the subscription has no Paystack code yet because `subscription.create` has not arrived and there is nothing to manage, `subscription_pending` (try again in a few minutes). 204. The Firebase user is not touched |
 | `GET /me/export` | All user data as one JSON file (`Content-Disposition: attachment`): the account, profiles, jobs, CVs with their versions, custom templates (with their Typst), upload metadata (not the files: they are the user's own, up to 10 MB each), AI runs (no prompts or outputs are kept), the subscription and the connected browsers (not their tokens or hashes) |
 | `GET /usage` | Current plan; a meter (`used`, `limit`, `message` once the limit is reached) for AI runs this month, CVs, profiles and custom templates; the period's start and end; the subscription's status, paid-up date and whether it can be managed yet |
 | `GET/POST /profiles`, `GET/PATCH/DELETE /profiles/{id}`, `POST /profiles/{id}/duplicate` | Profiles |
@@ -923,7 +923,7 @@ require a valid Firebase ID token. FastAPI serves OpenAPI at `/api/openapi.json`
 | `POST /billing/verify` (reference) | Verify after redirect back from Paystack; switches to Pro at once and returns the current plan. Repeatable: a payment is applied once, by this call or by its `charge.success` webhook (both record the same `webhook_events` key), so an old reference cannot bring Pro back after it ended. |
 | `GET /billing/manage-link` | Paystack hosted subscription management link |
 | `POST /webhooks/paystack` | Paystack events (no Firebase auth; signature checked) |
-| `POST /internal/prune-versions` | Deletes autosave versions older than 7 days (manual, tailor and restore versions are never pruned) and returns `{deleted}`. Accepts only a Google ID token for `PUBLIC_BASE_URL` from `SCHEDULER_SA_EMAIL` (signature, expiry, issuer, audience and verified email checked by google-auth; 401 for a missing or invalid token, including a Firebase one, 403 for another account); no Firebase auth, and `X-Dev-User` is ignored. |
+| `POST /internal/prune-versions` | Deletes autosave versions older than 7 days (manual, tailor and restore versions are never pruned) and returns `{deleted}`. Accepts only a Google ID token for `PUBLIC_BASE_URL` from `SCHEDULER_SA_EMAIL` (signature, expiry, issuer, audience and verified email checked by google-auth, with 10 seconds of clock skew so a token minted a moment ago is not refused as issued in the future; 401 for a missing or invalid token, including a Firebase one, 403 for another account); no Firebase auth, and `X-Dev-User` is ignored. |
 | `GET/POST /extension/connections`, `DELETE /extension/connections/{id}` | The browsers the extension is connected in (signed in as usual). `POST` (`label`) returns the new connection with its `token`, the only time the token is shown |
 | `GET /extension/session` | Extension token only. The account's email, profiles, form-mode CVs (with their `job_id` and placeholder count) and saved jobs, so the extension can choose what to fill from |
 | `DELETE /extension/session` | Extension token only. Disconnect this browser: its token stops working |
@@ -973,7 +973,10 @@ response is sent.
 ## Security headers
 
 `security.py` is a middleware that sends these on every HTTP response the api makes: the API, the
-built SPA's files and error responses.
+built SPA's files and error responses. Starlette answers an exception nothing handled from outside
+every middleware, so `errors.py` handles `Exception` itself: a 500 in the usual envelope
+(`internal_error`, no detail) that applies the same headers, after which the exception still goes on
+to the server's log.
 
 | Header | Value |
 |---|---|
@@ -984,8 +987,10 @@ built SPA's files and error responses.
 | `X-Frame-Options` | `DENY` |
 | `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), payment=(), usb=()` |
 
-- SvelteKit puts one inline `<script>` in every page to start the app. The api reads the built pages
-  in `STATIC_DIR` at startup and allows each inline script by hash, so a new build needs no change;
+- SvelteKit puts one inline `<script>` in every page to start the app. The api parses the built
+  pages in `STATIC_DIR` at startup (`html.parser`, so attributes such as `data-type` are not mistaken
+  for `type`) and allows each inline script that the browser would run by hash, so a new build needs
+  no change;
   `theme.js` is a file for the same reason. No `'unsafe-inline'` and no `'unsafe-eval'` for scripts.
 - Styles may be inline: Svelte's `style:` bindings, `app.html`'s `display: contents` wrapper and
   CodeMirror's injected style sheets need it. Previews are SVG in `<img src="data:...">`.
