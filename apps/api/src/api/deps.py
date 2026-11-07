@@ -25,7 +25,7 @@ from api.repositories.uploads import UploadRepository
 from api.repositories.user_templates import UserTemplateRepository
 from api.repositories.users import UserRepository
 from api.repositories.webhooks import WebhookRepository
-from api.services import billing, extension
+from api.services import account, billing, extension
 from api.services.templates import TemplateCatalog
 from api.services.users import ensure_user
 from api.settings import Settings
@@ -167,6 +167,34 @@ Subscriptions = Annotated[SubscriptionRepository, Depends(get_subscriptions)]
 SubscriptionsFor = Annotated[billing.SubscriptionsFor, Depends(get_subscriptions_for)]
 Webhooks = Annotated[WebhookRepository, Depends(get_webhooks)]
 ExtensionTokens = Annotated[ExtensionTokenRepository, Depends(get_extension_tokens)]
+
+
+def get_account_repositories(
+    profiles: Profiles,
+    jobs: Jobs,
+    documents: Documents,
+    versions: Versions,
+    user_templates: UserTemplates,
+    uploads: Uploads,
+    ai_runs: AiRuns,
+    subscriptions: Subscriptions,
+    connections: ExtensionTokens,
+) -> account.AccountRepositories:
+    """Every repository that holds the signed-in user's data, for export."""
+    return account.AccountRepositories(
+        profiles=profiles,
+        jobs=jobs,
+        documents=documents,
+        versions=versions,
+        templates=user_templates,
+        uploads=uploads,
+        ai_runs=ai_runs,
+        subscriptions=subscriptions,
+        connections=connections,
+    )
+
+
+AccountRepos = Annotated[account.AccountRepositories, Depends(get_account_repositories)]
 
 
 def get_catalog(renderer: Renderer, user_templates: UserTemplates) -> TemplateCatalog:
