@@ -63,3 +63,34 @@ resource "github_repository_environment_deployment_policy" "prod_tags" {
   environment = github_repository_environment.prod.environment
   tag_pattern = "v*"
 }
+
+# Only repository admins may create, move or delete a release tag. The environment's tag policy
+# and deploy.yml's verify-tag job both run from the tagged commit's own workflow files, so a writer
+# could tag an unmerged commit that weakens them; this rule is enforced outside the tagged code.
+# The approver of a prod run still checks that the commit is on main (docs/INFRA.md, Production).
+resource "github_repository_ruleset" "release_tags" {
+  name        = "release-tags"
+  repository  = var.repository
+  target      = "tag"
+  enforcement = "active"
+
+  conditions {
+    ref_name {
+      include = ["refs/tags/v*"]
+      exclude = []
+    }
+  }
+
+  # The repository admin role (a personal repository's owner).
+  bypass_actors {
+    actor_id    = 5
+    actor_type  = "RepositoryRole"
+    bypass_mode = "always"
+  }
+
+  rules {
+    creation = true
+    update   = true
+    deletion = true
+  }
+}
