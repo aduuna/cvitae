@@ -14,6 +14,7 @@
 	} from '#lib/billing/plans.ts';
 	import UsageMeter from '#lib/components/billing/UsageMeter.svelte';
 	import Page from '#lib/components/shell/Page.svelte';
+	import DataCard from '#lib/components/settings/DataCard.svelte';
 	import Badge from '#lib/components/ui/Badge.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
@@ -130,6 +131,15 @@
 		} catch (error) {
 			toast.error(errorMessage(error));
 			billing = null;
+		}
+	}
+
+	/** The account is gone: end the session, which returns to the home page. */
+	async function accountDeleted() {
+		try {
+			await session.signOut();
+		} catch (error) {
+			toast.error(errorMessage(error));
 		}
 	}
 
@@ -268,6 +278,12 @@
 			{/if}
 		</Card>
 	</div>
+
+	{#if loaded}
+		<DataCard email={session.me?.email ?? ''} ondeleted={accountDeleted} />
+	{:else}
+		<Card title="Data"><Skeleton lines={2} /></Card>
+	{/if}
 
 	<Card title="Appearance">
 		<div class="flex flex-col gap-3">
