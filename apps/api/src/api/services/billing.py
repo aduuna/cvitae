@@ -22,6 +22,7 @@ from api.repositories.ai_runs import AiRunRepository
 from api.repositories.documents import DocumentRepository
 from api.repositories.profiles import ProfileRepository
 from api.repositories.subscriptions import SubscriptionRepository
+from api.repositories.user_templates import UserTemplateRepository
 from api.repositories.users import UserRepository
 from api.repositories.webhooks import WebhookRepository
 from api.services import quotas
@@ -88,10 +89,11 @@ async def overview(
     runs: AiRunRepository,
     documents: DocumentRepository,
     profiles: ProfileRepository,
+    templates: UserTemplateRepository,
     subscriptions: SubscriptionRepository,
 ) -> Overview:
     return Overview(
-        usage=await quotas.usage(plan, runs, documents, profiles),
+        usage=await quotas.usage(plan, runs, documents, profiles, templates),
         subscription=await subscriptions.current(),
     )
 

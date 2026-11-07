@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from api.ai.models import AiModel, ModelOption
 from api.billing.plans import Plan
 from api.db.models import User
-from api.errors import PlanRequired, ServiceUnavailable, ValidationFailed
+from api.errors import ClaudeUnavailable, PlanRequired, ServiceUnavailable, ValidationFailed
 from api.ports.llm.base import LLMProvider
 from api.ports.llm.registry import ProviderRegistry
 
@@ -48,4 +48,29 @@ def choose_model(
             f"{option.label} is part of Pro. Upgrade to use it, or choose a free model.",
             {"ai_model": str(option.id)},
         )
+    return ModelChoice(option=option, provider=registry.provider(option))
+
+
+CLAUDE_MODELS = (AiModel.claude_sonnet, AiModel.claude_haiku)
+"""Best first: what a Claude-only task prefers when the user has not chosen a Claude model."""
+
+
+def choose_claude_model(
+    registry: ProviderRegistry, user: User, *, enforce_plans: bool, plan: Plan
+) -> ModelChoice:
+    """For tasks that always run on Claude, whatever model the user chose for the others (custom
+    templates: the fidelity of a design and the quality of the Typst matter most). The user's
+    own Claude model when they chose one, else the best Claude model their plan includes
+    (Sonnet on Pro, Haiku on Free). Raises ClaudeUnavailable without an Anthropic key."""
+    usable = [
+        option
+        for model in CLAUDE_MODELS
+        if (option := registry.option(model))
+        and (not enforce_plans or option.plan == "free" or plan == "pro")
+    ]
+    if not usable:
+        raise ClaudeUnavailable(
+            "Drafting a template needs Claude, which is not set up on this server yet."
+        )
+    option = next((o for o in usable if o.id == user.preferred_ai_model), usable[0])
     return ModelChoice(option=option, provider=registry.provider(option))

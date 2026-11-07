@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import textwrap
 import time
 from collections.abc import AsyncGenerator, Callable
 from typing import Any, Protocol
@@ -68,12 +69,22 @@ class GoogleIdTokenAuth(httpx.Auth):
 
 class RendererClient(Protocol):
     async def render_svg(
-        self, template_id: str, data: dict[str, Any], paper: Paper, *, source_links: bool = False
+        self,
+        template_id: str,
+        data: dict[str, Any],
+        paper: Paper,
+        *,
+        source_links: bool = False,
+        source: str | None = None,
     ) -> SvgPages:
-        """`source_links`: link each part to its form field, for click-to-edit previews."""
+        """`source_links`: link each part to its form field, for click-to-edit previews.
+        `source`: the main.typ of a user's own template; the renderer then ignores `template_id`,
+        which is only a label."""
         ...
 
-    async def render_pdf(self, template_id: str, data: dict[str, Any], paper: Paper) -> bytes: ...
+    async def render_pdf(
+        self, template_id: str, data: dict[str, Any], paper: Paper, *, source: str | None = None
+    ) -> bytes: ...
 
     async def templates(self) -> list[TemplateMeta]: ...
 
@@ -95,13 +106,21 @@ class HttpRendererClient:
         await self._client.aclose()
 
     async def render_svg(
-        self, template_id: str, data: dict[str, Any], paper: Paper, *, source_links: bool = False
+        self,
+        template_id: str,
+        data: dict[str, Any],
+        paper: Paper,
+        *,
+        source_links: bool = False,
+        source: str | None = None,
     ) -> SvgPages:
-        response = await self._render(template_id, data, paper, "svg", source_links)
+        response = await self._render(template_id, data, paper, "svg", source_links, source)
         return SvgPages.model_validate_json(response.content)
 
-    async def render_pdf(self, template_id: str, data: dict[str, Any], paper: Paper) -> bytes:
-        response = await self._render(template_id, data, paper, "pdf")
+    async def render_pdf(
+        self, template_id: str, data: dict[str, Any], paper: Paper, *, source: str | None = None
+    ) -> bytes:
+        response = await self._render(template_id, data, paper, "pdf", source=source)
         return response.content
 
     async def templates(self) -> list[TemplateMeta]:
@@ -118,10 +137,16 @@ class HttpRendererClient:
         paper: Paper,
         format: OutputFormat,
         source_links: bool = False,
+        source: str | None = None,
     ) -> httpx.Response:
+        # A user's own template travels with the request, like an ejected CV's: the renderer
+        # sandboxes it the same way (no packages, no other files, the same limits).
+        files = {"data.json": json.dumps(data)}
+        if source is not None:
+            files["main.typ"] = source
         body = RenderRequest(
-            files={"data.json": json.dumps(data)},
-            template_id=template_id,
+            files=files,
+            template_id=None if source is not None else template_id,
             format=format,
             paper=paper,
             source_links=source_links,
@@ -161,26 +186,88 @@ _FAKE_SVG = (
 )
 
 
+def _strings(value: Any) -> list[str]:
+    """Every text in a CV's data.json, in order; ids and section kinds are not text."""
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list):
+        return [text for item in value for text in _strings(item)]
+    if isinstance(value, dict):
+        return [
+            text
+            for key, item in value.items()
+            if key not in ("id", "kind")
+            for text in _strings(item)
+        ]
+    return []
+
+
+def fake_pdf(data: dict[str, Any]) -> bytes:
+    """A real one-page PDF whose text layer holds every text of the CV, so code that reads a
+    rendered PDF (its text, or an image of its page) works against the fake renderer."""
+    lines = textwrap.wrap("  ".join(_strings(data)), 100)
+    escaped = [line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)") for line in lines]
+    text = " ".join(f"({line}) Tj T*" for line in escaped)
+    stream = f"BT /F1 6 Tf 7 TL 30 810 Td {text} ET"
+    objects = [
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R "
+        "/Resources << /Font << /F1 5 0 R >> >> >>",
+        f"<< /Length {len(stream)} >>\nstream\n{stream}\nendstream",
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+    ]
+    out = b"%PDF-1.4\n"
+    offsets = []
+    for number, body in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += f"{number} 0 obj\n".encode() + body.encode("cp1252", "replace") + b"\nendobj\n"
+    xref = len(out)
+    out += f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode()
+    for offset in offsets:
+        out += f"{offset:010d} 00000 n \n".encode()
+    out += (
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+    )
+    return out
+
+
+# What Typst does with `#panic`: the compile fails with the message. The fake does the same, so
+# tests can hand it a template that does not compile.
+_PANIC = "#panic("
+
+
 class FakeRendererClient:
-    """Deterministic renderer for tests: one SVG page per CV, a tiny PDF, two templates."""
+    """Deterministic renderer for tests: one SVG page per CV, a one-page PDF holding the CV's
+    text, two templates. A user's own template (`source`) containing `#panic(` fails to compile."""
 
     def __init__(self) -> None:
         self.calls: list[tuple[str, str, dict[str, Any]]] = []
+        self.sources: list[str | None] = []
+        """Per render, the user's own template source, or None for a built-in template."""
         self.source_links: list[bool] = []
         """Per SVG render, whether source links were asked for."""
         self.fail_with: RenderFailed | None = None
 
     async def render_svg(
-        self, template_id: str, data: dict[str, Any], paper: Paper, *, source_links: bool = False
+        self,
+        template_id: str,
+        data: dict[str, Any],
+        paper: Paper,
+        *,
+        source_links: bool = False,
+        source: str | None = None,
     ) -> SvgPages:
-        self._record("svg", template_id, data)
+        self._record("svg", template_id, data, source)
         self.source_links.append(source_links)
         name = str(data["basics"]["name"]).replace("<", "")
         return SvgPages(pages=[_FAKE_SVG.format(name=name)], page_count=1)
 
-    async def render_pdf(self, template_id: str, data: dict[str, Any], paper: Paper) -> bytes:
-        self._record("pdf", template_id, data)
-        return b"%PDF-1.7\n% fake\n"
+    async def render_pdf(
+        self, template_id: str, data: dict[str, Any], paper: Paper, *, source: str | None = None
+    ) -> bytes:
+        self._record("pdf", template_id, data, source)
+        return fake_pdf(data)
 
     async def templates(self) -> list[TemplateMeta]:
         return [
@@ -200,7 +287,21 @@ class FakeRendererClient:
             ),
         ]
 
-    def _record(self, format: str, template_id: str, data: dict[str, Any]) -> None:
+    def _record(
+        self, format: str, template_id: str, data: dict[str, Any], source: str | None
+    ) -> None:
         if self.fail_with:
             raise self.fail_with
+        if source is not None and _PANIC in source:
+            line = source[: source.index(_PANIC)].count("\n") + 1
+            raise RenderFailed(
+                "The CV could not be rendered.",
+                {
+                    "code": "compile_error",
+                    "diagnostics": [
+                        {"message": "panicked with the template's message", "line": line}
+                    ],
+                },
+            )
         self.calls.append((format, template_id, data))
+        self.sources.append(source)

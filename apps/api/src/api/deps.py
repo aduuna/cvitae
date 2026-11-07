@@ -22,9 +22,11 @@ from api.repositories.jobs import JobRepository
 from api.repositories.profiles import ProfileRepository
 from api.repositories.subscriptions import SubscriptionRepository
 from api.repositories.uploads import UploadRepository
+from api.repositories.user_templates import UserTemplateRepository
 from api.repositories.users import UserRepository
 from api.repositories.webhooks import WebhookRepository
 from api.services import billing, extension
+from api.services.templates import TemplateCatalog
 from api.services.users import ensure_user
 from api.settings import Settings
 
@@ -125,6 +127,10 @@ def get_uploads(session: Session, user: CurrentUser) -> UploadRepository:
     return UploadRepository(session, user.id)
 
 
+def get_user_templates(session: Session, user: CurrentUser) -> UserTemplateRepository:
+    return UserTemplateRepository(session, user.id)
+
+
 def get_ai_runs(session: Session, user: CurrentUser) -> AiRunRepository:
     return AiRunRepository(session, user.id)
 
@@ -155,11 +161,20 @@ Documents = Annotated[DocumentRepository, Depends(get_documents)]
 Versions = Annotated[DocumentVersionRepository, Depends(get_versions)]
 Jobs = Annotated[JobRepository, Depends(get_jobs)]
 Uploads = Annotated[UploadRepository, Depends(get_uploads)]
+UserTemplates = Annotated[UserTemplateRepository, Depends(get_user_templates)]
 AiRuns = Annotated[AiRunRepository, Depends(get_ai_runs)]
 Subscriptions = Annotated[SubscriptionRepository, Depends(get_subscriptions)]
 SubscriptionsFor = Annotated[billing.SubscriptionsFor, Depends(get_subscriptions_for)]
 Webhooks = Annotated[WebhookRepository, Depends(get_webhooks)]
 ExtensionTokens = Annotated[ExtensionTokenRepository, Depends(get_extension_tokens)]
+
+
+def get_catalog(renderer: Renderer, user_templates: UserTemplates) -> TemplateCatalog:
+    """The built-in templates and the signed-in user's own."""
+    return TemplateCatalog(renderer, user_templates)
+
+
+Catalog = Annotated[TemplateCatalog, Depends(get_catalog)]
 
 
 async def get_plan(user: CurrentUser, subscriptions: Subscriptions, settings: AppSettings) -> Plan:
@@ -207,6 +222,13 @@ def get_own_extension_tokens(
     return ExtensionTokenRepository(session, connection.user.id)
 
 
+def get_extension_catalog(
+    renderer: Renderer, session: Session, connection: ExtensionConnection
+) -> TemplateCatalog:
+    """The built-in templates and the token user's own."""
+    return TemplateCatalog(renderer, UserTemplateRepository(session, connection.user.id))
+
+
 def get_extension_ai_runs(session: Session, connection: ExtensionConnection) -> AiRunRepository:
     return AiRunRepository(session, connection.user.id)
 
@@ -222,6 +244,7 @@ ExtensionDocuments = Annotated[DocumentRepository, Depends(get_extension_documen
 ExtensionJobs = Annotated[JobRepository, Depends(get_extension_jobs)]
 OwnExtensionTokens = Annotated[ExtensionTokenRepository, Depends(get_own_extension_tokens)]
 ExtensionAiRuns = Annotated[AiRunRepository, Depends(get_extension_ai_runs)]
+ExtensionCatalog = Annotated[TemplateCatalog, Depends(get_extension_catalog)]
 ExtensionSubscriptions = Annotated[SubscriptionRepository, Depends(get_extension_subscriptions)]
 
 

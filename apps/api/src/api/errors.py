@@ -88,6 +88,20 @@ class ProviderTimeout(AppError):
     code = "provider_timeout"
 
 
+class ClaudeUnavailable(ServiceUnavailable):
+    """The server has no Anthropic key, so it cannot draft custom templates (they always run on
+    Claude)."""
+
+    code = "claude_unavailable"
+
+
+class TemplateFailed(ValidationFailed):
+    """A custom template could not be made from the upload; nothing was saved. `details["issues"]`
+    lists the codes of the checks it still failed."""
+
+    code = "template_failed"
+
+
 # Documented on every route so generated clients know the error shape.
 ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     401: {"model": ErrorEnvelope, "description": "Not signed in"},

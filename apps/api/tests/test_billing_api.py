@@ -45,6 +45,7 @@ async def test_usage_of_a_new_user(client: AsyncClient) -> None:
     assert usage["ai_runs"] == {"used": 0, "limit": 20, "message": None}
     assert usage["documents"] == {"used": 0, "limit": 4, "message": None}
     assert usage["profiles"] == {"used": 0, "limit": 2, "message": None}
+    assert usage["templates"] == {"used": 0, "limit": 1, "message": None}
     assert usage["subscription"] is None
     start = datetime.fromisoformat(usage["period_start"])
     end = datetime.fromisoformat(usage["period_end"])

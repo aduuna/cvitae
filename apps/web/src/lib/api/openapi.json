@@ -1494,6 +1494,7 @@
           "templates"
         ],
         "summary": "Get Templates",
+        "description": "The built-in templates, then the user's own ready ones (`custom` is true for those).",
         "operationId": "get_templates_api_v1_templates_get",
         "responses": {
           "200": {
@@ -1543,13 +1544,314 @@
         }
       }
     },
+    "/api/v1/templates/custom": {
+      "post": {
+        "tags": [
+          "templates"
+        ],
+        "summary": "Create Custom Template",
+        "description": "Draft a template in the design of a CV, with Claude. Takes one AI run and up to about two\nminutes; the request waits. The result is a draft: preview it, then confirm it with PATCH.\nSend a PDF as `file`, or the `upload_id` of one uploaded before (a DOCX is refused).",
+        "operationId": "create_custom_template_api_v1_templates_custom_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_custom_template_api_v1_templates_custom_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomTemplateDraft"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "A plan limit is reached; the message says which",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The AI provider failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The AI provider took too long",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The server has no Claude key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/templates/custom/{template_id}": {
+      "patch": {
+        "tags": [
+          "templates"
+        ],
+        "summary": "Update Custom Template",
+        "description": "Rename or describe a template, or confirm a draft (`status: \"ready\"`).",
+        "operationId": "update_custom_template_api_v1_templates_custom__template_id__patch",
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Template Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomTemplateUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomTemplate"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Payment Required"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "templates"
+        ],
+        "summary": "Delete Custom Template",
+        "description": "Delete a template. CVs that use it switch to the user's default template (Classic when\nthe default was this one), and the default resets to Classic.",
+        "operationId": "delete_custom_template_api_v1_templates_custom__template_id__delete",
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Template Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/templates/custom/{template_id}/source": {
+      "get": {
+        "tags": [
+          "templates"
+        ],
+        "summary": "Get Custom Template Source",
+        "description": "The Typst source of one of the user's templates, to read.",
+        "operationId": "get_custom_template_source_api_v1_templates_custom__template_id__source_get",
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Template Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomTemplateSource"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/templates/{template_id}/preview": {
       "get": {
         "tags": [
           "templates"
         ],
         "summary": "Get Template Preview",
-        "description": "The template rendered with the user's default profile, or sample data.",
+        "description": "The template rendered with the user's default profile, or sample data. Works for the\nuser's own templates, drafts included.",
         "operationId": "get_template_preview_api_v1_templates__template_id__preview_get",
         "parameters": [
           {
@@ -3865,6 +4167,38 @@
         ],
         "title": "Basics"
       },
+      "Body_create_custom_template_api_v1_templates_custom_post": {
+        "properties": {
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File",
+            "description": "A PDF, up to 10 MB"
+          },
+          "upload_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upload Id",
+            "description": "Use an earlier upload"
+          }
+        },
+        "type": "object",
+        "title": "Body_create_custom_template_api_v1_templates_custom_post"
+      },
       "Body_create_import_api_v1_imports_post": {
         "properties": {
           "file": {
@@ -4205,6 +4539,235 @@
           "billing_enabled"
         ],
         "title": "ClientConfig"
+      },
+      "CustomTemplate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "ready"
+            ],
+            "title": "Status"
+          },
+          "paper_sizes": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "a4",
+                "us-letter"
+              ]
+            },
+            "type": "array",
+            "title": "Paper Sizes"
+          },
+          "target_pages": {
+            "type": "integer",
+            "title": "Target Pages"
+          },
+          "upload_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upload Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "status",
+          "paper_sizes",
+          "target_pages",
+          "upload_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CustomTemplate",
+        "description": "A template the user made from their own CV."
+      },
+      "CustomTemplateDraft": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "ready"
+            ],
+            "title": "Status"
+          },
+          "paper_sizes": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "a4",
+                "us-letter"
+              ]
+            },
+            "type": "array",
+            "title": "Paper Sizes"
+          },
+          "target_pages": {
+            "type": "integer",
+            "title": "Target Pages"
+          },
+          "upload_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upload Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "ai_model": {
+            "$ref": "#/components/schemas/AiModel"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ProviderName"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "status",
+          "paper_sizes",
+          "target_pages",
+          "upload_id",
+          "created_at",
+          "updated_at",
+          "ai_model",
+          "provider",
+          "model"
+        ],
+        "title": "CustomTemplateDraft",
+        "description": "What generating a template returns: the new draft, and what ran."
+      },
+      "CustomTemplateSource": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "main_typ": {
+            "type": "string",
+            "title": "Main Typ"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "main_typ"
+        ],
+        "title": "CustomTemplateSource"
+      },
+      "CustomTemplateUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "ready"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "title": "CustomTemplateUpdate"
       },
       "CvContent-Input": {
         "properties": {
@@ -5930,6 +6493,10 @@
             "type": "integer",
             "title": "Profiles"
           },
+          "templates": {
+            "type": "integer",
+            "title": "Templates"
+          },
           "ai_runs": {
             "type": "integer",
             "title": "Ai Runs"
@@ -5941,6 +6508,7 @@
           "label",
           "documents",
           "profiles",
+          "templates",
           "ai_runs"
         ],
         "title": "PlanInfo"
@@ -6774,6 +7342,11 @@
           "target_pages": {
             "type": "integer",
             "title": "Target Pages"
+          },
+          "custom": {
+            "type": "boolean",
+            "title": "Custom",
+            "default": false
           }
         },
         "type": "object",
@@ -6782,7 +7355,8 @@
           "name",
           "description",
           "paper_sizes",
-          "target_pages"
+          "target_pages",
+          "custom"
         ],
         "title": "TemplateMeta"
       },
@@ -6850,6 +7424,9 @@
           "profiles": {
             "$ref": "#/components/schemas/Meter"
           },
+          "templates": {
+            "$ref": "#/components/schemas/Meter"
+          },
           "subscription": {
             "anyOf": [
               {
@@ -6869,6 +7446,7 @@
           "ai_runs",
           "documents",
           "profiles",
+          "templates",
           "subscription"
         ],
         "title": "Usage"

@@ -25,8 +25,15 @@ from api.settings import DatabaseSettings, Settings
 DB = "postgresql+psycopg://unused"
 
 PLANS = [
-    {"id": "free", "label": "Free", "documents": 4, "profiles": 2, "ai_runs": 20},
-    {"id": "pro", "label": "Pro", "documents": 100, "profiles": 10, "ai_runs": 150},
+    {"id": "free", "label": "Free", "documents": 4, "profiles": 2, "templates": 1, "ai_runs": 20},
+    {
+        "id": "pro",
+        "label": "Pro",
+        "documents": 100,
+        "profiles": 10,
+        "templates": 10,
+        "ai_runs": 150,
+    },
 ]
 
 

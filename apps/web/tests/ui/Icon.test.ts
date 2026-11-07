@@ -51,7 +51,9 @@ describe('Icon', () => {
 			'code',
 			'form',
 			'paste',
-			'manual'
+			'manual',
+			'rename',
+			'view-source'
 		]) {
 			expect(icons).toHaveProperty(name);
 		}

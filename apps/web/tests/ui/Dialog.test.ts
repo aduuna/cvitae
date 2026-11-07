@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { dialogSizes } from '#lib/components/ui/Dialog.svelte';
 import DialogHarness from './harness/DialogHarness.svelte';
 
-async function openDialog(props: { size?: 'sm' | 'md'; onclose?: () => void } = {}) {
+async function openDialog(props: { size?: 'sm' | 'md' | 'lg'; onclose?: () => void } = {}) {
 	const user = userEvent.setup();
 	render(DialogHarness, props);
 	const opener = screen.getByRole('button', { name: 'Rename CV' });
@@ -26,7 +26,7 @@ describe('Dialog', () => {
 	});
 
 	it.each(Object.entries(dialogSizes))('supports the %s size', async (size, cls) => {
-		const { dialog } = await openDialog({ size: size as 'sm' | 'md' });
+		const { dialog } = await openDialog({ size: size as 'sm' | 'md' | 'lg' });
 		expect(dialog).toHaveClass(cls);
 	});
 

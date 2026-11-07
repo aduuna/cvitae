@@ -8,12 +8,12 @@ from api.ai.models import AiModel
 from api.deps import (
     AiRuns,
     AppSettings,
+    Catalog,
     CurrentUser,
     Documents,
     Jobs,
     Profiles,
     Providers,
-    Renderer,
     UserPlan,
     Versions,
 )
@@ -90,7 +90,7 @@ async def tailor(
     jobs: Jobs,
     documents: Documents,
     versions: Versions,
-    renderer: Renderer,
+    catalog: Catalog,
 ) -> TailorResult:
     """Create a tailored CV. Regenerating from the review screen deletes the draft CV first."""
     # The model also analyses the job; job analysis uses the provider's small model.
@@ -117,7 +117,7 @@ async def tailor(
         jobs,
         documents,
         versions,
-        renderer,
+        catalog,
         profile_id=body.profile_id,
         job_id=body.job_id,
         new_job=new_job,

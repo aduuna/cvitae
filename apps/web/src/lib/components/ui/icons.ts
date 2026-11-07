@@ -83,7 +83,9 @@ export const icons = {
 	'check-passed': CircleCheck,
 	'check-failed': CircleAlert,
 	'ai-draft': Sparkles,
-	redraft: RefreshCw
+	redraft: RefreshCw,
+	rename: PenLine,
+	'view-source': Code
 } as const;
 
 export type IconName = keyof typeof icons;

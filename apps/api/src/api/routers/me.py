@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from api.ai.models import AiModel
 from api.billing.plans import Plan
-from api.deps import CurrentUser, Providers, Renderer, UserPlan, Users
+from api.deps import Catalog, CurrentUser, Providers, UserPlan, Users
 from api.errors import ERROR_RESPONSES
 from api.services import users as service
 
@@ -50,12 +50,12 @@ async def update_me(
     user: CurrentUser,
     plan: UserPlan,
     users: Users,
-    renderer: Renderer,
+    catalog: Catalog,
     providers: Providers,
 ) -> Me:
     row = await service.update_me(
         users,
-        renderer,
+        catalog,
         providers,
         user,
         display_name=body.display_name,

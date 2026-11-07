@@ -3,7 +3,7 @@
 	import Dialog from '#lib/components/ui/Dialog.svelte';
 	import Input from '#lib/components/ui/Input.svelte';
 
-	let { size = 'sm', onclose }: { size?: 'sm' | 'md'; onclose?: () => void } = $props();
+	let { size = 'sm', onclose }: { size?: 'sm' | 'md' | 'lg'; onclose?: () => void } = $props();
 	let open = $state(false);
 </script>
 

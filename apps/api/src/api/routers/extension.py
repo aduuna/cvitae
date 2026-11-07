@@ -13,6 +13,7 @@ from api.ai.prompts.draft_answers import JobAd, Question
 from api.deps import (
     AppSettings,
     ExtensionAiRuns,
+    ExtensionCatalog,
     ExtensionConnection,
     ExtensionDocuments,
     ExtensionJobs,
@@ -21,7 +22,6 @@ from api.deps import (
     ExtensionTokens,
     OwnExtensionTokens,
     Providers,
-    Renderer,
 )
 from api.errors import AI_ERROR_RESPONSES, ERROR_RESPONSES, ErrorEnvelope
 from api.routers.jobs import MAX_DESCRIPTION, JobCreate, JobSummary
@@ -231,9 +231,12 @@ async def document_application(
     },
 )
 async def document_pdf(
-    document_id: uuid.UUID, documents: ExtensionDocuments, jobs: ExtensionJobs, renderer: Renderer
+    document_id: uuid.UUID,
+    documents: ExtensionDocuments,
+    jobs: ExtensionJobs,
+    catalog: ExtensionCatalog,
 ) -> Response:
-    pdf = await service.document_pdf(documents, jobs, renderer, document_id)
+    pdf = await service.document_pdf(documents, jobs, catalog, document_id)
     return Response(
         pdf.content,
         media_type="application/pdf",

@@ -167,6 +167,61 @@ Done when:
   and the Chrome data usage answers and Firefox `data_collection_permissions` match it with no new
   browser permission.
 
+## M9: Bring your own template
+
+Built after M8, on top of M7 and M8 (`docs/PRODUCT.md`, 6, Custom templates; `docs/BACKEND.md`,
+Custom templates).
+
+Backend:
+
+- `cvcore`: `GeneratedTemplate` and `RevisedTemplate` output models in `ai.py` (through
+  `llm_schema`); `user_templates.py` with template ids, the static checks, the copy checks against
+  the upload's text, the rendered-text check and the page check; `TemplateMeta.custom`. Unit tests,
+  including that every built-in template passes the checks.
+- api: migration `0009` (`user_templates`, `template` in `ai_runs.task`); `UserTemplate` model and
+  repository scoped by `user_id`; plan limits (Free 1, Pro 10) in `billing/plans.py`, the quota
+  message and a `templates` meter in `GET /usage` and `GET /client-config`; `ai/prompts/template.py`;
+  `tasks.draft_template`, `repair_template`, `refine_template` and `combined_run` (one `ai_runs` row
+  per generation); `choose_claude_model` (always Claude) and `ClaudeUnavailable`;
+  `services/user_templates.py` (draft, verify, up to two repairs, one visual refinement, time budget,
+  save as a draft, confirm, delete); `TemplateCatalog` in `services/templates.py` so every render
+  path and every place that names a template resolves a custom id, and only its owner's; `images` on
+  `LLMRequest` for the Claude adapter; `GET /templates` with the user's templates, and
+  `POST/PATCH/DELETE /templates/custom`, `GET /templates/custom/{id}/source`; `FakeLLMProvider`
+  and `FakeRendererClient` support; `TEMPLATES_DIR` and the image's template files. Service and API
+  tests with the fakes, repository scoping tests, a live test next to `test_llm_live.py`.
+- renderer: tests that a user-style template compiles through the sandbox.
+- `bun run gen:api` in `apps/web`.
+
+Web app:
+
+- The Templates page: "Your templates" after the built-in ones with the "Add your own" card, the
+  dialog (upload or reuse a PDF, what happens and that it uses one AI run on Claude, progress,
+  preview with the name field, "Save template" and "Discard"), custom cards with the live preview,
+  "Set as default", rename, "View source" (read only, in a new `TypstEditor` component on CodeMirror 6
+  that the eject editor in M5 builds on) and delete
+  with confirmation; the limit message at the limit and no card without a Claude model.
+- The shared template catalog (`lib/templates.svelte.ts`) lists custom templates after the built-in
+  ones everywhere (new CV, Tailor, editor switch) and refreshes after create, rename and delete.
+- The privacy policy says the uploaded CV is used to draft a template and stored like an import's
+  upload.
+- vitest for the catalog and the dialog states; Playwright from upload to save to use in the editor's
+  template switch, against the mock api.
+
+Done when:
+
+- `uv run pytest` passes, with tests that a generation takes one AI run however many calls it
+  makes, the plan limit and AI usage are checked before any model call, a template that does not
+  compile is repaired and one that cannot be repaired saves nothing, a template that copies the
+  upload's name or text is refused, a refinement that fails the checks is dropped, a DOCX is refused,
+  without a Claude key the route refuses before any run, and another user's template is a 404 on
+  preview, source, rename, delete and as the `template_id` of a CV, the default and tailoring.
+- Every check in `docs/PRODUCT.md`, 6, Custom templates passes, in the web app at 1280px and 768px
+  and against a real Claude (`uv run pytest -m live apps/api/tests/test_llm_live.py -k template`).
+- The built-in templates' golden tests pass unchanged, and `uv run pytest` shows coverage for
+  `apps/api` and `packages/cvcore` at or above 85%.
+- Every check in `AGENTS.md`'s definition of done passes, and the generated API types are current.
+
 ---
 
 ## Later (not scheduled)

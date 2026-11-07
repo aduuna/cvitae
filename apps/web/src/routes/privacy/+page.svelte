@@ -58,8 +58,9 @@
 					when you sign in with Google or an email link. Sign-in runs on Google's Firebase Authentication.
 				</li>
 				<li>
-					<strong class="font-medium">What you put in.</strong> Your profiles, CVs, the job ads you save
-					and the CV files you upload to import. This is what the service exists to work on.
+					<strong class="font-medium">What you put in.</strong> Your profiles, CVs, the job ads you save,
+					the CV files you upload to import or to make a template from, and the templates made from them.
+					This is what the service exists to work on.
 				</li>
 				<li>
 					<strong class="font-medium">Records of use.</strong> For each AI task: which task and model,
@@ -84,8 +85,8 @@
 			<p>
 				Only to run the service for you: to keep and show your profiles and CVs, render them as
 				PDFs, tailor and edit them when you ask, draft answers to application questions when you
-				ask, take payments, apply your plan's limits and keep the service secure. We do not train AI
-				models on your data.
+				ask, make a template from a CV you upload when you ask, take payments, apply your plan's
+				limits and keep the service secure. We do not train AI models on your data.
 			</p>
 		</section>
 
@@ -98,6 +99,14 @@
 				MiMo models, Anthropic for Claude models, or Google for Gemini models. They process it to
 				return the result, under their terms for business customers of their APIs. For Gemini we ask
 				Google not to store the request.
+			</p>
+			<p>
+				Making a template from a CV you like always uses Claude, whichever model you chose for other
+				tasks. The PDF you upload is sent to Anthropic, and so is a picture of the draft template
+				drawn with sample data (not your CV's), so Claude can compare the two. Claude writes the
+				template as Typst code in the design of your PDF. We check that the code does not copy your
+				uploaded CV's name, contact details or text, and we keep the code, not Claude's replies. The
+				code is stored with your account and only you can use it.
 			</p>
 		</section>
 
@@ -162,11 +171,13 @@
 		<section class="flex flex-col gap-3" aria-labelledby="keep">
 			<h2 id="keep" class="text-lg font-semibold">How long we keep it</h2>
 			<p>
-				Your data stays while your account exists. You can delete profiles, CVs, saved jobs and
-				uploaded files in the app at any time; a deleted file is removed from storage. To delete
-				your account and everything in it, write to {@render email()} and we will do it within 30 days.
-				Records of use go with the account; logs are kept for up to 30 days. Paystack keeps payment records
-				for as long as the law requires.
+				Your data stays while your account exists. You can delete profiles, CVs, saved jobs,
+				templates and uploaded files in the app at any time; a deleted file is removed from storage.
+				A CV you upload to make a template is kept like one you upload to import, unless no template
+				could be made from it, and deleting it does not delete the template. Deleting a template
+				deletes its code. To delete your account and everything in it, write to {@render email()} and
+				we will do it within 30 days. Records of use go with the account; logs are kept for up to 30 days.
+				Paystack keeps payment records for as long as the law requires.
 			</p>
 		</section>
 

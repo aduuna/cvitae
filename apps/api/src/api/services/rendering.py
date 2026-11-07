@@ -7,10 +7,10 @@ from dataclasses import dataclass
 from urllib.parse import quote
 
 from api.errors import Conflict
-from api.ports.renderer import RendererClient
 from api.repositories.documents import DocumentRepository
 from api.repositories.jobs import JobRepository
 from api.services.documents import get_document
+from api.services.templates import TemplateCatalog
 from cvcore.models import CvContent
 from cvcore.render import find_placeholders, to_render_json
 from cvcore.rendering import Paper, SvgPages
@@ -33,13 +33,13 @@ class Pdf:
 
 
 async def preview(
-    documents: DocumentRepository, renderer: RendererClient, document_id: uuid.UUID
+    documents: DocumentRepository, catalog: TemplateCatalog, document_id: uuid.UUID
 ) -> SvgPages:
     """SVG pages of the saved CV, with each part linked to its form field so a click on the preview
     can open it. Keeps the stored page count current."""
     document = await get_document(documents, document_id)
     content = CvContent.model_validate(document.content)
-    pages = await renderer.render_svg(
+    pages = await catalog.render_svg(
         document.template_id, to_render_json(content), DEFAULT_PAPER, source_links=True
     )
     if document.page_count != pages.page_count:
@@ -50,7 +50,7 @@ async def preview(
 async def export_pdf(
     documents: DocumentRepository,
     jobs: JobRepository,
-    renderer: RendererClient,
+    catalog: TemplateCatalog,
     document_id: uuid.UUID,
     *,
     force: bool = False,
@@ -67,7 +67,7 @@ async def export_pdf(
             f"This CV still has {count} {noun}. Fill them in, or export anyway.",
             {"placeholders": [ref.model_dump() for ref in placeholders]},
         )
-    pdf = await renderer.render_pdf(document.template_id, to_render_json(content), DEFAULT_PAPER)
+    pdf = await catalog.render_pdf(document.template_id, to_render_json(content), DEFAULT_PAPER)
     job = await jobs.get(document.job_id) if document.job_id is not None else None
     return Pdf(
         content=pdf, filename=pdf_filename(content.basics.name, job.company if job else None)

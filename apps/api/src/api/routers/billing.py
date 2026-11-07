@@ -16,6 +16,7 @@ from api.deps import (
     Subscriptions,
     UserPlan,
     Users,
+    UserTemplates,
     Webhooks,
 )
 from api.errors import ERROR_RESPONSES, ErrorEnvelope
@@ -53,6 +54,8 @@ class Usage(BaseModel):
     ai_runs: Meter
     documents: Meter
     profiles: Meter
+    templates: Meter
+    """Custom templates; a draft that is not confirmed yet does not count."""
     subscription: SubscriptionInfo | None
 
 
@@ -79,9 +82,10 @@ async def get_usage(
     runs: AiRuns,
     documents: Documents,
     profiles: Profiles,
+    templates: UserTemplates,
     subscriptions: Subscriptions,
 ) -> Usage:
-    result = await service.overview(plan, runs, documents, profiles, subscriptions)
+    result = await service.overview(plan, runs, documents, profiles, templates, subscriptions)
     usage, subscription = result.usage, result.subscription
     return Usage(
         plan=usage.plan,
@@ -90,6 +94,7 @@ async def get_usage(
         ai_runs=Meter.model_validate(usage.ai_runs),
         documents=Meter.model_validate(usage.documents),
         profiles=Meter.model_validate(usage.profiles),
+        templates=Meter.model_validate(usage.templates),
         subscription=SubscriptionInfo.model_validate(
             {
                 "status": subscription.status,

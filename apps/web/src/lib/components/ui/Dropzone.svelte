@@ -11,14 +11,32 @@
 		...Object.values(ACCEPTED_TYPES)
 	].join(',');
 
+	const PDF_ACCEPT_ATTRIBUTE = `.pdf,${ACCEPTED_TYPES.pdf}`;
+
 	/** 10 MB, the import limit (docs/PRODUCT.md, Import). */
 	export const DEFAULT_MAX_BYTES = 10 * 1024 * 1024;
 
-	/** Returns a message for the user when the file cannot be used, else null. */
-	export function validateUpload(file: File, maxBytes: number): string | null {
+	function kindOf(file: File): 'pdf' | 'docx' | null {
 		const extension = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : '';
-		const typeOk = extension in ACCEPTED_TYPES || Object.values(ACCEPTED_TYPES).includes(file.type);
-		if (!typeOk) return 'This file type is not supported. Choose a PDF or DOCX file.';
+		if (extension === 'pdf' || file.type === ACCEPTED_TYPES.pdf) return 'pdf';
+		if (extension === 'docx' || file.type === ACCEPTED_TYPES.docx) return 'docx';
+		return null;
+	}
+
+	/**
+	 * Returns a message for the user when the file cannot be used, else null. `pdfOnly` is for what
+	 * needs the look of the file, which a DOCX does not keep (custom templates).
+	 */
+	export function validateUpload(file: File, maxBytes: number, pdfOnly = false): string | null {
+		const kind = kindOf(file);
+		if (pdfOnly) {
+			if (kind === 'docx') {
+				return 'A DOCX does not keep how a CV looks. Save it as a PDF and choose that.';
+			}
+			if (kind !== 'pdf') return 'This file type is not supported. Choose a PDF file.';
+		} else if (kind === null) {
+			return 'This file type is not supported. Choose a PDF or DOCX file.';
+		}
 		if (file.size > maxBytes) {
 			return `This file is larger than ${formatBytes(maxBytes)}. Choose a smaller file.`;
 		}
@@ -36,6 +54,8 @@
 		/** Accessible name of the drop area. */
 		label?: string;
 		maxBytes?: number;
+		/** Accept PDFs only, for what needs the look of the file. */
+		pdfOnly?: boolean;
 		disabled?: boolean;
 		onfile?: (file: File | null) => void;
 	}
@@ -44,6 +64,7 @@
 		file = $bindable(null),
 		label = 'CV file',
 		maxBytes = DEFAULT_MAX_BYTES,
+		pdfOnly = false,
 		disabled = false,
 		onfile
 	}: Props = $props();
@@ -55,7 +76,7 @@
 
 	function take(candidate: File | undefined) {
 		if (!candidate || disabled) return;
-		const problem = validateUpload(candidate, maxBytes);
+		const problem = validateUpload(candidate, maxBytes, pdfOnly);
 		if (problem) {
 			error = problem;
 			return;
@@ -113,7 +134,7 @@
 			</div>
 		{:else}
 			<span class="text-fg-muted"><Icon name="import" /></span>
-			<p class="text-base text-fg">Drop a PDF or DOCX file here</p>
+			<p class="text-base text-fg">Drop a {pdfOnly ? 'PDF' : 'PDF or DOCX'} file here</p>
 			<p class="text-sm text-fg-muted">Up to {formatBytes(maxBytes)}</p>
 			<div class="mt-2">
 				<Button size="sm" {disabled} onclick={() => input?.click()}>Choose file</Button>
@@ -122,7 +143,7 @@
 		<input
 			bind:this={input}
 			type="file"
-			accept={ACCEPT_ATTRIBUTE}
+			accept={pdfOnly ? PDF_ACCEPT_ATTRIBUTE : ACCEPT_ATTRIBUTE}
 			hidden
 			{disabled}
 			data-testid="dropzone-input"

@@ -13,7 +13,6 @@ from datetime import datetime, timedelta
 
 from api.db.models import Document, ExtensionToken, Job, Profile, User
 from api.errors import NotFound, Unauthorized
-from api.ports.renderer import RendererClient
 from api.repositories.documents import DocumentRepository
 from api.repositories.extension_tokens import ExtensionTokenLookup, ExtensionTokenRepository
 from api.repositories.jobs import JobRepository
@@ -22,6 +21,7 @@ from api.services import jobs as job_service
 from api.services import rendering
 from api.services.documents import get_document
 from api.services.profiles import get_profile
+from api.services.templates import TemplateCatalog
 from cvcore.application import ApplicationData, to_application_data
 from cvcore.models import CvContent
 from cvcore.render import find_placeholders
@@ -124,12 +124,12 @@ async def document_application(
 async def document_pdf(
     documents: DocumentRepository,
     jobs: JobRepository,
-    renderer: RendererClient,
+    catalog: TemplateCatalog,
     document_id: uuid.UUID,
 ) -> rendering.Pdf:
     """The CV as a PDF to attach to an application, named for the job's company when it is linked
     to one. Refused while placeholders remain, so a gap never reaches an employer."""
-    return await rendering.export_pdf(documents, jobs, renderer, document_id)
+    return await rendering.export_pdf(documents, jobs, catalog, document_id)
 
 
 async def save_job(

@@ -18,6 +18,7 @@ function usage(overrides: Partial<Usage> = {}): Usage {
 		ai_runs: { used: 3, limit: 20, message: null },
 		documents: { used: 1, limit: 4, message: null },
 		profiles: { used: 2, limit: 2, message: 'You have 2 profiles, the most on Free.' },
+		templates: { used: 0, limit: 1, message: null },
 		subscription: null,
 		...overrides
 	};
@@ -33,8 +34,22 @@ function subscribed(
 
 describe('billing helpers', () => {
 	it('sums up plans with digits, and AI usage only against a smaller plan', () => {
-		const free = { id: 'free' as const, label: 'Free', documents: 4, profiles: 2, ai_runs: 20 };
-		const pro = { id: 'pro' as const, label: 'Pro', documents: 100, profiles: 10, ai_runs: 150 };
+		const free = {
+			id: 'free' as const,
+			label: 'Free',
+			documents: 4,
+			profiles: 2,
+			templates: 1,
+			ai_runs: 20
+		};
+		const pro = {
+			id: 'pro' as const,
+			label: 'Pro',
+			documents: 100,
+			profiles: 10,
+			templates: 10,
+			ai_runs: 150
+		};
 		expect(planSummary(free)).toBe('4 CVs and 2 profiles');
 		expect(planSummary({ ...free, documents: 1, profiles: 1 })).toBe('1 CV and 1 profile');
 		expect(planSummary(pro, free)).toBe('100 CVs, 10 profiles and 7 times the AI usage');

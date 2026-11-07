@@ -7,6 +7,7 @@ from typing import Any
 import anthropic
 from anthropic.types.beta import (
     BetaContentBlockParam,
+    BetaImageBlockParam,
     BetaRequestDocumentBlockParam,
     BetaTextBlockParam,
 )
@@ -63,6 +64,17 @@ class ClaudeProvider:
                     },
                 )
             )
+        content.extend(
+            BetaImageBlockParam(
+                type="image",
+                source={
+                    "type": "base64",
+                    "media_type": "image/png",
+                    "data": base64.standard_b64encode(image).decode(),
+                },
+            )
+            for image in request.images
+        )
         content.append(BetaTextBlockParam(type="text", text=request.user_text))
         extra: dict[str, Any] = {}
         if request.model in self._fallback_models:

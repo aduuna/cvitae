@@ -79,6 +79,10 @@ class Settings(DatabaseSettings):
     sample_profile_path: Path = _REPO / "templates" / "fixtures" / "profile-sample.json"
     """Shown in template previews when the user has no profile yet."""
 
+    templates_dir: Path = _REPO / "templates"
+    """What drafting a custom template reads: `_lib/cv.typ` and `classic/main.typ` for the prompt,
+    and `fixtures/profile-sample.json` and `profile-edge.json` to test a draft with."""
+
     static_dir: Path | None = None
     """Built SPA served at /. Unset in local development, where Vite serves the SPA."""
 

@@ -1,7 +1,8 @@
 <script lang="ts" module>
 	export const dialogSizes = {
 		sm: 'max-w-100',
-		md: 'max-w-140'
+		md: 'max-w-140',
+		lg: 'max-w-200'
 	} as const;
 </script>
 

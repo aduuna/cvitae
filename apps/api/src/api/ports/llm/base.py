@@ -14,7 +14,7 @@ from api.errors import ProviderError, ProviderTimeout
 
 logger = logging.getLogger(__name__)
 
-AiTask = Literal["import", "analyze_job", "tailor", "edit", "answers"]
+AiTask = Literal["import", "analyze_job", "tailor", "edit", "answers", "template"]
 Effort = Literal["low", "medium", "high"]
 
 
@@ -41,7 +41,10 @@ class LLMRequest[T: BaseModel]:
     model: str
     """The provider's model id, from the AI model the user chose (api.ai.models)."""
     document: bytes | None = None
-    """PDF bytes, for import."""
+    """PDF bytes, for import and for drafting a template."""
+    images: tuple[bytes, ...] = ()
+    """PNG images sent after the document, for comparing a rendered template with the CV it
+    copies. Only the Claude adapter sends them: the template task always runs on Claude."""
     effort: Effort = "medium"
     max_output_tokens: int = 16000
 

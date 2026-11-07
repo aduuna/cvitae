@@ -51,6 +51,26 @@ async def test_svg_request_shape_and_result() -> None:
     assert seen == [request, {**request, "source_links": True}]
 
 
+async def test_a_users_own_template_travels_as_a_file() -> None:
+    seen: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        if seen[-1]["format"] == "pdf":
+            return httpx.Response(200, content=b"%PDF-1.7")
+        return httpx.Response(200, json={"pages": ["<svg/>"], "page_count": 1})
+
+    client = client_for(handler)
+    await client.render_svg("u-abcdefghij", DATA, "a4", source="#let x = 1")
+    await client.render_pdf("u-abcdefghij", DATA, "us-letter", source="#let x = 1")
+
+    # The renderer gets main.typ with the data and no template id, like an ejected CV.
+    for body in seen:
+        assert body["files"] == {"data.json": json.dumps(DATA), "main.typ": "#let x = 1"}
+        assert body["template_id"] is None
+    assert [body["paper"] for body in seen] == ["a4", "us-letter"]
+
+
 async def test_pdf_bytes() -> None:
     client = client_for(lambda _: httpx.Response(200, content=b"%PDF-1.7"))
 

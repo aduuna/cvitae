@@ -2,7 +2,7 @@
 
 from typing import Literal, Self
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
 Paper = Literal["a4", "us-letter"]
 OutputFormat = Literal["pdf", "svg"]
@@ -48,8 +48,15 @@ class RenderError(BaseModel):
 
 
 class TemplateMeta(BaseModel):
+    # Defaults are required in the serialization schema, so generated API types mark `custom` as
+    # always present.
+    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+
     id: str
     name: str
     description: str
     paper_sizes: list[Paper]
     target_pages: int
+    custom: bool = False
+    """False for the templates in the repository; true for one the user made from their own CV
+    (docs/PRODUCT.md, 6, Custom templates)."""

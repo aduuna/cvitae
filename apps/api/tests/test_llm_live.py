@@ -1,5 +1,5 @@
-"""Real calls to the AI providers (the M3 done-when check, AI edits and drafted answers). Never run
-by default.
+"""Real calls to the AI providers (the M3 done-when check, AI edits, drafted answers and custom
+templates). Never run by default.
 
 uv run pytest -m live apps/api/tests/test_llm_live.py -s
 
@@ -8,6 +8,7 @@ MIMO_API_KEY); a model whose provider has no key is skipped. Each test prints to
 one model with -k, for example -k mimo-flash.
 """
 
+import json
 import uuid
 from decimal import Decimal
 from pathlib import Path
@@ -19,13 +20,19 @@ from api.ai import tasks
 from api.ai.models import AiModel
 from api.ai.prompts.draft_answers import JobAd, Question
 from api.main import build_providers
+from api.ports.llm.pages import pdf_text, pdf_to_pngs
 from api.services.ai_models import ModelChoice
+from api.services.user_templates import _verify, load_kit
 from api.settings import Settings
 from cvcore import factguard
 from cvcore.answers import Limits, Material, finish, for_drafting, word_count
 from cvcore.models import CvContent
 from cvcore.render import iter_bullets
+from cvcore.rendering import Paper, RenderRequest
 from cvcore.richtext import plain_text
+from cvcore.user_templates import reference_from_text
+from renderer.compile import render
+from renderer.settings import Settings as RendererSettings
 
 pytestmark = pytest.mark.live
 
@@ -204,3 +211,74 @@ async def test_drafted_answers_fit_their_questions(model: AiModel) -> None:
     assert second.text and "\n" not in second.text and len(second.text) <= 300
     assert salary.text == "", "questions only the applicant can answer stay empty"
     assert all("\u2014" not in answer.text for answer in finished.values())
+
+
+class InProcessRenderer:
+    """The real Typst renderer, run in this process, as the api's renderer port."""
+
+    async def render_pdf(
+        self, template_id: str, data: dict[str, Any], paper: Paper, *, source: str | None = None
+    ) -> bytes:
+        assert source is not None
+        request = RenderRequest(
+            files={"main.typ": source, "data.json": json.dumps(data)}, format="pdf", paper=paper
+        )
+        output = await render(request, RendererSettings())
+        assert output.pdf is not None
+        return output.pdf
+
+
+@pytest.mark.parametrize("model", [AiModel.claude_haiku, AiModel.claude_sonnet])
+async def test_a_template_is_drafted_from_the_sample_cv(model: AiModel) -> None:
+    """The draft is tested like the pipeline tests it, with the real renderer, and one repair is
+    allowed. Prints what the first draft got wrong, to judge the prompt."""
+    choice, runs = make_choice(model), MemoryRuns()
+    kit = load_kit(FIXTURES.parent)
+    pdf = (FIXTURES / "sample-cv.pdf").read_bytes()
+    reference = reference_from_text(pdf_text(pdf)[0])
+    renderer: Any = InProcessRenderer()
+
+    async with tasks.combined_run(runs) as run:
+        drafted = (await tasks.draft_template(choice, run, pdf=pdf, library=kit.library)).output
+        target = min(max(drafted.target_pages, 1), 2)
+        verdict = await _verify(
+            renderer, kit, reference, "u-liveliveli", drafted.main_typ, drafted.paper, target
+        )
+        print(f"\n{drafted.name!r}: {drafted.description}")
+        print(f"first draft problems: {[str(p) for p in verdict.problems]}")
+        source = drafted.main_typ
+        if verdict.problems:
+            source = (
+                await tasks.repair_template(
+                    choice,
+                    run,
+                    source=source,
+                    problems=[str(p) for p in verdict.problems],
+                    library=kit.library,
+                )
+            ).output.main_typ
+            verdict = await _verify(
+                renderer, kit, reference, "u-liveliveli", source, drafted.paper, target
+            )
+        if verdict.pdf is not None:
+            refined = (
+                await tasks.refine_template(
+                    choice,
+                    run,
+                    pdf=pdf,
+                    page=pdf_to_pngs(verdict.pdf, 1)[0],
+                    source=source,
+                    library=kit.library,
+                )
+            ).output.main_typ
+            print(f"refinement changed the source: {refined.strip() != source.strip()}")
+
+    [record] = runs.records
+    print(
+        f"{record['provider']} {record['task']} {record['model']}: {record['status']}, "
+        f"{record['input_tokens']} in, {record['output_tokens']} out, ${record['cost_usd']}, "
+        f"{record['duration_ms']} ms"
+    )
+    assert record["status"] == "succeeded"
+    assert [str(p) for p in verdict.problems] == []
+    assert drafted.paper in ("a4", "us-letter") and drafted.name and drafted.description

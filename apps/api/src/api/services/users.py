@@ -3,9 +3,8 @@ from api.db.models import User
 from api.errors import ValidationFailed
 from api.ports.auth import Identity
 from api.ports.llm.registry import ProviderRegistry
-from api.ports.renderer import RendererClient
 from api.repositories.users import UserRepository
-from api.services.templates import require_template
+from api.services.templates import TemplateCatalog
 
 
 async def ensure_user(users: UserRepository, identity: Identity) -> User:
@@ -15,7 +14,7 @@ async def ensure_user(users: UserRepository, identity: Identity) -> User:
 
 async def update_me(
     users: UserRepository,
-    renderer: RendererClient,
+    catalog: TemplateCatalog,
     providers: ProviderRegistry,
     user: User,
     *,
@@ -33,5 +32,5 @@ async def update_me(
             )
         values["preferred_ai_model"] = str(preferred_ai_model)
     if default_template_id is not None:
-        values["default_template_id"] = (await require_template(renderer, default_template_id)).id
+        values["default_template_id"] = (await catalog.require(default_template_id)).id
     return await users.update(user, **values)

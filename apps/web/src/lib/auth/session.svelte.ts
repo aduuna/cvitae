@@ -1,4 +1,5 @@
 import { api, setAuthHeaders, unwrap, type Schemas } from '#lib/api/client.ts';
+import { templates } from '#lib/templates.svelte.ts';
 import { devProvider, firebaseProvider, type AuthProvider } from './provider.ts';
 
 export type Me = Schemas['Me'];
@@ -90,6 +91,8 @@ export class Session {
 						this.#loadingMe = null;
 						this.usage = null;
 						this.#loadingUsage = null;
+						// Custom templates belong to one user.
+						templates.reset();
 					}
 					this.email = email;
 					this.status = email ? 'signed-in' : 'signed-out';

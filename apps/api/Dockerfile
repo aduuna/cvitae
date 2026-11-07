@@ -29,10 +29,16 @@ COPY --from=py /srv/.venv /srv/.venv
 COPY --from=py /srv/apps/api/alembic.ini /srv/apps/api/alembic.ini
 COPY --from=web /src/apps/web/build /srv/static
 COPY templates/fixtures/profile-sample.json /srv/sample-profile.json
+# Drafting a custom template reads the shared helpers, one template as the example, and the data
+# a draft is tested with.
+COPY templates/_lib /srv/templates/_lib
+COPY templates/classic/main.typ /srv/templates/classic/main.typ
+COPY templates/fixtures/profile-sample.json templates/fixtures/profile-edge.json /srv/templates/fixtures/
 ENV PATH="/srv/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     STATIC_DIR=/srv/static \
-    SAMPLE_PROFILE_PATH=/srv/sample-profile.json
+    SAMPLE_PROFILE_PATH=/srv/sample-profile.json \
+    TEMPLATES_DIR=/srv/templates
 USER app
 EXPOSE 8080
 CMD ["python", "-m", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8080", "--proxy-headers", "--forwarded-allow-ips", "*"]

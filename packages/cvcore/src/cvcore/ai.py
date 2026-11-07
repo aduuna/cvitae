@@ -4,6 +4,7 @@ providers can produce it with structured output."""
 from pydantic import Field
 
 from cvcore.models import CvContent, CvModel
+from cvcore.rendering import Paper
 
 
 class JobAnalysis(CvModel):
@@ -65,3 +66,26 @@ class DraftAnswers(CvModel):
 class TailoredCv(CvModel):
     content: CvContent = Field(description="The tailored CV.")
     changes: list[BulletChange] = Field(description="One entry per bullet that was reworded.")
+
+
+class GeneratedTemplate(CvModel):
+    """A Typst template drafted from the look of an uploaded CV (docs/BACKEND.md, Custom
+    templates). Not CV content: the checks in `cvcore.user_templates` guard it instead of the
+    fact guard."""
+
+    name: str = Field(
+        description=(
+            "A short name for the design, such as Teal banner. Never the person's name or an "
+            "employer's."
+        )
+    )
+    description: str = Field(description="One sentence on how the design looks.")
+    paper: Paper = Field(description="The paper size of the attached CV.")
+    target_pages: int = Field(description="How many pages the attached CV fills: 1 or 2.")
+    main_typ: str = Field(description="The complete Typst source of main.typ.")
+
+
+class RevisedTemplate(CvModel):
+    """A corrected `main.typ`, after a compile error, a failed check or a visual comparison."""
+
+    main_typ: str = Field(description="The complete corrected Typst source of main.typ.")
