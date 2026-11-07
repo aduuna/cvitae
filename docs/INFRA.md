@@ -166,8 +166,8 @@ it names before anything else.
 ### Production
 
 Stand-up order for `prod`; the project id is `cvitae-prod` (change it in `bootstrap/prod.tfvars`,
-`bootstrap/prod.gcs.tfbackend`, `envs/prod/backend.tf`, `envs/prod/terraform.tfvars` and the `prod` job
-in `deploy.yml` if the id is taken).
+`bootstrap/prod.gcs.tfbackend`, `envs/prod/backend.tf`, `envs/prod/terraform.tfvars`,
+`billing/terraform.tfvars` and the `prod` job in `deploy.yml` if the id is taken).
 
 1. Create the project and link billing. Create the Neon database for prod (Frankfurt).
 2. Bootstrap, with your credentials and `TF_VAR_admin_members` set. The state bucket does not exist
