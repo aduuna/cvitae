@@ -83,9 +83,12 @@ export class Session {
 			this.plansEnforced = config.plans_enforced;
 			this.plans = config.plans;
 			this.billingEnabled = config.billing_enabled;
-			setAuthHeaders(() => provider.headers());
+			const sign = () => setAuthHeaders(() => provider.headers());
+			sign();
 			await new Promise<void>((resolve) => {
 				provider.watch((email) => {
+					// Signing in again after leaving a deleted account sends credentials again.
+					if (email) sign();
 					if (email !== this.email) {
 						this.me = null;
 						this.#loadingMe = null;
@@ -135,6 +138,28 @@ export class Session {
 
 	signOut(): Promise<void> {
 		return this.provider.signOut();
+	}
+
+	/**
+	 * The account was just deleted on the server. A request that reaches the api with the old
+	 * sign-in would make it create an empty account again, so first nothing this tab sends carries
+	 * credentials, then the provider signs out (which other tabs of the browser follow), and
+	 * whether or not that works the session here is dropped. Never throws.
+	 */
+	async leaveDeletedAccount(): Promise<void> {
+		setAuthHeaders(async () => ({}));
+		try {
+			await this.#provider?.signOut();
+		} catch {
+			// The credentials are already withheld above and the session is dropped below.
+		}
+		this.me = null;
+		this.#loadingMe = null;
+		this.usage = null;
+		this.#loadingUsage = null;
+		templates.reset();
+		this.email = null;
+		this.status = 'signed-out';
 	}
 
 	/** The signed-in user's record, loaded once per sign-in. */

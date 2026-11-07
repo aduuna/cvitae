@@ -134,13 +134,10 @@
 		}
 	}
 
-	/** The account is gone: end the session, which returns to the home page. */
+	/** The account is gone: drop the session whatever the sign-out does, and leave the app. */
 	async function accountDeleted() {
-		try {
-			await session.signOut();
-		} catch (error) {
-			toast.error(errorMessage(error));
-		}
+		await session.leaveDeletedAccount();
+		await goto(resolve('/'), { replaceState: true });
 	}
 
 	async function signOut() {

@@ -96,6 +96,84 @@ describe('Session', () => {
 		expect(fetch).toHaveBeenCalledOnce();
 	});
 
+	describe('leaving a deleted account', () => {
+		/** The Authorization header of the next api request, or null when it carries none. */
+		async function authorizationOfNextRequest(): Promise<string | null> {
+			let seen: string | null = null;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(async (request: Request) => {
+					seen = request.headers.get('Authorization') ?? request.headers.get('X-Dev-User');
+					return json([]);
+				})
+			);
+			await unwrap(api.GET('/api/v1/profiles'));
+			return seen;
+		}
+
+		it('signs out and drops everything about the account', async () => {
+			const { session, provider } = sessionWith('ada@example.com');
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(async () => json(ME))
+			);
+			await session.start();
+			await session.loadMe();
+
+			await session.leaveDeletedAccount();
+
+			expect(provider.signOut).toHaveBeenCalledOnce();
+			expect([session.status, session.email, session.me, session.usage]).toEqual([
+				'signed-out',
+				null,
+				null,
+				null
+			]);
+		});
+
+		it('sends nothing that could sign the old account in again', async () => {
+			const { session } = sessionWith('ada@example.com');
+			await session.start();
+			expect(await authorizationOfNextRequest()).toBe('Bearer token-for-ada@example.com');
+
+			await session.leaveDeletedAccount();
+
+			expect(await authorizationOfNextRequest()).toBeNull();
+		});
+
+		it('drops the session and sends nothing even when the sign-out fails', async () => {
+			const { session, provider } = sessionWith('ada@example.com');
+			provider.signOut = vi.fn(async () => {
+				throw new Error('could not clear the stored sign-in');
+			});
+			await session.start();
+
+			await expect(session.leaveDeletedAccount()).resolves.toBeUndefined();
+
+			expect([session.status, session.email, session.me]).toEqual(['signed-out', null, null]);
+			expect(await authorizationOfNextRequest()).toBeNull();
+		});
+
+		it('signs requests again once someone signs in', async () => {
+			const { session } = sessionWith('ada@example.com');
+			await session.start();
+			await session.leaveDeletedAccount();
+
+			await session.signInWithGoogle();
+
+			expect(session.status).toBe('signed-in');
+			expect(await authorizationOfNextRequest()).toBe('Bearer token-for-ada@example.com');
+		});
+
+		it('works before the session has started', async () => {
+			const { session } = sessionWith('ada@example.com');
+
+			await expect(session.leaveDeletedAccount()).resolves.toBeUndefined();
+
+			expect(session.status).toBe('signed-out');
+		});
+	});
+
 	it('remembers the email a link was sent to until the link is used', async () => {
 		const { session, provider } = sessionWith();
 		await session.start();
