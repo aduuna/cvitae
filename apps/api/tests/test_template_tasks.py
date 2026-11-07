@@ -174,6 +174,39 @@ async def test_template_requests_carry_the_pdf_the_picture_and_the_source(
     assert "<template>\nSOURCE\n" in refine.user_text
 
 
+async def test_requests_carry_the_measurements_and_the_design_settings(
+    runs: AiRunRepository, providers: ProviderRegistry, claude: FakeLLMProvider
+) -> None:
+    async with tasks.combined_run(runs) as run:
+        for model in (AiModel.claude_sonnet, AiModel.claude_haiku):
+            choice = claude_choice(providers, model)
+            await tasks.draft_template(
+                choice, run, pdf=b"%PDF", library=LIBRARY, measurements="- Paper: A4"
+            )
+            await tasks.repair_template(choice, run, source="s", problems=["p"], library=LIBRARY)
+            await tasks.refine_template(
+                choice,
+                run,
+                pdf=b"%PDF",
+                page=b"PNG",
+                source="s",
+                library=LIBRARY,
+                pdf_measurements="- Paper: A4",
+                render_measurements="- Paper: Letter",
+            )
+
+    sonnet_draft, sonnet_repair, sonnet_refine, haiku_draft, haiku_repair, haiku_refine = (
+        claude.requests
+    )
+    assert sonnet_draft.effort == "high" and haiku_draft.effort == "medium"
+    assert sonnet_repair.effort == haiku_repair.effort == "low"
+    assert sonnet_refine.effort == haiku_refine.effort == "medium"
+    for request in (sonnet_draft, haiku_draft, sonnet_refine, haiku_refine):
+        assert request.max_output_tokens == tasks.TEMPLATE_MAX_OUTPUT_TOKENS
+    assert "<pdf_measurements>\n- Paper: A4\n</pdf_measurements>" in sonnet_draft.user_text
+    assert "<template_measurements>\n- Paper: Letter\n" in sonnet_refine.user_text
+
+
 def test_the_prompt_teaches_the_contract_and_treats_the_pdf_as_data() -> None:
     system = prompt.system(prompt.Library(helpers="HELPERS-SOURCE", example="EXAMPLE-SOURCE"))
 
@@ -191,7 +224,28 @@ def test_the_prompt_teaches_the_contract_and_treats_the_pdf_as_data() -> None:
         assert rule in system, rule
     assert "HELPERS-SOURCE" in system and "EXAMPLE-SOURCE" in system
     assert DATA_NOT_INSTRUCTIONS in system
+    assert "<pdf_measurements>" in system and "<template_measurements>" in system
     assert "\u2014" not in system
+
+
+def test_the_prompt_teaches_what_the_first_drafts_got_wrong() -> None:
+    system = prompt.system(prompt.Library(helpers="H", example="E"))
+
+    # Overlapping rows from negative spacing, a page-wide tint under one column, a band that
+    # stops at the margin, tight spacing and symbols the fonts lack: the faults seen in live runs.
+    for rule in (
+        "Never use negative spacing",
+        "a template that is tighter than the PDF",
+        "tinted strip down the page",
+        "outset: (x: margin-x, top: margin-top)",
+        "stack(spacing: 0.4em",
+        "\u25aa",
+        "print as an empty box",
+        "fixed height",
+    ):
+        assert rule in system, rule
+    # The glyph lists come from the fonts' own tables: bullet, en dash, and a Libertinus square.
+    assert "\u2022 \u2013" in system and "\u25a0" in system
 
 
 def test_the_prompt_builders_keep_the_source_in_data_tags() -> None:
@@ -203,6 +257,20 @@ def test_the_prompt_builders_keep_the_source_in_data_tags() -> None:
     assert repair.endswith("<template>\nSRC\n</template>")
     assert refine.endswith("<template>\nSRC\n</template>")
     assert "unchanged" in refine
+    assert "negative spacing" in repair and "overlaps" in refine
+    assert "measured" not in prompt.build_draft() and "measured" not in refine
+
+
+def test_the_measurements_go_in_data_tags_and_only_when_there_are_some() -> None:
+    draft = prompt.build_draft("- Paper: A4")
+    both = prompt.build_refine("SRC", "- Paper: A4", "- Paper: Letter")
+    only_one = prompt.build_refine("SRC", "- Paper: A4", "")
+
+    assert "<pdf_measurements>\n- Paper: A4\n</pdf_measurements>" in draft
+    assert prompt.LEADING_NOTE in draft and "none of its text" in draft
+    assert "<pdf_measurements>\n- Paper: A4\n</pdf_measurements>" in both
+    assert "<template_measurements>\n- Paper: Letter\n</template_measurements>" in both
+    assert "measurements>" not in only_one
 
 
 def user(preferred: str | None = None) -> User:

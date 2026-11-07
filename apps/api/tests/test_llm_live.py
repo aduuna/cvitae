@@ -20,6 +20,7 @@ from api.ai import tasks
 from api.ai.models import AiModel
 from api.ai.prompts.draft_answers import JobAd, Question
 from api.main import build_providers
+from api.ports.llm.design import describe_design
 from api.ports.llm.pages import pdf_text, pdf_to_pngs
 from api.services.ai_models import ModelChoice
 from api.services.user_templates import _verify, load_kit
@@ -236,10 +237,15 @@ async def test_a_template_is_drafted_from_the_sample_cv(model: AiModel) -> None:
     kit = load_kit(FIXTURES.parent)
     pdf = (FIXTURES / "sample-cv.pdf").read_bytes()
     reference = reference_from_text(pdf_text(pdf)[0])
+    measurements = describe_design(pdf)
     renderer: Any = InProcessRenderer()
 
     async with tasks.combined_run(runs) as run:
-        drafted = (await tasks.draft_template(choice, run, pdf=pdf, library=kit.library)).output
+        drafted = (
+            await tasks.draft_template(
+                choice, run, pdf=pdf, library=kit.library, measurements=measurements
+            )
+        ).output
         target = min(max(drafted.target_pages, 1), 2)
         verdict = await _verify(
             renderer, kit, reference, "u-liveliveli", drafted.main_typ, drafted.paper, target
@@ -269,6 +275,8 @@ async def test_a_template_is_drafted_from_the_sample_cv(model: AiModel) -> None:
                     page=pdf_to_pngs(verdict.pdf, 1)[0],
                     source=source,
                     library=kit.library,
+                    pdf_measurements=measurements,
+                    render_measurements=describe_design(verdict.pdf),
                 )
             ).output.main_typ
             print(f"refinement changed the source: {refined.strip() != source.strip()}")

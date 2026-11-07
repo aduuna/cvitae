@@ -100,7 +100,8 @@ apps/api/src/api/
     llm/
       base.py        LLMProvider Protocol, LLMRequest, LLMResult, ProviderName enum
       mimo.py        MiMo implementation (OpenAI-compatible endpoint, httpx)
-      pages.py       PDF pages as PNG images, for providers that read images only
+      pages.py       PDF pages as PNG images, for providers that read images only; the text layer
+      design.py      what page 1 of a PDF measures (paper, margins, type styles, line gaps, shapes)
       anthropic.py   Claude implementation
       gemini.py      Gemini implementation
       fake.py        deterministic fake for tests
@@ -519,9 +520,9 @@ Prompts, schemas, validation and the fact guard are shared. Adapters only transl
 | `tailor_cv` | profile `CvContent`, `JobAnalysis`, job text, template constraints (target pages) | `TailoredCv` (content: CvContent, changes: list of {source_id, rationale} keyed by the profile bullet). The keywords the CV misses come from the ATS score, not the model. | default |
 | `edit_cv` | the CV's `CvContent` (without profile links), the request, up to 12 earlier messages, the part it may change | `CvEdit` (reply, content: the whole CV) | default, low effort |
 | `draft_answers` | the profile or CV without email, phone and links, the job ad and its `JobAnalysis` when there is one, the questions with their limits | `DraftAnswers` (per question: id, text, the skills it names with what each rests on) | default, low effort |
-| `draft_template` | the uploaded CV as a PDF, the template contract with `_lib/cv.typ` and the Classic template as the example (system prompt) | `GeneratedTemplate` (name, description, paper, target_pages, main_typ) | Claude only, default |
+| `draft_template` | the uploaded CV as a PDF and what page 1 measures, the template contract with `_lib/cv.typ` and the Classic template as the example (system prompt) | `GeneratedTemplate` (name, description, paper, target_pages, main_typ) | Claude only, high effort on Sonnet and medium on Haiku (Haiku already thinks for thousands of tokens at medium and would pass the call timeout at high), up to 24,000 output tokens |
 | `repair_template` | the source and the list of problems; no CV | `RevisedTemplate` (main_typ) | Claude only, low effort |
-| `refine_template` | the uploaded PDF, a PNG of page 1 of the rendered template, the source | `RevisedTemplate` (main_typ) | Claude only, default |
+| `refine_template` | the uploaded PDF, a PNG of page 1 of the rendered template, the source, the measurements of both pages | `RevisedTemplate` (main_typ) | Claude only, medium effort, up to 24,000 output tokens |
 
 Each task: check quota, build the request from the prompt module, call the provider via the registry,
 validate, run the fact guard (tailor and edit; never on drafted answers), record an `ai_runs` row
@@ -645,8 +646,15 @@ checks in `cvcore/user_templates.py`.
    counts ready templates only) and AI usage (`require_ai_runs`). Claude was already chosen by the
    router.
 3. **Draft.** `draft_template` sends the PDF with the system prompt: the contract, the data shape,
-   `_lib/cv.typ` in full and the Classic `main.typ` as the example. The output is a
-   `GeneratedTemplate`.
+   the techniques that compile for designs that are hard in one column (a band that bleeds to the
+   page edge, a tinted block, a heading with its rule, a left column of dates), the rules the first
+   live drafts broke (no negative spacing, open whitespace, no tint under the column, only symbols
+   the fonts have), `_lib/cv.typ` in full and the Classic `main.typ` as the example. The message
+   adds what pdfium measures on page 1 (`ports/llm/design.py`, `describe_design`): paper, the
+   text's margins, each font with its size and exact colour and its share of the text, the gaps
+   between lines, filled areas, rules and outlines. It holds fonts, sizes, colours and geometry, and
+   whether a style is all capitals: no word of the CV. It is a hint, never a failure: a scan or a
+   broken PDF gives less of it, or nothing. The output is a `GeneratedTemplate`.
 4. **Verify** (`_verify`), for the draft and for anything that replaces it:
    - Static checks (`check_template`): the two-line header (`#import "/_lib/cv.typ": *` and
      `#let cv = json("data.json")`), `paper-size()` and `sections(` present, no import or include
@@ -662,15 +670,18 @@ checks in `cvcore/user_templates.py`.
      No render runs for a source that may not run (forbidden imports or calls).
    - `check_render` on the PDF's text layer: the name, headline, contact details, summary, every
      section title and entry, and at least half the bullets must appear, so a template cannot silently
-     drop data. `check_pages`: the sample fits `target_pages` (the model's reading of the PDF,
+     drop data (a skills group with a label and no skills holds nothing, so it may be left out). `check_pages`: the sample fits `target_pages` (the model's reading of the PDF,
      clamped to 1 or 2).
 5. **Repair.** A draft with problems goes back through `repair_template` (source and problems, never
    the PDF or any CV) up to twice (`MAX_REPAIRS`). Still failing: `422 template_failed` with
    `details.issues`, and nothing is saved.
 6. **Refine.** One pass, only for a passing draft: `refine_template` gets the original PDF, a PNG of
-   page 1 of the sample render (`pdf_to_pngs`) and the source, and returns a corrected source. It is
-   verified like a draft and kept only when it passes; a refinement that fails, does not compile, or
-   cannot run (provider or renderer error) leaves the passing draft as it was.
+   page 1 of the sample render (`pdf_to_pngs`), the source and the measurements of both pages, and
+   returns a corrected source. The instructions list what to compare in order: faults (overlaps, a
+   tint under text, a band that stops short, an empty box for a missing symbol), whitespace, type,
+   colour, header, entries; where the template's measured value differs from the PDF's it is changed
+   to the PDF's. It is verified like a draft and kept only when it passes; a refinement that fails,
+   does not compile, or cannot run (provider or renderer error) leaves the passing draft as it was.
 7. **Time budget.** No repair or refinement call starts after 120 seconds (`TIME_BUDGET_SECONDS`), so
    a slow provider cannot push the request past Cloud Run's limit.
 8. **Save.** The upload is stored now (a refused or failed generation stores nothing), the user's
@@ -1021,7 +1032,7 @@ response is sent.
 | Layer | Tooling | What is covered |
 |---|---|---|
 | `cvcore` | pytest, hypothesis | rich-text round trip, fact guard cases, llm_schema output for every model, ATS matching rules and the fixture CV's score, finishing drafted answers (numbers, limits, the skills hint), the custom template checks (every built-in template passes them; each rule, with false-positive cases; no check message repeats the upload's text) |
-| Services | pytest with fakes | business rules: quotas, versions, eject, tailoring flow with `FakeLLMProvider`, drafted answers (one run per request, nothing saved, refusal before any call), custom templates (quota before any model call, repair, refinement kept or dropped, one run per generation, nothing saved on failure, another user's template is 404 everywhere, delete falls CVs back), account deletion |
+| Services | pytest with fakes | business rules: quotas, versions, eject, tailoring flow with `FakeLLMProvider`, drafted answers (one run per request, nothing saved, refusal before any call), custom templates (quota before any model call, repair, refinement kept or dropped, one run per generation, nothing saved on failure, another user's template is 404 everywhere, delete falls CVs back; the measurements of a PDF reach the draft and the refinement and hold none of its words), account deletion |
 | Repositories | pytest against Postgres (compose locally, service container in CI) | user scoping (a test proves user A cannot read user B), cascades, indexes used by list queries |
 | API | httpx `AsyncClient` + dependency overrides | status codes, error envelope, auth required, schema of responses |
 | LLM adapters | respx-mocked HTTP with recorded fixtures | request shape (PDF block, schema), parsing, retries; `@pytest.mark.live` tests for real calls run manually |

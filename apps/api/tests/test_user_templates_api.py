@@ -173,9 +173,14 @@ async def test_a_pdf_becomes_a_draft_template(
     assert draft.system.count("sections(cv,") >= 1
     assert "paper-size()" in draft.system and "#let section-heading(title)" in draft.system
     assert DATA_NOT_INSTRUCTIONS in draft.system
-    # The refinement sees the original and a picture of the rendered page.
+    # What the PDF measures goes to the draft, and with the render's to the refinement, which
+    # also sees the original and a picture of the rendered page. None of it is the CV's text.
+    assert "<pdf_measurements>\n- Paper: A4 (21.0 x 29.7 cm), 1 page." in draft.user_text
+    assert "#1f3a5f" in draft.user_text and OWNER.split()[0] not in draft.user_text
     assert refine.document == SAMPLE_PDF
     assert len(refine.images) == 1 and refine.images[0].startswith(b"\x89PNG")
+    assert "<pdf_measurements>" in refine.user_text
+    assert "<template_measurements>\n- Paper: A4 (21.0 x 29.7 cm), 1 page." in refine.user_text
     [row] = await stored(db_session)
     assert (row.slug, row.status, row.main_typ) == (body["id"], "draft", FAKE_TEMPLATE)
     assert row.upload_id is not None

@@ -14,6 +14,7 @@ from typing import Any, Protocol
 
 from pydantic import BaseModel
 
+from api.ai.models import AiModel
 from api.ai.pricing import cost_usd
 from api.ai.prompts import analyze_job as analyze_prompt
 from api.ai.prompts import draft_answers as answers_prompt
@@ -22,7 +23,7 @@ from api.ai.prompts import extract_profile as extract_prompt
 from api.ai.prompts import tailor_cv as tailor_prompt
 from api.ai.prompts import template as template_prompt
 from api.errors import AppError, ProviderError, ProviderTimeout
-from api.ports.llm.base import LLMProvider, LLMRequest, LLMResult
+from api.ports.llm.base import Effort, LLMProvider, LLMRequest, LLMResult
 from api.services.ai_models import ModelChoice
 from cvcore.ai import (
     BulletChange,
@@ -291,18 +292,36 @@ async def combined_run(runs: RunRecorder) -> AsyncGenerator[CombinedRun]:
     await combined.finish(succeeded=True)
 
 
+TEMPLATE_MAX_OUTPUT_TOKENS = 24000
+"""Room for the source and the model's thinking: Haiku spends up to 14k tokens on a draft."""
+
+
+def _draft_effort(choice: ModelChoice) -> Effort:
+    """Sonnet thinks little at medium and reads a design loosely; high is worth the seconds.
+    Haiku already thinks for 5,000 to 20,000 tokens at medium, and low is no faster: high would
+    take it past the call timeout."""
+    return "high" if choice.option.id == AiModel.claude_sonnet else "medium"
+
+
 async def draft_template(
-    choice: ModelChoice, runs: RunRecorder, *, pdf: bytes, library: template_prompt.Library
+    choice: ModelChoice,
+    runs: RunRecorder,
+    *,
+    pdf: bytes,
+    library: template_prompt.Library,
+    measurements: str = "",
 ) -> LLMResult[GeneratedTemplate]:
     """A Typst template in the design of the PDF. Not CV content: no fact guard; the checks in
     cvcore.user_templates and a test render stand in for it."""
     request = LLMRequest(
         task="template",
         system=template_prompt.system(library),
-        user_text=template_prompt.build_draft(),
+        user_text=template_prompt.build_draft(measurements),
         output_model=GeneratedTemplate,
         model=choice.option.model,
         document=pdf,
+        effort=_draft_effort(choice),
+        max_output_tokens=TEMPLATE_MAX_OUTPUT_TOKENS,
     )
     return await run(choice.provider, runs, request, template_prompt.PROMPT_VERSION)
 
@@ -336,16 +355,19 @@ async def refine_template(
     page: bytes,
     source: str,
     library: template_prompt.Library,
+    pdf_measurements: str = "",
+    render_measurements: str = "",
 ) -> LLMResult[RevisedTemplate]:
-    """The source corrected to match the original's design more closely, from the original PDF
-    and a PNG of page 1 of the template rendered with sample data."""
+    """The source corrected to match the original's design more closely, from the original PDF,
+    a PNG of page 1 of the template rendered with sample data and the measurements of both."""
     request = LLMRequest(
         task="template",
         system=template_prompt.system(library),
-        user_text=template_prompt.build_refine(source),
+        user_text=template_prompt.build_refine(source, pdf_measurements, render_measurements),
         output_model=RevisedTemplate,
         model=choice.option.model,
         document=pdf,
         images=(page,),
+        max_output_tokens=TEMPLATE_MAX_OUTPUT_TOKENS,
     )
     return await run(choice.provider, runs, request, template_prompt.PROMPT_VERSION)

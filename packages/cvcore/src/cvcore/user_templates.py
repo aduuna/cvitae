@@ -439,7 +439,8 @@ def check_pages(pages: int, target_pages: int) -> list[TemplateIssue]:
 
 
 def _expected_text(content: CvContent) -> dict[str, list[str]]:
-    """What a template must show of a CV, by kind, each as the text a render must contain."""
+    """What a template must show of a CV, by kind, each as the text a render must contain. A skills
+    group with a label and no skills holds nothing to show, so a template may leave it out."""
     basics = content.basics
     found: dict[str, list[str]] = {
         "name": [basics.name],
@@ -455,7 +456,7 @@ def _expected_text(content: CvContent) -> dict[str, list[str]]:
             [(item.org, item.role) for item in section.experience]
             + [(item.name,) for item in section.projects]
             + [(item.institution, item.degree) for item in section.education]
-            + [(item.label,) for item in section.skills]
+            + [(item.label,) for item in section.skills if item.items]
             + [(item.name,) for item in section.certifications]
         )
         has_items = bool(entries or section.custom)
