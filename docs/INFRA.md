@@ -101,10 +101,10 @@ Images are tagged with the git SHA and deployed by digest.
 ```
 infra/
   bootstrap/                 applied once by hand per project, with local credentials
-    main.tf                  APIs, state bucket, registry, Workload Identity pool + GitHub provider, deployer SA
-    terraform.tfvars         dev project
-    prod.tfvars, prod.gcs.tfbackend   prod project
+    dev/   main.tf  backend.tf  variables.tf  outputs.tf    the dev project and its state
+    prod/  main.tf  backend.tf  variables.tf  outputs.tf    the prod project and its state
   modules/
+    project_bootstrap/       APIs, state bucket, registry, Workload Identity pool + GitHub provider, deployer SA
     cloud_run_service/       one module used for both api and renderer (image, sa, scaling, env, secrets, ingress, vpc egress)
     renderer_vpc/            cvitae-vpc and the renderer-egress subnet, no way out
     scheduler_job/           Cloud Scheduler job that POSTs with an OIDC token
@@ -119,13 +119,21 @@ infra/
 ```
 
 - `bootstrap/` also enables the project's APIs, creates the Artifact Registry repository and the
-  deployer service account with the roles `envs/*` need. Its own state started local and was moved to
-  the state bucket (`tofu init -migrate-state`). People who may impersonate the deployer come from
+  deployer service account with the roles `envs/*` need. Each project has its own root folder with
+  its own backend and project values (the module `project_bootstrap` holds the resources), so there
+  is nothing to switch between dev and prod and a bare `tofu apply` cannot pair one project's
+  values with the other's state. Each state started local and was moved to the state bucket
+  (`tofu init -migrate-state`). People who may impersonate the deployer come from
   `TF_VAR_admin_members` (for example `'["user:you@example.com"]'`), never from a committed file, because
-  the repository is public.
+  the repository is public. `bootstrap/dev` keeps the state path it had when it was one folder
+  (bucket `cvitae-511214-tofu-state`, prefix `bootstrap`); `moved` blocks in its `main.tf` map the
+  old resource addresses into the module. After pulling that change run `tofu init` and `tofu plan`
+  there: the plan must show only moves (and any new APIs or roles), never a create or destroy of an
+  existing resource. Apply it, then delete the `moved` blocks.
 - `github/` holds repository settings that deploys rely on: the `dev` environment may only be used
   from `main`, and `prod` only from tags `v*`, with required reviewers (`prod_reviewers`, default the
-  owner) and no administrator bypass. Apply it by hand with `GITHUB_TOKEN=$(gh auth token) tofu apply`.
+  owner) and no administrator bypass; and a tag ruleset that lets only repository admins create,
+  move or delete `v*` tags. Apply it by hand with `GITHUB_TOKEN=$(gh auth token) tofu apply`.
 - `billing/` holds the budget (`TF_VAR_billing_account=<id> tofu apply`, with credentials that have
   Billing Account Costs Manager). It is not in CI: the deployer must not hold billing roles.
 - State: GCS backend bucket `<project>-tofu-state` with versioning, created by `bootstrap/`, one prefix
@@ -157,36 +165,49 @@ infra/
 
 `infra/scripts/check-renderer-egress.sh <project-id>` runs at the end of every deploy and by hand with
 the deployer's credentials (`GOOGLE_IMPERSONATE_SERVICE_ACCOUNT`). It checks that the `renderer` service
-routes all traffic into `renderer-egress`, that `cvitae-vpc` has no router (so no Cloud NAT) and no
+routes all traffic into a subnet (the network and subnet are read from the service's
+`network-interfaces` annotation), that the subnet's network has no router (so no Cloud NAT) and no
 default route, and then runs a throwaway Cloud Run job with the renderer's image, service account and
 network settings that tries to connect to public addresses; every attempt must fail. The job is
 deleted afterwards. It needs `gcloud` and `jq`. If it ever reports a leak, remove the router or route
 it names before anything else.
 
+The check runs after the apply, so a broken lock is found once the new revision is live, and the
+probe job runs on every deploy even when the network has not changed. That is accepted at this
+scale: the configuration checks are cheap, the probe takes about a minute, and a failed check is a
+red deploy to fix at once rather than a rollback. Move the configuration checks before the apply if
+that ever stops being enough.
+
 ### Production
 
-Stand-up order for `prod`; the project id is `cvitae-prod` (change it in `bootstrap/prod.tfvars`,
-`bootstrap/prod.gcs.tfbackend`, `envs/prod/backend.tf`, `envs/prod/terraform.tfvars`,
+Stand-up order for `prod`; the project id is `cvitae-prod` (change it in `bootstrap/prod/main.tf`,
+`bootstrap/prod/backend.tf`, `envs/prod/backend.tf`, `envs/prod/terraform.tfvars`,
 `billing/terraform.tfvars` and the `prod` job in `deploy.yml` if the id is taken).
 
 1. Create the project and link billing. Create the Neon database for prod (Frankfurt).
-2. Bootstrap, with your credentials and `TF_VAR_admin_members` set. The state bucket does not exist
-   yet, so the first apply uses local state, then moves it:
+2. `infra/github`: `GITHUB_TOKEN=$(gh auth token) tofu apply` creates the protected `prod`
+   environment (required reviewers, tag policy) and the `release-tags` ruleset. Do this before
+   anything that lets a tag deploy (steps 3 and 4). GitHub creates a missing environment the first
+   time a job names it, with no reviewers and no branch or tag policy, and the workflow cannot
+   check that the protection exists, so a tag pushed before this step could deploy with no approval.
+3. Bootstrap prod, with your credentials and `TF_VAR_admin_members` set. The state bucket does not
+   exist yet, so the first apply uses local state, then moves it:
    ```sh
-   cd infra/bootstrap
-   mv backend.tf backend.tf.off && tofu init -reconfigure
-   tofu apply -var-file=prod.tfvars
+   cd infra/bootstrap/prod
+   mv backend.tf backend.tf.off && tofu init
+   tofu apply
    mv backend.tf.off backend.tf
-   tofu init -migrate-state -force-copy -backend-config=prod.gcs.tfbackend
+   tofu init -migrate-state -force-copy
    ```
-   Afterwards pass the prod values every time: `tofu init -reconfigure -backend-config=prod.gcs.tfbackend`
-   and `-var-file=prod.tfvars`; for dev, `tofu init -reconfigure` and no var file. Delete the local
-   `terraform.tfstate*` files.
-3. `gh variable set PROD_WIF_PROVIDER --body "$(tofu output -raw workload_identity_provider)"`: the
-   `prod` deploy reads the provider from this repository variable, because it is known only now.
-4. In the Firebase console, add Firebase to the project and enable Authentication with the Google
+   Delete the local `terraform.tfstate*` files afterwards. This folder holds the prod project, its
+   backend and its state only, so nothing needs switching and a bare `tofu apply` here can only
+   touch prod. The same apply lets the prod deployer read dev's registry, which prod deploys
+   promote images from.
+4. `gh variable set PROD_WIF_PROVIDER --body "$(tofu output -raw workload_identity_provider)"`
+   (still in `infra/bootstrap/prod`): the `prod` deploy reads the provider from this repository
+   variable, because it is known only now.
+5. In the Firebase console, add Firebase to the project and enable Authentication with the Google
    provider, as in dev (the first apply adopts the Auth configuration this creates).
-5. `infra/github`: `GITHUB_TOKEN=$(gh auth token) tofu apply` creates the `prod` environment.
 6. Set `domain` in `envs/prod/terraform.tfvars`. At the DNS host add a CNAME `app` to
    `ghs.googlehosted.com`. Cloud Run maps only a domain the caller has verified: make
    `deployer@cvitae-prod.iam.gserviceaccount.com` an owner of the domain in Google Search Console.
@@ -200,7 +221,12 @@ Stand-up order for `prod`; the project id is `cvitae-prod` (change it in `bootst
    ```
    Repeat the last command for `database-url-direct` and the AI keys, then list the AI keys in
    `ai_keys` in `envs/prod/terraform.tfvars` and commit.
-8. Release: push a tag `v*` on a commit that passed CI on main, and approve the run in Actions.
+8. Release: an admin pushes a tag `v*` (the ruleset stops anyone else) on a commit that passed CI on
+   main and that dev built and deployed; prod promotes dev's images for that commit, which dev's
+   registry keeps only for its last three builds. Then approve the run in Actions. Before approving,
+   check that the tagged commit is on `main` and ran in dev: the `verify-tag` job runs from the
+   tagged commit's own workflow files, so it catches mistakes but cannot be trusted alone, and the
+   approval is the last gate.
 9. Apply `infra/billing` (the budget) now that the project exists.
 
 ## CI/CD (GitHub Actions)
@@ -277,6 +303,9 @@ give the email and password to the stores (see `listing.md`).
   so a `verify-tag` job first requires the tagged commit to be on `main` and to have a successful CI
   push run there, then the `prod` job waits for a reviewer's approval (GitHub environment `prod`).
   Tag only after CI has finished; the run can be started again from the tag if it was too early.
+  `verify-tag` runs from the tagged commit's own workflow files, so it guards against mistakes, not
+  against someone who can push tags: the `release-tags` ruleset (admins only) and the approver
+  checking the commit are the gates.
 - `deploy.yml` only routes; `deploy-env.yml` (a reusable workflow) holds the steps, so dev and prod
   run the same ones.
 - The project id, registry, WIF provider and deployer email are written in the workflow: they are ids,
@@ -286,6 +315,10 @@ give the email and password to the stores (see `listing.md`).
 - Steps:
   1. Authenticate with WIF.
   2. Build and push `api` and `renderer` images to Artifact Registry (Docker Buildx with GitHub cache).
+     Prod builds nothing: it looks up the digest of `<image>:<sha>` in dev's registry (failing if the
+     tag is gone), copies the image into its own registry by digest, checks the digest is unchanged,
+     and deploys that. What runs in prod is what ran in dev, with no second build and no base image
+     that could have moved in between.
   3. Run migrations: `uv run --package api alembic upgrade head` with `DATABASE_URL_DIRECT` read from
      Secret Manager. Migrations must be backward compatible with the previous release (expand, then
      contract in a later release).

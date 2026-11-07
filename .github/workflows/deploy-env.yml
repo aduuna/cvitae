@@ -18,7 +18,7 @@ on:
         required: true
         type: string
       wif_provider:
-        description: Workload Identity provider of the project (from infra/bootstrap); the first step fails when it is empty.
+        description: Workload Identity provider of the project (from infra/bootstrap/<env>); the first step fails when it is empty.
         required: false
         default: ""
         type: string
@@ -43,12 +43,12 @@ jobs:
     concurrency:
       group: deploy-${{ inputs.environment }}
       cancel-in-progress: false
-    # The environment name is part of the OIDC subject the deployer trusts (infra/bootstrap).
+    # The environment name is part of the OIDC subject the deployer trusts (infra/modules/project_bootstrap).
     environment:
       name: ${{ inputs.environment }}
       url: ${{ inputs.app_url }}
     env:
-      # Not secrets: ids from `tofu output` in infra/bootstrap.
+      # Not secrets: ids from `tofu output` in infra/bootstrap/<env>.
       PROJECT_ID: ${{ inputs.project_id }}
       REGION: europe-west1
       REGISTRY: europe-west1-docker.pkg.dev/${{ inputs.project_id }}/cvitae
