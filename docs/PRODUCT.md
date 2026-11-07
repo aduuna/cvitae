@@ -274,8 +274,10 @@ Done when:
 - AI: default model. Short explanation that every model works under the no-new-facts rule.
 - Billing: current plan, usage this period, upgrade (Paystack checkout), manage subscription (Paystack
   hosted management link).
-- Data: export everything as JSON; delete account (deletes all rows and stored files after typed
-  confirmation of the email address).
+- Data: export everything as JSON (uploaded files are listed in it, not included); delete account
+  (deletes all rows and stored files after typed confirmation of the email address). A Pro
+  subscription that is still running has to be cancelled first (Manage subscription); the dialog
+  says so.
 - Appearance: theme (System, Light or Dark), saved in this browser. CV previews stay black on white.
 
 Done when: changing the default model changes the preselected model on Import and Tailor, and
