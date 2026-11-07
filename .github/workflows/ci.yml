@@ -125,7 +125,7 @@ jobs:
       - run: tofu fmt -check -recursive
       - name: Validate every stack
         run: |
-          for stack in infra/bootstrap infra/billing infra/envs/dev infra/envs/prod infra/github; do
+          for stack in infra/bootstrap/dev infra/bootstrap/prod infra/billing infra/envs/dev infra/envs/prod infra/github; do
             tofu -chdir="$stack" init -backend=false -input=false
             tofu -chdir="$stack" validate
           done

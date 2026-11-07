@@ -1,22 +1,14 @@
-# Applied once by hand per project, with local credentials (docs/INFRA.md, OpenTofu layout).
-# Everything CI needs before it can deploy: APIs, the state bucket, the image registry, and the
-# Workload Identity Federation pool that lets GitHub Actions act as the deployer service account.
+# Everything CI needs before it can deploy to a project: APIs, the state bucket, the image registry,
+# and the Workload Identity Federation pool that lets GitHub Actions act as the deployer service
+# account. Used by infra/bootstrap/dev and infra/bootstrap/prod (docs/INFRA.md, OpenTofu layout),
+# which hold the project's backend and provider and are applied once by hand.
 
 terraform {
-  required_version = ">= 1.9"
   required_providers {
     google = {
-      source  = "hashicorp/google"
-      version = "~> 8.6"
+      source = "hashicorp/google"
     }
   }
-}
-
-provider "google" {
-  project               = var.project_id
-  region                = var.region
-  billing_project       = var.project_id
-  user_project_override = true
 }
 
 locals {
