@@ -191,7 +191,7 @@ A single exception handler maps them. Pydantic validation errors are converted t
 | `RENDERER_URL` | renderer base URL |
 | `RENDERER_AUTH` | `oidc` (Cloud Run) or `none` (local) |
 | `PAYSTACK_SECRET_KEY`, `PAYSTACK_PRO_PLAN_CODE`, `PAYSTACK_CALLBACK_URL` | Billing; upgrades are offered only when all three are set. The callback is the SPA's `/app/settings?tab=billing` |
-| `PUBLIC_BASE_URL` | The api's public URL, with no path (`https://cvitae.aduuna.dev`): the audience of the OIDC token Cloud Scheduler sends to `/internal` routes, so the scheduler job's `audience` is exactly this |
+| `PUBLIC_BASE_URL` | The api's public URL, with no path (`https://cvitae.aduuna.dev`, a trailing slash is allowed): the audience of the OIDC token Cloud Scheduler sends to `/internal` routes, so the scheduler job's `audience` is this URL and not the route's |
 | `SCHEDULER_SA_EMAIL` | Only this service account (`scheduler-sa`) may call `/internal/*` routes. With either setting missing, those routes answer 503 |
 | `STATIC_DIR` | Built SPA directory served at `/`: `index.html` is the prerendered landing page and other unknown paths get the SPA shell `spa.html` (unset in local dev, where Vite serves the SPA) |
 

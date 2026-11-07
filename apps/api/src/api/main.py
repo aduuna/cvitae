@@ -86,9 +86,7 @@ def build_auth_verifier(settings: Settings) -> AuthVerifier:
 def build_scheduler_verifier(settings: Settings) -> ServiceCallerVerifier | None:
     """Who may call `/internal` routes; nobody until both settings are present."""
     if settings.public_base_url and settings.scheduler_sa_email:
-        return ServiceAccountVerifier(
-            settings.public_base_url.rstrip("/"), settings.scheduler_sa_email
-        )
+        return ServiceAccountVerifier(settings.public_base_url, settings.scheduler_sa_email)
     return None
 
 

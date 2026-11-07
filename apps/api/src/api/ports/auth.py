@@ -100,10 +100,12 @@ class ServiceAccountVerifier:
         service_account_email: str,
         transport: google_transport.Request | None = None,
     ) -> None:
-        if not audience or not service_account_email:
+        base = audience.strip().rstrip("/")
+        if not base or not service_account_email:
             # Google's check skips the audience when it is empty.
             raise ValueError("an audience and a service account email are both needed")
-        self._audience = audience
+        # The same URL with or without a trailing slash, whichever the scheduler job was given.
+        self._audiences = [base, base + "/"]
         self._email = service_account_email.strip().lower()
         self._transport = transport or GoogleRequest()
 
@@ -115,7 +117,7 @@ class ServiceAccountVerifier:
             # Checks the signature against Google's certificates, the expiry, the issuer and
             # that the token was minted for this audience.
             claims = await asyncio.to_thread(
-                id_token.verify_oauth2_token, token, self._transport, self._audience
+                id_token.verify_oauth2_token, token, self._transport, self._audiences
             )
         except google_exceptions.TransportError as exc:
             raise ServiceUnavailable("The caller could not be checked. Try again.") from exc

@@ -303,6 +303,12 @@ async def test_a_token_for_another_audience_is_refused(
     )
 
 
+async def test_the_audience_may_have_a_trailing_slash(client: AsyncClient) -> None:
+    response = await client.post(URL, headers=bearer(token(audience=AUDIENCE + "/")))
+
+    assert response.status_code == 200
+
+
 async def test_the_audience_is_the_apis_url_not_the_route(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
@@ -360,6 +366,8 @@ def test_the_verifier_needs_an_audience_and_an_account() -> None:
         ServiceAccountVerifier("", SCHEDULER)
     with pytest.raises(ValueError, match="both needed"):
         ServiceAccountVerifier(AUDIENCE, "")
+    with pytest.raises(ValueError, match="both needed"):
+        ServiceAccountVerifier("/", SCHEDULER)
 
 
 def test_the_verifier_is_built_from_the_settings(settings: Settings) -> None:
@@ -368,7 +376,7 @@ def test_the_verifier_is_built_from_the_settings(settings: Settings) -> None:
     verifier = build_scheduler_verifier(settings)
 
     assert isinstance(verifier, ServiceAccountVerifier)
-    assert verifier._audience == AUDIENCE
+    assert verifier._audiences == [AUDIENCE, AUDIENCE + "/"]
 
 
 @pytest.mark.parametrize(
