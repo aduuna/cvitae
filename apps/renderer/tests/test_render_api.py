@@ -130,3 +130,12 @@ async def test_source_of_an_unknown_template(client: AsyncClient) -> None:
         response = await client.get(f"/templates/{template_id}/source")
 
         assert response.status_code == 404, template_id
+
+
+async def test_the_unknown_template_is_named_in_the_error(client: AsyncClient) -> None:
+    for template_id in ["fancy", "_lib", "fixtures"]:
+        response = await client.get(f"/templates/{template_id}/source")
+
+        [diagnostic] = response.json()["diagnostics"]
+        assert response.json()["code"] == "compile_error"
+        assert diagnostic["message"] == f"There is no template called {template_id!r}."

@@ -61,14 +61,11 @@ async def templates(settings: SettingsDep) -> list[TemplateMeta]:
     responses={404: {"model": RenderError}},
 )
 async def template_source(template_id: str, settings: SettingsDep) -> Response:
-    if template_id not in load_templates(settings.templates_dir):
-        error = RenderError(
-            code="compile_error",
-            diagnostics=[Diagnostic(message=f"There is no template called {template_id!r}.")],
-        )
-        return JSONResponse(error.model_dump(), status_code=404)
-    source = TemplateSource(id=template_id, source=template_main(template_id, settings))
-    return JSONResponse(source.model_dump())
+    try:
+        source = template_main(template_id, settings)
+    except RenderFailure as failure:
+        return JSONResponse(failure.error.model_dump(), status_code=404)
+    return JSONResponse(TemplateSource(id=template_id, source=source).model_dump())
 
 
 @app.post(
