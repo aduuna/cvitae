@@ -4,9 +4,11 @@
  * `toMarkdown` writes the content; `fromMarkdown` reads it back, keeping the ids (and so the
  * `source_id` links) of everything the text still holds. For content the form can produce,
  * `fromMarkdown(toMarkdown(content), content)` returns `content` unchanged. Single-line fields are
- * trimmed and keep no line breaks, comma lists drop empty items, and an end date of "present" is
- * the same as none: none of that changes what the CV shows. An empty end date (which also shows as
- * present) is written as a bare `to`, so it stays empty rather than becoming none.
+ * trimmed and keep no line breaks, comma lists drop empty items, and after a start date an end
+ * date of "present" is the same as none: none of that changes what the CV shows. An empty end date
+ * (which also shows as present) is written as a bare `to`, so it stays empty rather than becoming
+ * none. With no start date, an open range shows nothing but the text "present" shows "present", so
+ * there `to present` is that text, kept as it was typed.
  */
 import { newId } from './factory';
 import type {
@@ -158,9 +160,9 @@ function formatDates(dates: DateRange): string {
 	const start = oneLine(dates.start);
 	if (dates.end === null) return start ? `${start} to present` : '';
 	const end = oneLine(dates.end);
-	if (isPresent(end)) return start ? `${start} to present` : 'to present';
-	if (start === end && end) return start;
 	if (!end) return start ? `${start} to` : 'to';
+	if (start === end) return start;
+	if (isPresent(end) && start) return `${start} to present`;
 	return start ? `${start} to ${end}` : `to ${end}`;
 }
 
@@ -512,8 +514,10 @@ function setField(target: EntryState, key: string, value: string): string | null
 function parseDates(value: string): DateRange {
 	const match = /^(?:(.*?)[ \t]+)?to(?:[ \t]+(.*))?$/i.exec(value);
 	if (!match) return { start: value, end: value || null };
+	const start = match[1] ?? '';
 	const end = match[2] ?? '';
-	return { start: match[1] ?? '', end: isPresent(end) ? null : end };
+	// Without a start, "present" is the text itself: no end date would show nothing at all.
+	return { start, end: start && isPresent(end) ? null : end };
 }
 
 /** Comma-separated items; `\,` is a comma inside an item and `\\` a backslash. */

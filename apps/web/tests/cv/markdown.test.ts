@@ -180,7 +180,11 @@ describe('round trip', () => {
 			['', ''],
 			['', '2021'],
 			['2019', '2021'],
-			['2019', '2019']
+			['2019', '2019'],
+			// With no start the template prints "present" for the text but nothing for none.
+			['', 'present'],
+			['', 'Present'],
+			['present', 'present']
 		] as const) {
 			const content = dates(start, end);
 
@@ -188,6 +192,39 @@ describe('round trip', () => {
 		}
 		const typed = dates('2019', 'Present');
 		expect(parsed(fromMarkdown(toMarkdown(typed), typed))).toEqual(dates('2019', null));
+	});
+
+	it('keeps "present" with no start on roles and clients too', () => {
+		const present = { start: '', end: 'present' };
+		const content = cv({
+			sections: [
+				section('experience', 'Experience', {
+					experience: [
+						{
+							id: 'x1',
+							org: 'Acme',
+							role: 'Engineer',
+							location: '',
+							dates: present,
+							stack: [],
+							bullets: [],
+							engagements: [
+								{
+									id: 'g1',
+									name: 'Big Telco',
+									label: 'Client',
+									location: '',
+									dates: present,
+									bullets: []
+								}
+							]
+						}
+					]
+				})
+			]
+		});
+
+		expect(parsed(fromMarkdown(toMarkdown(content), content))).toEqual(content);
 	});
 
 	it('writes the documented format', () => {
