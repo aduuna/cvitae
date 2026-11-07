@@ -480,6 +480,11 @@ async def test_a_provider_failure_saves_nothing_and_is_recorded(
     response = await generate(client)
 
     assert response.status_code == 502
+    error = response.json()["error"]
+    assert error["code"] == "provider_error"
+    assert "another model" not in error["message"]
+    assert error["message"].startswith("Claude could not finish this template.")
+    assert error["details"]["error_code"] == "refused"
     assert await stored(db_session) == []
     assert (await client.get("/api/v1/uploads")).json() == []
     [run] = await runs(db_session)

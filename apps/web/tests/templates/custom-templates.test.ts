@@ -52,24 +52,15 @@ describe('templateProblem', () => {
 		expect(templateProblem(error)).toEqual({ message: 'You have 1 custom template.', limit: true });
 	});
 
-	it('shows the api message for a refused file and a template that failed its checks', () => {
+	it('shows the api message for a refused file, a failed template and a failed Claude call', () => {
 		for (const [code, message] of [
 			['validation_failed', 'This file is not a PDF. Upload a PDF file.'],
 			['template_failed', 'We could not turn this CV into a template. Try a simpler PDF.'],
-			['claude_unavailable', 'Drafting a template needs Claude, which is not set up yet.']
+			['claude_unavailable', 'Drafting a template needs Claude, which is not set up yet.'],
+			['provider_error', 'Claude could not finish this template. Wait a minute and try again.'],
+			['provider_timeout', 'Claude could not finish this template. Wait a minute and try again.']
 		] as const) {
 			expect(templateProblem(new ApiError(422, code, message))).toEqual({ message, limit: false });
-		}
-	});
-
-	it('rewords a failed or slow Claude call, since no other model can be chosen', () => {
-		for (const code of ['provider_error', 'provider_timeout']) {
-			const { message, limit } = templateProblem(
-				new ApiError(502, code, 'Claude is busy. Wait a minute, or choose another model.')
-			);
-			expect(limit).toBe(false);
-			expect(message).toContain('Wait a minute and try again');
-			expect(message).not.toContain('another model');
 		}
 	});
 

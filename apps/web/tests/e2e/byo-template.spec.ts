@@ -266,11 +266,11 @@ test.describe('bring your own template: refusals and limits', () => {
 		api.templateFailure = {
 			status: 504,
 			code: 'provider_timeout',
-			message: 'Claude took too long to answer. Try again, or choose another model.'
+			message:
+				'Claude could not finish this template. Wait a minute and try again, or try a PDF with a simpler layout.'
 		};
 		await dialog.getByRole('button', { name: 'Make template' }).click();
 		await expect(dialog.getByRole('alert')).toContainText('Wait a minute and try again');
-		await expect(dialog.getByRole('alert')).not.toContainText('choose another model');
 	});
 
 	test('discarding a draft deletes it', async ({ page, api }) => {

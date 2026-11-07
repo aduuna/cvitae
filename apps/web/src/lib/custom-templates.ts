@@ -82,23 +82,13 @@ export interface TemplateProblem {
 }
 
 /**
- * Turns an error from making or saving a template into its message. The api words most of them
- * (a DOCX, an unreadable file, a template that could not be made to render, no Claude key, a limit);
- * a failed or slow Claude call is reworded because its message offers another model, and a
- * template always runs on Claude.
+ * Turns an error from making or saving a template into its message. The api words them all (a
+ * DOCX, an unreadable file, a template that could not be made to render, a failed Claude call, no
+ * Claude key, a limit); a limit is also marked so the dialog can show the way to Pro.
  */
 export function templateProblem(error: unknown): TemplateProblem {
-	if (error instanceof ApiError) {
-		if (error.status === 402 && error.code === 'quota_exceeded') {
-			return { message: error.message, limit: true };
-		}
-		if (error.code === 'provider_error' || error.code === 'provider_timeout') {
-			return {
-				message:
-					'Claude could not finish this template. Wait a minute and try again, or try a PDF with a simpler layout.',
-				limit: false
-			};
-		}
+	if (error instanceof ApiError && error.status === 402 && error.code === 'quota_exceeded') {
+		return { message: error.message, limit: true };
 	}
 	return { message: errorMessage(error), limit: false };
 }

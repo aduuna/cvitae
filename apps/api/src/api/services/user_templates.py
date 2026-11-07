@@ -9,10 +9,12 @@ generation saves nothing: the only row it writes is the `ai_runs` record.
 """
 
 import asyncio
+import contextlib
 import functools
 import logging
 import time
 import uuid
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -67,6 +69,22 @@ Cloud Run's 300, so a repair or refinement is skipped rather than risk the reque
 
 NAME_MAX, DESCRIPTION_MAX = 60, 200
 DEFAULT_NAME = "Custom template"
+
+PROVIDER_PROBLEM = (
+    "Claude could not finish this template. Wait a minute and try again, or try a PDF with a "
+    "simpler layout."
+)
+"""A template always runs on Claude, so a failed or slow call cannot offer another model."""
+
+
+@contextlib.asynccontextmanager
+async def _template_wording() -> AsyncGenerator[None]:
+    """Rewords a failed or slow Claude call for a template; the code and details stay."""
+    try:
+        yield
+    except (ProviderError, ProviderTimeout) as exc:
+        raise type(exc)(PROVIDER_PROBLEM, exc.details) from exc
+
 
 # A failed check that makes a test render pointless: the source is not allowed to run at all.
 _BLOCKS_RENDER = frozenset(
@@ -212,7 +230,7 @@ async def generate_template(
     def in_time() -> bool:
         return time.monotonic() - started < TIME_BUDGET_SECONDS
 
-    async with tasks.combined_run(runs) as run:
+    async with _template_wording(), tasks.combined_run(runs) as run:
         drafted = await tasks.draft_template(choice, run, pdf=pdf, library=kit.library)
         meta = drafted.output
         source, model = meta.main_typ, drafted.model
