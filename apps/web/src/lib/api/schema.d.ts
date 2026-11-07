@@ -831,7 +831,7 @@ export interface components {
             ai_runs: components["schemas"]["ExportAiRun"][];
             subscription: components["schemas"]["ExportSubscription"] | null;
             /** Extension Connections */
-            extension_connections: components["schemas"]["ExportConnection"][];
+            extension_connections: components["schemas"]["ExtensionConnectionInfo"][];
         };
         /** AiEditRequest */
         AiEditRequest: {
@@ -1691,27 +1691,6 @@ export interface components {
              */
             created_at: string;
         };
-        /**
-         * ExportConnection
-         * @description A browser the extension is connected in. Only a hash of its token is kept, so it is not
-         *     here.
-         */
-        ExportConnection: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Label */
-            label: string;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Last Used At */
-            last_used_at: string | null;
-        };
         /** ExportDocument */
         ExportDocument: {
             /**
@@ -1885,7 +1864,10 @@ export interface components {
              */
             created_at: string;
         };
-        /** ExportVersion */
+        /**
+         * ExportVersion
+         * @description A version as the version history lists it, with what it held.
+         */
         ExportVersion: {
             /** Number */
             number: number;
@@ -1894,6 +1876,11 @@ export interface components {
              * @enum {string}
              */
             reason: "tailor" | "manual" | "restore" | "autosave";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
             /** Content */
             content: {
                 [key: string]: unknown;
@@ -1902,11 +1889,6 @@ export interface components {
             source_files: {
                 [key: string]: string;
             } | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
         };
         /** ExtensionConnectionCreate */
         ExtensionConnectionCreate: {

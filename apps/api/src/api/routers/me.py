@@ -21,6 +21,8 @@ from api.deps import (
     Users,
 )
 from api.errors import ERROR_RESPONSES, ErrorEnvelope
+from api.routers.documents import Version
+from api.routers.extension import ExtensionConnectionInfo
 from api.services import account
 from api.services import users as service
 
@@ -116,12 +118,11 @@ class ExportJob(ExportRow):
     updated_at: datetime
 
 
-class ExportVersion(ExportRow):
-    number: int
-    reason: Literal["tailor", "manual", "restore", "autosave"]
+class ExportVersion(Version):
+    """A version as the version history lists it, with what it held."""
+
     content: dict[str, Any]
     source_files: dict[str, str] | None
-    created_at: datetime
 
 
 class ExportDocument(ExportRow):
@@ -190,16 +191,6 @@ class ExportSubscription(ExportRow):
     created_at: datetime
 
 
-class ExportConnection(ExportRow):
-    """A browser the extension is connected in. Only a hash of its token is kept, so it is not
-    here."""
-
-    id: uuid.UUID
-    label: str
-    created_at: datetime
-    last_used_at: datetime | None
-
-
 class AccountExport(BaseModel):
     """Everything the account holds, as JSON."""
 
@@ -212,7 +203,8 @@ class AccountExport(BaseModel):
     uploads: list[ExportUpload]
     ai_runs: list[ExportAiRun]
     subscription: ExportSubscription | None
-    extension_connections: list[ExportConnection]
+    extension_connections: list[ExtensionConnectionInfo]
+    """Only a hash of each token is kept, so no token is here."""
 
 
 EXPORT_FILENAME = "chameleon-vitae-export.json"
@@ -237,7 +229,9 @@ def to_export(data: account.AccountData, exported_at: datetime) -> AccountExport
         subscription=(
             ExportSubscription.model_validate(data.subscription) if data.subscription else None
         ),
-        extension_connections=[ExportConnection.model_validate(row) for row in data.connections],
+        extension_connections=[
+            ExtensionConnectionInfo.model_validate(row) for row in data.connections
+        ],
     )
 
 

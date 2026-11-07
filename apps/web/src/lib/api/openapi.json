@@ -3747,7 +3747,7 @@
           },
           "extension_connections": {
             "items": {
-              "$ref": "#/components/schemas/ExportConnection"
+              "$ref": "#/components/schemas/ExtensionConnectionInfo"
             },
             "type": "array",
             "title": "Extension Connections"
@@ -6006,45 +6006,6 @@
         "title": "ExportAiRun",
         "description": "One AI call. There is no prompt or output: none is kept."
       },
-      "ExportConnection": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "label": {
-            "type": "string",
-            "title": "Label"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          },
-          "last_used_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Used At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "label",
-          "created_at",
-          "last_used_at"
-        ],
-        "title": "ExportConnection",
-        "description": "A browser the extension is connected in. Only a hash of its token is kept, so it is not\nhere."
-      },
       "ExportDocument": {
         "properties": {
           "id": {
@@ -6433,6 +6394,11 @@
             ],
             "title": "Reason"
           },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
           "content": {
             "additionalProperties": true,
             "type": "object",
@@ -6451,22 +6417,18 @@
               }
             ],
             "title": "Source Files"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
           }
         },
         "type": "object",
         "required": [
           "number",
           "reason",
+          "created_at",
           "content",
-          "source_files",
-          "created_at"
+          "source_files"
         ],
-        "title": "ExportVersion"
+        "title": "ExportVersion",
+        "description": "A version as the version history lists it, with what it held."
       },
       "ExtensionConnectionCreate": {
         "properties": {
