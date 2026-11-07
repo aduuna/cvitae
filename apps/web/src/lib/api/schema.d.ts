@@ -363,26 +363,6 @@ export interface paths {
         patch: operations["update_custom_template_api_v1_templates_custom__template_id__patch"];
         trace?: never;
     };
-    "/api/v1/templates/custom/{template_id}/source": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Custom Template Source
-         * @description The Typst source of one of the user's templates, to read.
-         */
-        get: operations["get_custom_template_source_api_v1_templates_custom__template_id__source_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/templates/{template_id}/preview": {
         parameters: {
             query?: never;
@@ -1246,15 +1226,6 @@ export interface components {
             provider: components["schemas"]["ProviderName"];
             /** Model */
             model: string;
-        };
-        /** CustomTemplateSource */
-        CustomTemplateSource: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /** Main Typ */
-            main_typ: string;
         };
         /** CustomTemplateUpdate */
         CustomTemplateUpdate: {
@@ -3870,55 +3841,6 @@ export interface operations {
             };
             /** @description Payment Required */
             402: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Invalid request */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-        };
-    };
-    get_custom_template_source_api_v1_templates_custom__template_id__source_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                template_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CustomTemplateSource"];
-                };
-            };
-            /** @description Not signed in */
-            401: {
                 headers: {
                     [name: string]: unknown;
                 };

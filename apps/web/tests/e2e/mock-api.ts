@@ -485,13 +485,6 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 			}
 			const template = state.customTemplates.find((row) => row.id === action);
 			if (!template) return notFound(route);
-			if (number === 'source' || subaction === 'source') {
-				return reply(route, 200, {
-					id: template.id,
-					name: template.name,
-					main_typ: template.main_typ
-				});
-			}
 			if (method === 'PATCH') {
 				if (body.status === 'ready' && template.status !== 'ready') {
 					const refused = overLimit(route, state, 'templates');
@@ -784,6 +777,9 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 			if (method === 'PATCH') {
 				// As on the server: switching template drops a custom layout unless one is given.
 				const switched = body.template_id !== undefined && body.template_id !== doc.template_id;
+				const removes = 'layout' in body ? body.layout === null : switched;
+				// ... and keeps the layout it removes as an autosave version first.
+				if (doc.layout !== null && removes) snapshot('autosave');
 				if (switched && !('layout' in body)) doc.layout = null;
 				Object.assign(doc, body, { updated_at: now() });
 				doc.custom_layout = doc.layout !== null;

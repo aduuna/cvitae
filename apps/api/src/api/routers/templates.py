@@ -85,13 +85,6 @@ class CustomTemplateUpdate(BaseModel):
     """"ready" confirms a draft, which needs room under the plan's limit."""
 
 
-class CustomTemplateSource(BaseModel):
-    id: str
-    name: str
-    main_typ: str
-    """The Typst source, to read: it cannot be edited."""
-
-
 @router.get("")
 async def get_templates(_: CurrentUser, catalog: Catalog) -> list[TemplateMeta]:
     """The built-in templates, then the user's own ready ones (`custom` is true for those)."""
@@ -178,15 +171,6 @@ async def delete_custom_template(
     """Delete a template. CVs that use it switch to the user's default template (Classic when
     the default was this one), and the default resets to Classic."""
     await custom.delete_custom(templates, documents, users, catalog, user, template_id)
-
-
-@router.get("/custom/{template_id}/source")
-async def get_custom_template_source(
-    template_id: str, templates: UserTemplates
-) -> CustomTemplateSource:
-    """The Typst source of one of the user's templates, to read."""
-    row = await custom.get_custom(templates, template_id)
-    return CustomTemplateSource(id=row.slug, name=row.name, main_typ=row.main_typ)
 
 
 @router.get("/{template_id}/preview")

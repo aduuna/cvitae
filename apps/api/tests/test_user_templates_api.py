@@ -505,14 +505,15 @@ async def test_a_repair_that_fails_ends_the_generation(
     assert (run.status, run.error_code) == ("failed", "rate_limited")
 
 
-async def test_a_better_refinement_is_kept(client: AsyncClient, claude: FakeLLMProvider) -> None:
+async def test_a_better_refinement_is_kept(
+    client: AsyncClient, claude: FakeLLMProvider, db_session: AsyncSession
+) -> None:
     refined = FAKE_TEMPLATE + "\n// Margins tightened to match the original.\n"
     claude.responders["template"] = script(drafted(), revised(refined))
 
-    body = (await generate(client)).json()
+    await generate(client)
 
-    source = (await client.get(f"{CUSTOM}/{body['id']}/source")).json()["main_typ"]
-    assert source == refined
+    assert [row.main_typ for row in await stored(db_session)] == [refined]
 
 
 @pytest.mark.parametrize(
@@ -787,15 +788,6 @@ async def test_confirming_needs_room_under_the_limit(
     assert response.json()["error"]["details"]["resource"] == "templates"
     # Renaming a draft needs no room.
     assert (await client.patch(f"{CUSTOM}/{slug}", json={"name": "B"})).status_code == 200
-
-
-async def test_the_source_can_be_read(client: AsyncClient) -> None:
-    draft = (await generate(client)).json()
-
-    response = await client.get(f"{CUSTOM}/{draft['id']}/source")
-
-    assert response.status_code == 200
-    assert response.json() == {"id": draft["id"], "name": "Teal rule", "main_typ": FAKE_TEMPLATE}
 
 
 async def test_the_preview_renders_the_template_source(
@@ -1084,8 +1076,7 @@ async def test_another_users_template_is_not_found_anywhere(
 
     responses = {
         "preview": await other_client.get(f"/api/v1/templates/{slug}/preview"),
-        "source": await other_client.get(f"{CUSTOM}/{slug}/source"),
-        "layout start": await other_client.get(f"/api/v1/templates/{slug}/source"),
+        "source": await other_client.get(f"/api/v1/templates/{slug}/source"),
         "patch": await other_client.patch(f"{CUSTOM}/{slug}", json={"name": "Mine now"}),
         "confirm": await other_client.patch(f"{CUSTOM}/{slug}", json={"status": "ready"}),
         "delete": await other_client.delete(f"{CUSTOM}/{slug}"),
@@ -1115,7 +1106,7 @@ async def test_another_users_template_is_not_found_anywhere(
         "compact",
     ]
     # Nothing of theirs changed.
-    assert (await client.get(f"{CUSTOM}/{slug}/source")).status_code == 200
+    assert (await client.get(f"/api/v1/templates/{slug}/source")).status_code == 200
     assert (await client.get("/api/v1/templates")).json()[-1]["name"] == "Teal rule"
     assert (await other_client.get("/api/v1/me")).json()["default_template_id"] is None
 
