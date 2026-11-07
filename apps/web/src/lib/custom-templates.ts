@@ -1,6 +1,6 @@
 import { api, ApiError, errorMessage, unwrap } from '#lib/api/client.ts';
 import { limitReached, type Usage } from '#lib/billing/plans.ts';
-import type { CustomTemplate, CustomTemplateDraft, CustomTemplateSource } from '#lib/cv/types.ts';
+import type { CustomTemplate, CustomTemplateDraft } from '#lib/cv/types.ts';
 
 /** A PDF to copy the look of: a file to upload, or an earlier upload. */
 export type TemplateSourceInput = { file: File } | { uploadId: string };
@@ -51,14 +51,6 @@ export function renameTemplate(id: string, name: string): Promise<CustomTemplate
 export async function deleteTemplate(id: string): Promise<void> {
 	await unwrap(
 		api.DELETE('/api/v1/templates/custom/{template_id}', {
-			params: { path: { template_id: id } }
-		})
-	);
-}
-
-export function loadTemplateSource(id: string): Promise<CustomTemplateSource> {
-	return unwrap(
-		api.GET('/api/v1/templates/custom/{template_id}/source', {
 			params: { path: { template_id: id } }
 		})
 	);

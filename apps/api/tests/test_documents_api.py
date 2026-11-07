@@ -2,10 +2,7 @@ import uuid
 from typing import Any
 
 from httpx import AsyncClient
-from sqlalchemy import update
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.db.models import Document
 from api.errors import RenderFailed
 from api.ports.renderer import FakeRendererClient
 
@@ -29,7 +26,7 @@ async def test_create_from_a_profile(client: AsyncClient, sample_content: dict[s
 
     assert doc["name"] == "Data CV"
     assert doc["template_id"] == "classic"
-    assert doc["mode"] == "structured"
+    assert (doc["custom_layout"], doc["layout"]) == (False, None)
     assert doc["profile_id"] == profile_id
     assert doc["job_id"] is None
     assert doc["page_count"] is None
@@ -108,19 +105,85 @@ async def test_switch_to_unknown_template(
     assert response.status_code == 422
 
 
-async def test_ejected_cvs_keep_their_template_and_content(
-    client: AsyncClient, sample_content: dict[str, Any], db_session: AsyncSession
+LAYOUT = '#import "/_lib/cv.typ": *\n#let cv = json("data.json")\n= #cv.basics.name\n'
+
+
+async def test_set_keep_and_remove_a_custom_layout(
+    client: AsyncClient, sample_content: dict[str, Any]
 ) -> None:
     doc = await document(client, await profile(client, sample_content))
-    await db_session.execute(
-        update(Document).where(Document.id == uuid.UUID(doc["id"])).values(mode="ejected")
-    )
+    base = f"/api/v1/documents/{doc['id']}"
 
-    blocked = await client.patch(f"/api/v1/documents/{doc['id']}", json={"template_id": "compact"})
-    renamed = await client.patch(f"/api/v1/documents/{doc['id']}", json={"name": "Typst CV"})
+    set_layout = (await client.patch(base, json={"layout": LAYOUT})).json()
+    content = set_layout["content"] | {"summary": "Edited in the form"}
+    kept = (await client.patch(base, json={"name": "Typst CV", "content": content})).json()
+    listed = (await client.get("/api/v1/documents")).json()
+    removed = (await client.patch(base, json={"layout": None})).json()
 
-    assert blocked.status_code == 409
-    assert renamed.status_code == 200
+    assert (set_layout["custom_layout"], set_layout["layout"]) == (True, LAYOUT)
+    assert (kept["layout"], kept["content"]["summary"]) == (LAYOUT, "Edited in the form")
+    assert listed[0]["custom_layout"] is True
+    assert "layout" not in listed[0]
+    assert (removed["custom_layout"], removed["layout"]) == (False, None)
+    assert removed["content"]["summary"] == "Edited in the form"
+
+
+async def test_switching_template_drops_the_custom_layout(
+    client: AsyncClient, sample_content: dict[str, Any]
+) -> None:
+    doc = await document(client, await profile(client, sample_content))
+    base = f"/api/v1/documents/{doc['id']}"
+    await client.patch(base, json={"layout": LAYOUT})
+
+    same = (await client.patch(base, json={"template_id": "classic"})).json()
+    switched = (await client.patch(base, json={"template_id": "compact"})).json()
+    both = (await client.patch(base, json={"template_id": "classic", "layout": "x"})).json()
+
+    assert same["layout"] == LAYOUT
+    assert (switched["template_id"], switched["layout"]) == ("compact", None)
+    assert (both["template_id"], both["layout"]) == ("classic", "x")
+
+
+async def test_layouts_have_a_size_limit(
+    client: AsyncClient, sample_content: dict[str, Any]
+) -> None:
+    doc = await document(client, await profile(client, sample_content))
+
+    response = await client.patch(f"/api/v1/documents/{doc['id']}", json={"layout": "x" * 100_001})
+
+    assert response.status_code == 422
+
+
+async def test_preview_and_export_use_the_custom_layout(
+    client: AsyncClient, sample_content: dict[str, Any], renderer: FakeRendererClient
+) -> None:
+    doc = await document(client, await profile(client, sample_content))
+    base = f"/api/v1/documents/{doc['id']}"
+    await client.post(f"{base}/preview")
+    await client.patch(base, json={"layout": LAYOUT})
+
+    await client.post(f"{base}/preview")
+    await client.get(f"{base}/export.pdf?force=true")
+
+    assert renderer.sources == [None, LAYOUT, LAYOUT]
+    assert [call[0] for call in renderer.calls] == ["svg", "svg", "pdf"]
+    # Click to edit works on a custom layout too.
+    assert renderer.source_links == [True, True]
+
+
+async def test_render_data_is_what_the_layout_reads(
+    client: AsyncClient, sample_content: dict[str, Any]
+) -> None:
+    doc = await document(client, await profile(client, sample_content))
+
+    response = await client.get(f"/api/v1/documents/{doc['id']}/data.json")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["basics"]["name"] == "Ama Owusu-Mensah"
+    assert data["summary"][1] == {"t": "9 years", "b": True, "p": False}
+    first_bullet = data["sections"][0]["experience"][0]["bullets"][0]
+    assert set(first_bullet) == {"id", "spans"}
 
 
 async def test_duplicate_and_delete(client: AsyncClient, sample_content: dict[str, Any]) -> None:
@@ -131,6 +194,7 @@ async def test_duplicate_and_delete(client: AsyncClient, sample_content: dict[st
 
     assert copy["name"] == "Original (copy)"
     assert copy["content"] == doc["content"]
+    assert copy["layout"] is None
     assert deleted.status_code == 204
     assert [d["name"] for d in (await client.get("/api/v1/documents")).json()] == [
         "Original (copy)"
@@ -278,6 +342,70 @@ async def test_restore_without_changes_adds_no_autosave(
     assert [v["reason"] for v in listed] == ["restore", "manual"]
 
 
+async def test_versions_keep_the_layout(
+    client: AsyncClient, sample_content: dict[str, Any]
+) -> None:
+    doc = await document(client, await profile(client, sample_content))
+    base = f"/api/v1/documents/{doc['id']}"
+    await client.patch(base, json={"layout": LAYOUT})
+    await client.post(f"{base}/versions")
+    await client.patch(base, json={"layout": None})
+
+    restored = (await client.post(f"{base}/versions/1/restore")).json()
+    copy = (await client.post(f"{base}/duplicate")).json()
+
+    assert restored["layout"] == LAYOUT
+    assert copy["layout"] == LAYOUT
+    listed = (await client.get(f"{base}/versions")).json()
+    # Removing the layout was unsaved work, so the restore kept it as an autosave first.
+    assert [v["reason"] for v in listed] == ["restore", "autosave", "manual"]
+    undo = (await client.post(f"{base}/versions/2/restore")).json()
+    assert undo["layout"] is None
+
+
+async def test_a_layout_that_is_removed_is_kept_as_a_version_first(
+    client: AsyncClient, sample_content: dict[str, Any]
+) -> None:
+    doc = await document(client, await profile(client, sample_content))
+    base = f"/api/v1/documents/{doc['id']}"
+    await client.patch(base, json={"layout": LAYOUT})
+
+    switched = (await client.patch(base, json={"template_id": "compact"})).json()
+
+    assert switched["layout"] is None
+    listed = (await client.get(f"{base}/versions")).json()
+    assert [v["reason"] for v in listed] == ["autosave"]
+    restored = (await client.post(f"{base}/versions/1/restore")).json()
+    assert (restored["layout"], restored["template_id"]) == (LAYOUT, "compact")
+
+    # Nothing more is kept for a layout the latest version already holds ...
+    await client.patch(base, json={"layout": None})
+    assert [v["reason"] for v in (await client.get(f"{base}/versions")).json()] == [
+        "restore",
+        "autosave",
+        "autosave",
+    ]
+    # ... and a reset keeps the layout it removes, like a switch does.
+    await client.patch(base, json={"layout": "#let other = 1"})
+    await client.patch(base, json={"layout": None})
+    newest = (await client.get(f"{base}/versions")).json()[0]
+    assert newest["reason"] == "autosave"
+    again = (await client.post(f"{base}/versions/{newest['number']}/restore")).json()
+    assert again["layout"] == "#let other = 1"
+
+
+async def test_switching_template_without_a_layout_keeps_no_version(
+    client: AsyncClient, sample_content: dict[str, Any]
+) -> None:
+    doc = await document(client, await profile(client, sample_content))
+    base = f"/api/v1/documents/{doc['id']}"
+
+    await client.patch(base, json={"template_id": "compact"})
+    await client.patch(base, json={"layout": None})
+
+    assert (await client.get(f"{base}/versions")).json() == []
+
+
 async def test_restore_unknown_version(client: AsyncClient, sample_content: dict[str, Any]) -> None:
     doc = await document(client, await profile(client, sample_content))
 
@@ -302,6 +430,7 @@ async def test_users_cannot_reach_each_others_cvs(
         await other_client.delete(base),
         await other_client.post(f"{base}/duplicate"),
         await other_client.post(f"{base}/preview"),
+        await other_client.get(f"{base}/data.json"),
         await other_client.get(f"{base}/export.pdf?force=true"),
         await other_client.get(f"{base}/versions"),
         await other_client.post(f"{base}/versions"),

@@ -1,8 +1,9 @@
 """AI edits: a change to one CV asked for in words, checked by the fact guard against that CV.
 
 Nothing is saved: the editor puts the edited content into its form, and autosave saves it from
-there, so the change can be undone like any other. The content before the edit is kept as an
-autosave version first, so it can also be restored from version history later.
+there, so the change can be undone like any other. The content (and custom layout)
+before the edit is kept as an autosave version first, so it can also be restored from version
+history later.
 """
 
 import uuid
@@ -12,12 +13,13 @@ from dataclasses import dataclass
 from api.ai import tasks
 from api.ai.prompts.edit_cv import Turn
 from api.billing.plans import Plan
-from api.errors import Conflict, ValidationFailed
+from api.errors import ValidationFailed
 from api.repositories.ai_runs import AiRunRepository
 from api.repositories.documents import DocumentRepository, DocumentVersionRepository
 from api.services.ai_models import ModelChoice
 from api.services.documents import get_document
 from api.services.quotas import require_ai_runs
+from api.services.snapshots import keep_current_work
 from cvcore import factguard
 from cvcore.models import CvContent
 from cvcore.render import iter_bullets
@@ -123,8 +125,6 @@ async def edit_document(
     """Ask the model for the change in `message`, limited to `scope` (None for the whole CV,
     "summary", or a section id). Takes one AI run."""
     document = await get_document(documents, document_id)
-    if document.mode == "ejected":
-        raise Conflict("This CV is edited as Typst, so AI edits do not apply to it.")
     current = CvContent.model_validate(document.content)
     focus = _focus(current, scope)
     await require_ai_runs(runs, plan)
@@ -137,11 +137,7 @@ async def edit_document(
     report = factguard.check(source, edited, where="your CV")
     changed = _unlinked(report.content) != source
     if changed:
-        latest = await versions.latest(document.id)
-        if latest is None or latest.content != document.content:
-            await versions.create(
-                document_id=document.id, reason="autosave", content=dict(document.content)
-            )
+        await keep_current_work(versions, document)
     return AiEditResult(
         reply=result.output.reply,
         content=_relinked(report.content, current) if changed else current,

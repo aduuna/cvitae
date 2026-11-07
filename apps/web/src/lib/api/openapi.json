@@ -796,16 +796,6 @@
                 }
               }
             }
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Conflict"
           }
         }
       },
@@ -870,7 +860,7 @@
           "documents"
         ],
         "summary": "Document Ats",
-        "description": "How the saved CV reads to an ATS search for its job. No AI run. 409 for ejected CVs.",
+        "description": "How the saved CV reads to an ATS search for its job. No AI run.",
         "operationId": "document_ats_api_v1_documents__document_id__ats_get",
         "parameters": [
           {
@@ -924,16 +914,6 @@
                 }
               }
             }
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Conflict"
           }
         }
       }
@@ -1081,6 +1061,72 @@
               }
             },
             "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{document_id}/data.json": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Get Render Data",
+        "description": "The data.json the CV's template or custom layout receives.",
+        "operationId": "get_render_data_api_v1_documents__document_id__data_json_get",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Render Data Api V1 Documents  Document Id  Data Json Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
         }
       }
@@ -1474,16 +1520,6 @@
                 }
               }
             }
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Conflict"
           }
         }
       }
@@ -1782,69 +1818,6 @@
         }
       }
     },
-    "/api/v1/templates/custom/{template_id}/source": {
-      "get": {
-        "tags": [
-          "templates"
-        ],
-        "summary": "Get Custom Template Source",
-        "description": "The Typst source of one of the user's templates, to read.",
-        "operationId": "get_custom_template_source_api_v1_templates_custom__template_id__source_get",
-        "parameters": [
-          {
-            "name": "template_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Template Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CustomTemplateSource"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Not signed in",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/templates/{template_id}/preview": {
       "get": {
         "tags": [
@@ -1885,6 +1858,69 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SvgPages"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/templates/{template_id}/source": {
+      "get": {
+        "tags": [
+          "templates"
+        ],
+        "summary": "Get Template Source",
+        "description": "The main.typ of a built-in template or one of the user's own, where a CV's custom layout\nstarts. Another user's template is a 404.",
+        "operationId": "get_template_source_api_v1_templates__template_id__source_get",
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Template Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateSource"
                 }
               }
             }
@@ -4703,29 +4739,6 @@
         "title": "CustomTemplateDraft",
         "description": "What generating a template returns: the new draft, and what ran."
       },
-      "CustomTemplateSource": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "main_typ": {
-            "type": "string",
-            "title": "Main Typ"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "main_typ"
-        ],
-        "title": "CustomTemplateSource"
-      },
       "CustomTemplateUpdate": {
         "properties": {
           "name": {
@@ -4901,13 +4914,9 @@
             "type": "string",
             "title": "Template Id"
           },
-          "mode": {
-            "type": "string",
-            "enum": [
-              "structured",
-              "ejected"
-            ],
-            "title": "Mode"
+          "custom_layout": {
+            "type": "boolean",
+            "title": "Custom Layout"
           },
           "page_count": {
             "anyOf": [
@@ -4956,6 +4965,17 @@
           },
           "content": {
             "$ref": "#/components/schemas/CvContent-Output"
+          },
+          "layout": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Layout"
           }
         },
         "type": "object",
@@ -4963,13 +4983,14 @@
           "id",
           "name",
           "template_id",
-          "mode",
+          "custom_layout",
           "page_count",
           "profile_id",
           "job_id",
           "created_at",
           "updated_at",
-          "content"
+          "content",
+          "layout"
         ],
         "title": "Document"
       },
@@ -5056,13 +5077,9 @@
             "type": "string",
             "title": "Template Id"
           },
-          "mode": {
-            "type": "string",
-            "enum": [
-              "structured",
-              "ejected"
-            ],
-            "title": "Mode"
+          "custom_layout": {
+            "type": "boolean",
+            "title": "Custom Layout"
           },
           "page_count": {
             "anyOf": [
@@ -5115,7 +5132,7 @@
           "id",
           "name",
           "template_id",
-          "mode",
+          "custom_layout",
           "page_count",
           "profile_id",
           "job_id",
@@ -5171,6 +5188,18 @@
               }
             ],
             "title": "Job Id"
+          },
+          "layout": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Layout"
           }
         },
         "type": "object",
@@ -7359,6 +7388,25 @@
           "custom"
         ],
         "title": "TemplateMeta"
+      },
+      "TemplateSource": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source"
+        ],
+        "title": "TemplateSource",
+        "description": "A template's main.typ, where a CV's custom layout starts."
       },
       "UploadSummary": {
         "properties": {

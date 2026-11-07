@@ -122,7 +122,7 @@ apps/api/src/api/
   tests/
 
 apps/renderer/src/renderer/
-  main.py            POST /render, GET /healthz, GET /templates
+  main.py            POST /render, GET /healthz, GET /templates, GET /templates/{id}/source
   compile.py         spawns the worker process with limits, collects output/diagnostics
   worker.py          child process entry: runs typst.compile and writes the result
   templates.py       loads template metadata from /templates
@@ -208,8 +208,8 @@ in Python.
 | `users` | `firebase_uid` unique, `email`, `display_name`, `preferred_ai_model` (null: the server's default), `plan` (`free`/`pro`), `default_template_id`, `deleted_at` | Created on first authenticated request. |
 | `profiles` | `user_id`, `name`, `is_default`, `content` jsonb (CvContent) | One default per user (partial unique index). |
 | `jobs` | `user_id`, `title`, `company`, `url`, `description` text, `analysis` jsonb null | Description is user content: never logged. |
-| `documents` | `user_id`, `profile_id` null, `job_id` null, `name`, `template_id` (a built-in template's id or a custom template's `slug`), `mode` (`structured`/`ejected`), `content` jsonb, `source_files` jsonb null, `page_count` | `source_files` holds `{"main.typ": "...", "data.json": "..."}` once ejected. |
-| `document_versions` | `document_id`, `number`, `reason` (`tailor`/`manual`/`restore`/`autosave`), `content` jsonb, `source_files` jsonb null | Autosave versions older than 7 days are pruned by a daily Cloud Scheduler call. |
+| `documents` | `user_id`, `profile_id` null, `job_id` null, `name`, `template_id` (a built-in template's id or a custom template's `slug`), `content` jsonb, `layout` text null, `page_count` | `layout` is the CV's custom `main.typ` (Typst mode); null means the template's own. `template_id` stays the template the layout started from, and a layout outlives that template if it is deleted. |
+| `document_versions` | `document_id`, `number`, `reason` (`tailor`/`manual`/`restore`/`autosave`), `content` jsonb, `layout` text null | Autosave versions older than 7 days are pruned by a daily Cloud Scheduler call. |
 | `uploads` | `user_id`, `storage_key`, `filename`, `mime_type`, `size_bytes` | File itself in GCS. |
 | `ai_runs` | `user_id`, `task` (`import`/`analyze_job`/`tailor`/`edit`/`answers`/`template`), `provider`, `model`, `prompt_version`, `status`, `error_code`, `input_tokens`, `output_tokens`, `cost_usd` numeric(10,6), `duration_ms` | No prompt or output content. Drives quotas and cost reporting. A `template` row holds all the model calls of one generation, with tokens, cost and duration summed. |
 | `user_templates` | `user_id`, `slug` unique, `name` (60), `description` (200), `main_typ` text, `paper_sizes` jsonb, `target_pages`, `status` (`draft`/`ready`), `upload_id` null (SET NULL), `prompt_version` | A template made from the user's own CV. `slug` (`u-` and 10 base32 characters) is its template id in `documents.template_id` and `users.default_template_id`. The source is user content: never logged. |
@@ -419,7 +419,7 @@ so it costs no AI run; `services/ats.py` calls it for a document, and tailoring 
   message the UI shows.
 
 `services/ats.py`: `document_ats` returns the CV's linked job and its report, or no report when the
-CV has no job or the job has no analysis yet; 409 for ejected CVs. It reads the saved content, the
+CV has no job or the job has no analysis yet. It reads the saved content, the
 profile the CV came from, `page_count` (kept by the preview) and the template's `target_pages`.
 
 ## AI pipeline
@@ -543,8 +543,8 @@ autosave saves it, so Undo works like any other edit.
 - `changed` is false when the guarded answer equals the CV, for example when the user asked a
   question; the reply answers it. When it is true and the CV differs from its latest version, the
   content before the edit is kept as an `autosave` version first.
-- Ejected CVs are refused with 409. The conversation lives in the editor only; the request carries
-  the earlier messages (at most 12, 4,000 characters each; the request itself at most 2,000).
+- A CV with a custom layout is edited like any other: the edit changes content, never the layout.
+  The conversation lives in the editor only; the request carries the earlier messages (at most 12, 4,000 characters each; the request itself at most 2,000).
 
 ### Drafted answers (services/answers.py)
 
@@ -693,16 +693,19 @@ A new generation deletes the user's earlier drafts. Drafts take no room under th
 **Resolving ids.** Everything that names or renders a template goes through `TemplateCatalog`
 (`services/templates.py`), built per user from the renderer and the user's `UserTemplateRepository`:
 `available()` (the built-in templates, then the user's ready ones, `custom: true`), `get`, `require`
-(metadata for a CV that is about to use it), `render_svg` and `render_pdf`. An id that looks like a
+(metadata for a CV that is about to use it), `source` (the `main.typ` where a custom layout starts),
+`render_svg` and `render_pdf`. An id that looks like a
 custom one (`^u-[a-z2-7]{10}$`) is looked up in the user's own rows only: not found, someone else's,
 or a draft where a ready template is needed is `404 not_found`, so ids tell nothing about other
 users. An unknown built-in id stays `422` with `details.field = "template_id"`. A custom template
-renders by sending its `main.typ` to the renderer in `files` (below). The extension's PDF export gets
-a catalog for the token's user.
+renders by sending its `main.typ` to the renderer in `files` (below). A CV's custom layout is sent the
+same way and needs no template lookup, so it renders whatever became of the template it started
+from. The extension's PDF export gets a catalog for the token's user.
 
 **Deleting.** `DELETE /templates/custom/{id}` moves the user's CVs that use it to their default
 template (when it is another template that still resolves), else to Classic, clears their stored page
-count, resets `default_template_id` to Classic when it pointed at the template, and deletes the row.
+count (a CV's own layout stays), resets `default_template_id` to Classic when it pointed at the
+template, and deletes the row.
 The upload stays; deleting an upload keeps the template (`upload_id` is set to null).
 
 ### Quotas (services/quotas.py)
@@ -850,12 +853,17 @@ step by a test), and the renderer's tests compile it through the sandbox.
 }
 ```
 
-Either `template_id` (structured CVs: the renderer uses its own copy of the template and the caller
-supplies only `data.json`) or a full `files` map (ejected CVs, and a user's own custom template with
-its `main.typ` and the CV's `data.json`) is given. The renderer always adds `_lib/`.
+Either `template_id` (the renderer uses its own copy of the template and the caller supplies only
+`data.json`) or a full `files` map with `main.typ` (a CV's custom layout, or a user's own custom
+template: `main.typ` is the code, `data.json` the CV's content) is given. The renderer always adds
+`_lib/`.
 `source_links` (SVG only, ignored for PDF) sets the `source-links` input: each linked part becomes an
 `<a href="cv:<id>">` with a transparent rect per line in the SVG. The api asks for it on
-`POST /documents/{id}/preview` only.
+`POST /documents/{id}/preview` only, with or without a custom layout; a layout links parts through the
+same `_lib/cv.typ` helpers the templates use.
+
+The renderer's `GET /templates/{id}/source` returns `{"id": "classic", "source": "<main.typ>"}` for a
+built-in template (404 for an unknown id), the starting point of a custom layout.
 
 Responses: `application/pdf` bytes, or `{"pages": ["<svg>...", ...], "page_count": n}` for SVG.
 Compile errors return 422 with `{"diagnostics": [{"line": 12, "column": 4, "message": "..."}]}`.
@@ -872,6 +880,32 @@ Compile errors return 422 with `{"diagnostics": [{"line": 12, "column": 4, "mess
   others; the api's checks (`cvcore/user_templates.py`) are a second line, not a substitute.
 - The service has no outbound internet (see `docs/INFRA.md`) and no secrets.
 - Cloud Run concurrency 4 per instance; the api treats 429 or 503 from the renderer as "busy, retry".
+
+### Editing modes and custom layouts
+
+The editor's three modes (`docs/PRODUCT.md`, "Documents and the editor") need nothing new from the
+backend for content: Form and Markdown both save `content` through `PATCH /documents/{id}`. The
+Markdown text is converted to and from `CvContent` in the browser (`apps/web/src/lib/cv/markdown.ts`);
+it is never stored or sent. Typst mode saves `layout`:
+
+- `PATCH /documents/{id}` with `layout` (a string, at most 100,000 characters) sets the custom layout;
+  `layout: null` removes it. Leaving `layout` out keeps it.
+- Changing `template_id` removes the custom layout, unless the same request sets `layout`.
+  A layout that a request removes (a template switch, or `layout: null`) is first kept as an
+  `autosave` version with the content, unless the latest version already holds both, so a
+  restore brings it back. AI edits and restores use the same snapshot (`services/snapshots.py`),
+  which always carries the layout and compares content and layout together.
+- Preview and export send `{"main.typ": layout, "data.json": ...}` without `template_id` when a layout
+  is set, so the layout runs in the same sandbox as everything else; it can only import `_lib/` and
+  its own root, and diagnostics name `main.typ` with line and column.
+- Versions snapshot and restore `content` and `layout` together; duplicating a CV copies both.
+- `GET /documents/{id}/data.json` returns the `data.json` the layout receives (`to_render_json`), for
+  the read-only tab next to `main.typ`.
+- `GET /templates/{id}/source` is where a layout starts: `TemplateCatalog.source` reads a user's own
+  template from its row (so only its owner finds it, and not a draft) and a built-in one from the
+  renderer.
+- Because content is always structured, every CV works with the ATS score, AI edits and the
+  extension, whatever its layout.
 
 ### Preview flow
 
@@ -902,12 +936,12 @@ require a valid Firebase ID token. FastAPI serves OpenAPI at `/api/openapi.json`
 | `GET/POST /jobs`, `GET/DELETE /jobs/{id}` | Saved job descriptions |
 | `POST /jobs/{id}/analyze` (ai_model) | The job with its analysis: one AI run when it has none, none when it has (quota checked first) |
 | `POST /tailor` (profile_id, job_id or job text, template_id, ai_model) | Create a tailored CV; returns document, fact report, changes and `ats`, the new CV's `AtsReport` (no length check: it has not been rendered yet). Regenerating from the review screen deletes the draft CV and calls this again. |
-| `GET/POST /documents`, `GET/PATCH/DELETE /documents/{id}` | CVs. `PATCH` takes `job_id` to link a saved job (404 for a job that is not the user's) |
-| `GET /documents/{id}/ats` | `{job, report}`: the linked job and the saved CV's `AtsReport`; `report` is null without a job or before the job's analysis. No AI run; 409 for ejected CVs |
+| `GET/POST /documents`, `GET/PATCH/DELETE /documents/{id}` | CVs. `PATCH` takes `name`, `template_id`, `content`, `layout` (see "Editing modes and custom layouts") and `job_id` to link a saved job (404 for a job that is not the user's) |
+| `GET /documents/{id}/data.json` | The `data.json` a template or custom layout receives |
+| `GET /documents/{id}/ats` | `{job, report}`: the linked job and the saved CV's `AtsReport`; `report` is null without a job or before the job's analysis. No AI run |
 | `POST /documents/{id}/duplicate` | Copy a CV |
-| `POST /documents/{id}/eject` | Switch to Typst mode (one-way) |
 | `POST /documents/{id}/preview` | SVG pages or diagnostics |
-| `POST /documents/{id}/ai-edit` (message, scope, history, ai_model) | The CV with the requested change, checked by the fact guard; returns `{reply, content, changed, issues, ai_model, model}` and saves nothing. One AI run; 409 for ejected CVs |
+| `POST /documents/{id}/ai-edit` (message, scope, history, ai_model) | The CV with the requested change, checked by the fact guard; returns `{reply, content, changed, issues, ai_model, model}` and saves nothing. One AI run |
 | `GET /documents/{id}/export.pdf` | Stream PDF, named for the company of the CV's job when it has one; 409 if placeholders remain unless `?force=true` |
 | `GET /documents/{id}/versions`, `POST /documents/{id}/versions`, `POST /documents/{id}/versions/{n}/restore` | Version history |
 | `GET /templates` | The built-in templates (metadata proxied from the renderer, cached in memory), then the user's ready custom templates; `custom` is true for those |
@@ -915,14 +949,14 @@ require a valid Firebase ID token. FastAPI serves OpenAPI at `/api/openapi.json`
 | `POST /templates/custom` (multipart: `file` or `upload_id`) | Draft a template from a PDF with Claude (see Custom templates): 201 with the draft (`id`, `name`, `description`, `status` `draft`, `paper_sizes`, `target_pages`, `upload_id`, timestamps, `ai_model`, `provider`, `model`). One AI run, up to about two minutes. 402 at a plan limit (`details.resource` `templates` or `ai_runs`), 422 for a DOCX or a PDF that cannot be read (`validation_failed`) or a draft that cannot be made to pass (`template_failed`), 503 `claude_unavailable` without a Claude key |
 | `PATCH /templates/custom/{id}` | `name`, `description` and `status: "ready"` (confirms a draft; 402 when there is no room); returns the template |
 | `DELETE /templates/custom/{id}` | Delete a template or discard a draft; the user's CVs switch to their default template, or Classic |
-| `GET /templates/custom/{id}/source` | `{id, name, main_typ}`: the Typst source, to read |
+| `GET /templates/{id}/source` | `{id, source}`: the `main.typ` of a built-in template or one of the user's ready ones, to read and where a CV's custom layout starts ("View source" and Typst mode both use it); another user's template, a draft or an unknown custom id is 404 |
 | `POST /billing/checkout` | Paystack transaction initialize with the Pro plan; returns `authorization_url`; 409 when already on Pro, or when a failed renewal is waiting for a new card (the manage link fixes that) |
 | `POST /billing/verify` (reference) | Verify after redirect back from Paystack; switches to Pro at once and returns the current plan. Repeatable: a payment is applied once, by this call or by its `charge.success` webhook (both record the same `webhook_events` key), so an old reference cannot bring Pro back after it ended. |
 | `GET /billing/manage-link` | Paystack hosted subscription management link |
 | `POST /webhooks/paystack` | Paystack events (no Firebase auth; signature checked) |
 | `POST /internal/prune-versions` | Deletes autosave versions older than 7 days. Accepts only an OIDC token from the Cloud Scheduler service account; no Firebase auth. |
 | `GET/POST /extension/connections`, `DELETE /extension/connections/{id}` | The browsers the extension is connected in (signed in as usual). `POST` (`label`) returns the new connection with its `token`, the only time the token is shown |
-| `GET /extension/session` | Extension token only. The account's email, profiles, form-mode CVs (with their `job_id` and placeholder count) and saved jobs, so the extension can choose what to fill from |
+| `GET /extension/session` | Extension token only. The account's email, profiles, CVs (with their `job_id` and placeholder count) and saved jobs, so the extension can choose what to fill from |
 | `DELETE /extension/session` | Extension token only. Disconnect this browser: its token stops working |
 | `GET /extension/profiles/{id}/application`, `GET /extension/documents/{id}/application` | Extension token only. `ApplicationData` (cvcore/application.py) for a profile or CV |
 | `GET /extension/documents/{id}/cv.pdf` | Extension token only. The CV as a PDF, named for the company of its job; 409 while placeholders remain (no `force`) |
@@ -1021,13 +1055,13 @@ response is sent.
 | Layer | Tooling | What is covered |
 |---|---|---|
 | `cvcore` | pytest, hypothesis | rich-text round trip, fact guard cases, llm_schema output for every model, ATS matching rules and the fixture CV's score, finishing drafted answers (numbers, limits, the skills hint), the custom template checks (every built-in template passes them; each rule, with false-positive cases; no check message repeats the upload's text) |
-| Services | pytest with fakes | business rules: quotas, versions, eject, tailoring flow with `FakeLLMProvider`, drafted answers (one run per request, nothing saved, refusal before any call), custom templates (quota before any model call, repair, refinement kept or dropped, one run per generation, nothing saved on failure, another user's template is 404 everywhere, delete falls CVs back), account deletion |
+| Services | pytest with fakes | business rules: quotas, versions, custom layouts, tailoring flow with `FakeLLMProvider`, drafted answers (one run per request, nothing saved, refusal before any call), custom templates (quota before any model call, repair, refinement kept or dropped, one run per generation, nothing saved on failure, another user's template is 404 everywhere, delete falls CVs back), account deletion |
 | Repositories | pytest against Postgres (compose locally, service container in CI) | user scoping (a test proves user A cannot read user B), cascades, indexes used by list queries |
 | API | httpx `AsyncClient` + dependency overrides | status codes, error envelope, auth required, schema of responses |
 | LLM adapters | respx-mocked HTTP with recorded fixtures | request shape (PDF block, schema), parsing, retries; `@pytest.mark.live` tests for real calls run manually |
 | Paystack | respx + signed fixture payloads | signature check, idempotency, each event's state change |
-| Renderer | pytest | every template x every fixture compiles; page counts; placeholder highlight present; limits and timeouts enforced; `@` imports rejected; a user-style template (`files` with `main.typ`) compiles and stays inside the sandbox |
-| Frontend | vitest + @testing-library/svelte; Playwright | primitives, token test, editor flows against a mocked API |
+| Renderer | pytest | every template x every fixture compiles; page counts; placeholder highlight present; limits and timeouts enforced; `@` imports rejected; a user-style template or custom layout (`files` with `main.typ`) compiles and stays inside the sandbox; a template's source can be read |
+| Frontend | vitest + @testing-library/svelte; Playwright | primitives, token test, Markdown round trip, errors and identity over every fixture profile, editor flows (Form, Markdown, Typst) against a mocked API |
 | Extension | vitest (jsdom) with a fake `chrome`; Playwright with the built extension in Chromium | field and open question detection on Greenhouse, Lever, Workday, Ashby and custom form fixtures; limits and the AI notice; filling a React form; the side panel's review and fill; drafting, editing, filling and undoing answers; job ad reading; the connect handshake; attaching a PDF in a real browser |
 
 Coverage gate: 85% lines for `apps/api` and `packages/cvcore`.

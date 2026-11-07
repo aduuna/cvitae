@@ -87,17 +87,23 @@ changes nothing.
 
 ## M5: Advanced editing and hardening
 
-- Eject to Typst: CodeMirror 6 editor for `main.typ` and `data.json`, diagnostics inline, one-way
-  confirmation.
+- Editing modes in the CV editor: Form, Markdown and Typst, switched in the browser at any time
+  (`docs/PRODUCT.md`, "Documents and the editor"). A `CodeEditor` on CodeMirror 6 (the component
+  M9's "View source" uses); the Markdown converter in `apps/web/src/lib/cv/markdown.ts` with
+  round-trip, error and identity tests; Typst mode edits the CV's custom layout (`documents.layout`,
+  migration from `mode`/`source_files`), starting from the template's code (a user's own template
+  too, through `TemplateCatalog`), shows `data.json` read-only and Typst diagnostics inline;
+  template source and `data.json` endpoints. ATS scores, AI edits and the extension take every CV.
 - Renderer egress lock (Direct VPC egress, no NAT) applied in OpenTofu and verified.
 - Account export and deletion (database and GCS), with tests.
 - Cloud Scheduler version pruning; budget alerts; CSP and security headers.
 - `envs/prod`, prod deploy on tags with approval, custom domain mapping.
 - Accessibility pass against `docs/DESIGN.md`; Playwright coverage for the main flows.
 
-Done when: a production deploy is live on the custom domain, an ejected CV compiles and exports, account
-deletion leaves no rows or objects behind, and Lighthouse accessibility scores 95 or higher on Documents,
-the editor and Settings.
+Done when: a production deploy is live on the custom domain, every fixture profile converts to Markdown
+and back unchanged, a CV with a custom layout compiles and exports and its content is still editable
+in the form, account deletion leaves no rows or objects behind, and Lighthouse accessibility scores
+95 or higher on Documents, the editor and Settings.
 
 ## M6: Browser extension
 
@@ -187,7 +193,7 @@ Backend:
   save as a draft, confirm, delete); `TemplateCatalog` in `services/templates.py` so every render
   path and every place that names a template resolves a custom id, and only its owner's; `images` on
   `LLMRequest` for the Claude adapter; `GET /templates` with the user's templates, and
-  `POST/PATCH/DELETE /templates/custom`, `GET /templates/custom/{id}/source`; `FakeLLMProvider`
+  `POST/PATCH/DELETE /templates/custom`, `GET /templates/{id}/source`; `FakeLLMProvider`
   and `FakeRendererClient` support; `TEMPLATES_DIR` and the image's template files. Service and API
   tests with the fakes, repository scoping tests, a live test next to `test_llm_live.py`.
 - renderer: tests that a user-style template compiles through the sandbox.
@@ -198,9 +204,8 @@ Web app:
 - The Templates page: "Your templates" after the built-in ones with the "Add your own" card, the
   dialog (upload or reuse a PDF, what happens and that it uses one AI run on Claude, progress,
   preview with the name field, "Save template" and "Discard"), custom cards with the live preview,
-  "Set as default", rename, "View source" (read only, in a new `TypstEditor` component on CodeMirror 6
-  that the eject editor in M5 builds on) and delete
-  with confirmation; the limit message at the limit and no card without a Claude model.
+  "Set as default", rename, "View source" (read only, in a new `CodeEditor` component on CodeMirror 6
+  that the Markdown and Typst modes in M5 build on) and delete with confirmation; the limit message at the limit and no card without a Claude model.
 - The shared template catalog (`lib/templates.svelte.ts`) lists custom templates after the built-in
   ones everywhere (new CV, Tailor, editor switch) and refreshes after create, rename and delete.
 - The privacy policy says the uploaded CV is used to draft a template and stored like an import's

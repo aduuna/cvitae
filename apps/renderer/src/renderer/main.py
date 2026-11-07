@@ -1,4 +1,4 @@
-"""Renderer service: POST /render, GET /healthz, GET /templates."""
+"""Renderer service: POST /render, GET /healthz, GET /templates, GET /templates/{id}/source."""
 
 from functools import cache
 from typing import Annotated, Literal
@@ -8,8 +8,15 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
-from cvcore.rendering import Diagnostic, RenderError, RenderRequest, SvgPages, TemplateMeta
-from renderer.compile import RenderFailure, render
+from cvcore.rendering import (
+    Diagnostic,
+    RenderError,
+    RenderRequest,
+    SvgPages,
+    TemplateMeta,
+    TemplateSource,
+)
+from renderer.compile import RenderFailure, render, template_main
 from renderer.settings import Settings
 from renderer.templates import load_templates
 
@@ -46,6 +53,19 @@ async def healthz() -> Health:
 @app.get("/templates")
 async def templates(settings: SettingsDep) -> list[TemplateMeta]:
     return list(load_templates(settings.templates_dir).values())
+
+
+@app.get(
+    "/templates/{template_id}/source",
+    response_model=TemplateSource,
+    responses={404: {"model": RenderError}},
+)
+async def template_source(template_id: str, settings: SettingsDep) -> Response:
+    try:
+        source = template_main(template_id, settings)
+    except RenderFailure as failure:
+        return JSONResponse(failure.error.model_dump(), status_code=404)
+    return JSONResponse(TemplateSource(id=template_id, source=source).model_dump())
 
 
 @app.post(

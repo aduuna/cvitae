@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
-	import { beforeNavigate } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { AiEditChat } from '#lib/ai/edit.svelte.ts';
 	import { api, errorMessage, unwrap } from '#lib/api/client.ts';
@@ -10,14 +10,18 @@
 	import CvEditor from '#lib/components/cv/CvEditor.svelte';
 	import SaveStatus from '#lib/components/cv/SaveStatus.svelte';
 	import AiEditPanel from '#lib/components/editor/AiEditPanel.svelte';
+	import MarkdownPanel from '#lib/components/editor/MarkdownPanel.svelte';
+	import { loadMode, saveMode, type EditMode } from '#lib/components/editor/mode.ts';
 	import PlaceholderBanner from '#lib/components/editor/PlaceholderBanner.svelte';
 	import PreviewPanel from '#lib/components/editor/PreviewPanel.svelte';
+	import TypstPanel from '#lib/components/editor/TypstPanel.svelte';
 	import VersionsDialog from '#lib/components/editor/VersionsDialog.svelte';
 	import { loadSplit, saveSplit } from '#lib/components/editor/split.ts';
 	import Page from '#lib/components/shell/Page.svelte';
 	import Badge from '#lib/components/ui/Badge.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
+	import ConfirmDialog from '#lib/components/ui/ConfirmDialog.svelte';
 	import IconButton from '#lib/components/ui/IconButton.svelte';
 	import Menu from '#lib/components/ui/Menu.svelte';
 	import SegmentedControl from '#lib/components/ui/SegmentedControl.svelte';
@@ -35,13 +39,19 @@
 	const MIN_EDIT = 360;
 	const MIN_PREVIEW = 320;
 
+	/** What autosave keeps on the server: the content and the custom layout. */
+	interface Draft {
+		content: CvContent;
+		layout: string | null;
+	}
+
 	const id = $derived(page.params.id ?? '');
 	// Under 768px the editor stacks and is read-only (docs/DESIGN.md, Breakpoints).
 	const wide = new MediaQuery('min-width: 768px', true);
 
 	let doc = $state<CvDocument | null>(null);
 	let loadError = $state<string | null>(null);
-	let autosave = $state<Autosave<CvContent> | null>(null);
+	let autosave = $state<Autosave<Draft> | null>(null);
 	let preview = $state<PreviewState | null>(null);
 	let chat = $state<AiEditChat | null>(null);
 
@@ -51,6 +61,21 @@
 	let exporting = $state(false);
 	let placeholders = $state<PlaceholderRef[] | null>(null);
 	let narrowView = $state<'form' | 'preview'>('form');
+
+	let mode = $state<EditMode>(loadMode());
+	let markdownInvalid = $state(false);
+	// Bumped when the content changes from outside the editor, so the Markdown text is rewritten.
+	let revision = $state(0);
+	let pendingMode = $state<EditMode | null>(null);
+	// The preview part that asked to leave Markdown, to open once the form is showing.
+	let pendingTarget = $state<string | null>(null);
+	let discardOpen = $state(false);
+	// Where the user was heading when Markdown with errors stopped them.
+	let leaveTarget = $state<URL | null>(null);
+	let leaveOpen = $state(false);
+	let pendingTemplate = $state<string | null>(null);
+	let switchOpen = $state(false);
+	let resetOpen = $state(false);
 
 	let containerWidth = $state(0);
 	let split = $state<number | null>(loadSplit());
@@ -66,6 +91,7 @@
 		loadError = null;
 		placeholders = null;
 		ats = null;
+		markdownInvalid = false;
 		try {
 			const loaded = await unwrap(
 				api.GET('/api/v1/documents/{document_id}', {
@@ -75,9 +101,9 @@
 			autosave?.dispose();
 			preview?.dispose();
 			chat?.dispose();
-			autosave = new Autosave<CvContent>(
-				(content) => saveContent(documentId, content),
-				loaded.content,
+			autosave = new Autosave<Draft>(
+				(draft) => saveDraft(documentId, draft),
+				{ content: loaded.content, layout: loaded.layout },
 				400
 			);
 			preview = new PreviewState(documentId);
@@ -94,11 +120,11 @@
 		}
 	}
 
-	async function saveContent(documentId: string, content: CvContent) {
+	async function saveDraft(documentId: string, draft: Draft) {
 		const updated = await unwrap(
 			api.PATCH('/api/v1/documents/{document_id}', {
 				params: { path: { document_id: documentId } },
-				body: { content }
+				body: { content: draft.content, layout: draft.layout }
 			})
 		);
 		if (doc?.id === documentId) doc.updated_at = updated.updated_at;
@@ -106,10 +132,10 @@
 		void refreshAts();
 	}
 
-	/** The saved CV's ATS score: no AI, so it follows every save. Form-mode CVs only. */
+	/** The saved CV's ATS score: no AI, so it follows every save. */
 	async function refreshAts() {
 		const current = doc;
-		if (!current || current.mode !== 'structured') return;
+		if (!current) return;
 		try {
 			const result = await unwrap(
 				api.GET('/api/v1/documents/{document_id}/ats', {
@@ -137,9 +163,9 @@
 
 	$effect(() => {
 		if (!doc || !autosave) return;
-		const content = $state.snapshot(doc.content);
+		const draft = { content: $state.snapshot(doc.content), layout: doc.layout };
 		const saver = autosave;
-		untrack(() => saver.schedule(content));
+		untrack(() => saver.schedule(draft));
 	});
 
 	$effect(() => () => {
@@ -148,16 +174,58 @@
 		chat?.dispose();
 	});
 
-	beforeNavigate(() => {
+	/** Markdown with errors holds edits that were never saved: leaving loses them. */
+	const unsavedMarkdown = $derived(mode === 'markdown' && markdownInvalid);
+
+	beforeNavigate((navigation) => {
+		if (unsavedMarkdown) {
+			// Closing the tab or leaving the site gets the browser's own prompt.
+			navigation.cancel();
+			if (navigation.type !== 'leave' && navigation.to) {
+				leaveTarget = navigation.to.url;
+				leaveOpen = true;
+			}
+			return;
+		}
 		if (autosave?.dirty) void autosave.flush();
 	});
 
 	function onbeforeunload(event: BeforeUnloadEvent) {
-		if (autosave?.dirty) event.preventDefault();
+		if (autosave?.dirty || unsavedMarkdown) event.preventDefault();
 	}
 
 	async function flush() {
 		await autosave?.flush();
+	}
+
+	/** Switch mode now, or after asking when the Markdown has lines that cannot be saved. */
+	function requestMode(next: EditMode, target: string | null = null) {
+		if (next === mode) return;
+		if (mode === 'markdown' && markdownInvalid) {
+			pendingMode = next;
+			pendingTarget = target;
+			discardOpen = true;
+			return;
+		}
+		setMode(next);
+	}
+
+	function setMode(next: EditMode) {
+		mode = next;
+		markdownInvalid = false;
+		saveMode(next);
+	}
+
+	function selectTemplate(select: HTMLSelectElement) {
+		if (!doc || select.value === doc.template_id) return;
+		if (doc.layout === null) {
+			void changeTemplate(select.value);
+			return;
+		}
+		// A custom layout is replaced by the switch: ask first, showing the current template meanwhile.
+		pendingTemplate = select.value;
+		select.value = doc.template_id;
+		switchOpen = true;
 	}
 
 	async function changeTemplate(templateId: string) {
@@ -166,12 +234,15 @@
 		doc.template_id = templateId;
 		try {
 			await flush();
-			await unwrap(
+			const updated = await unwrap(
 				api.PATCH('/api/v1/documents/{document_id}', {
 					params: { path: { document_id: doc.id } },
 					body: { template_id: templateId }
 				})
 			);
+			// The server drops a custom layout on a switch.
+			autosave?.reset({ content: $state.snapshot(doc.content), layout: updated.layout });
+			doc.layout = updated.layout;
 			void preview?.refresh();
 			void refreshAts();
 		} catch (error) {
@@ -199,14 +270,19 @@
 		if (!doc) return;
 		doc.content = content;
 		placeholders = null;
+		// The Markdown text, if it is showing, is written again from the new content.
+		revision++;
 	}
 
 	function restored(updated: CvDocument) {
 		if (!doc) return;
-		autosave?.reset(updated.content);
+		autosave?.reset({ content: updated.content, layout: updated.layout });
 		doc.content = updated.content;
+		doc.layout = updated.layout;
 		doc.updated_at = updated.updated_at;
 		placeholders = null;
+		markdownInvalid = false;
+		revision++;
 		void preview?.refresh();
 		void refreshAts();
 	}
@@ -215,9 +291,12 @@
 	// target names, else the field itself (a bullet or the summary).
 	const FLASH = ['ring-2', 'ring-accent', 'ring-offset-2', 'ring-offset-surface'];
 
-	/** Opens the form field for a preview link target: an id, "summary" or "basics". */
+	/** Opens the form field for a preview link target: an id, "summary" or "basics". From
+	 * Markdown or Typst mode it switches to Form first. */
 	async function openField(target: string) {
 		narrowView = 'form';
+		if (wide.current) requestMode('form', target);
+		if (mode !== 'form' && wide.current) return;
 		await tick();
 		const field = editPanel ? sourceField(editPanel, target) : null;
 		if (!editPanel || !field) return;
@@ -236,6 +315,18 @@
 
 <svelte:window {onbeforeunload} />
 
+<!-- Why export stopped: beside the preview, where the placeholders show highlighted. -->
+{#snippet placeholderNotice()}
+	{#if doc && placeholders}
+		<PlaceholderBanner
+			{placeholders}
+			content={doc.content}
+			onfocus={focusPlaceholder}
+			ondismiss={() => (placeholders = null)}
+		/>
+	{/if}
+{/snippet}
+
 <Page title={doc?.name ?? 'CV'} width="full">
 	{#snippet actions()}
 		{#if doc}
@@ -246,22 +337,23 @@
 					<Badge variant="outline">{formatPages(preview.pageCount)}</Badge>
 				</span>
 			{/if}
-			{#if doc.mode === 'structured'}
-				{@const score = ats?.report?.score ?? null}
-				<Button
-					variant="secondary"
-					icon="ats"
-					aria-label={score !== null ? `ATS score ${score} of 100` : 'ATS score'}
-					onclick={() => (atsOpen = true)}
-				>
-					{#if score !== null}
-						<span class="max-lg:hidden">ATS</span>
-						<span class="tabular-nums">{score}</span>
-					{:else}
-						ATS<span class="max-lg:hidden">&nbsp;score</span>
-					{/if}
-				</Button>
+			{#if doc.layout !== null}
+				<span class="max-lg:hidden"><Badge variant="outline">Custom layout</Badge></span>
 			{/if}
+			{@const score = ats?.report?.score ?? null}
+			<Button
+				variant="secondary"
+				icon="ats"
+				aria-label={score !== null ? `ATS score ${score} of 100` : 'ATS score'}
+				onclick={() => (atsOpen = true)}
+			>
+				{#if score !== null}
+					<span class="max-lg:hidden">ATS</span>
+					<span class="tabular-nums">{score}</span>
+				{:else}
+					ATS<span class="max-lg:hidden">&nbsp;score</span>
+				{/if}
+			</Button>
 			<div class="w-36">
 				<Select
 					aria-label="Template"
@@ -270,7 +362,7 @@
 					options={templates.list.length
 						? templates.list.map((template) => ({ value: template.id, label: template.name }))
 						: [{ value: doc.template_id, label: templates.name(doc.template_id) }]}
-					onchange={(event) => changeTemplate(event.currentTarget.value)}
+					onchange={(event) => selectTemplate(event.currentTarget)}
 				/>
 			</div>
 			<IconButton
@@ -301,21 +393,44 @@
 	{:else if wide.current}
 		<div class="flex h-full min-h-0" bind:clientWidth={containerWidth}>
 			<div class="flex min-h-0 shrink-0 flex-col" style:width="{editWidth}px">
-				<div bind:this={editPanel} class="min-h-0 flex-1 overflow-y-auto">
-					<div class="flex flex-col gap-4 p-4">
-						{#if placeholders}
-							<PlaceholderBanner
-								{placeholders}
-								content={doc.content}
-								onfocus={focusPlaceholder}
-								ondismiss={() => (placeholders = null)}
-							/>
-						{/if}
-						<CvEditor bind:content={doc.content} />
-					</div>
+				<div class="flex h-12 shrink-0 items-center border-b border-line bg-surface px-4">
+					<SegmentedControl
+						label="Editing mode"
+						bind:value={() => mode, (next) => requestMode(next)}
+						options={[
+							{ value: 'form', label: 'Form' },
+							{ value: 'markdown', label: 'Markdown' },
+							{ value: 'typst', label: 'Typst' }
+						]}
+					/>
 				</div>
-				{#if chat && doc.mode === 'structured'}
-					<AiEditPanel {chat} content={doc.content} />
+				{#if mode === 'form'}
+					<div bind:this={editPanel} class="min-h-0 flex-1 overflow-y-auto">
+						<div class="p-4"><CvEditor bind:content={doc.content} /></div>
+					</div>
+					{#if chat}
+						<AiEditPanel {chat} content={doc.content} />
+					{/if}
+				{:else if mode === 'markdown'}
+					<div class="min-h-0 flex-1">
+						{#key revision}
+							<MarkdownPanel
+								bind:content={doc.content}
+								onvalidity={(valid) => (markdownInvalid = !valid)}
+							/>
+						{/key}
+					</div>
+				{:else}
+					<div class="min-h-0 flex-1">
+						<TypstPanel
+							documentId={doc.id}
+							templateId={doc.template_id}
+							bind:layout={doc.layout}
+							diagnostics={preview.diagnostics}
+							savedAt={doc.updated_at}
+							onreset={() => (resetOpen = true)}
+						/>
+					</div>
 				{/if}
 			</div>
 			<Splitter
@@ -325,7 +440,13 @@
 				label="Resize edit panel"
 				onchange={saveSplit}
 			/>
-			<div class="min-w-0 flex-1"><PreviewPanel {preview} onpick={openField} /></div>
+			<div class="min-w-0 flex-1">
+				<PreviewPanel
+					{preview}
+					onpick={openField}
+					notice={placeholders ? placeholderNotice : undefined}
+				/>
+			</div>
 		</div>
 	{:else}
 		<div class="flex h-full min-h-0 flex-col">
@@ -339,20 +460,15 @@
 					]}
 				/>
 			</div>
+			{#if placeholders}
+				<div class="shrink-0 px-4 pt-4">{@render placeholderNotice()}</div>
+			{/if}
 			{#if narrowView === 'form'}
 				<div bind:this={editPanel} class="min-h-0 flex-1 overflow-y-auto">
 					<div class="flex flex-col gap-4 p-4">
 						<p class="rounded-lg border border-line bg-surface p-3 text-sm text-fg-muted">
 							Editing needs a wider screen. You can still preview and export this CV.
 						</p>
-						{#if placeholders}
-							<PlaceholderBanner
-								{placeholders}
-								content={doc.content}
-								onfocus={focusPlaceholder}
-								ondismiss={() => (placeholders = null)}
-							/>
-						{/if}
 						<CvEditor bind:content={doc.content} disabled />
 					</div>
 				</div>
@@ -371,3 +487,72 @@
 />
 
 <AtsDialog bind:open={atsOpen} documentId={id} {ats} onchange={refreshAts} />
+
+<ConfirmDialog
+	bind:open={discardOpen}
+	title="Leave Markdown?"
+	message="Some lines have errors, so your latest Markdown changes are not saved. Leaving discards them; the CV keeps its last valid content."
+	confirmLabel="Discard changes"
+	cancelLabel="Keep editing"
+	danger
+	onconfirm={() => {
+		const target = pendingTarget;
+		if (pendingMode) setMode(pendingMode);
+		pendingMode = null;
+		pendingTarget = null;
+		// After the dialog has closed and given focus back to where it came from.
+		if (target) setTimeout(() => void openField(target), 0);
+	}}
+	oncancel={() => {
+		pendingMode = null;
+		pendingTarget = null;
+	}}
+/>
+
+<ConfirmDialog
+	bind:open={leaveOpen}
+	title="Leave this page?"
+	message="Some Markdown lines have errors, so your latest Markdown changes are not saved. Leaving discards them; the CV keeps its last valid content."
+	confirmLabel="Discard changes"
+	cancelLabel="Keep editing"
+	danger
+	onconfirm={() => {
+		const target = leaveTarget;
+		leaveTarget = null;
+		markdownInvalid = false;
+		// The target is the address the navigation already resolved, so it is not resolved again.
+		// eslint-disable-next-line svelte/no-navigation-without-resolve
+		if (target) setTimeout(() => void goto(target), 0);
+	}}
+	oncancel={() => (leaveTarget = null)}
+/>
+
+<ConfirmDialog
+	bind:open={switchOpen}
+	title="Switch template?"
+	message="Switching to {templates.name(
+		pendingTemplate ?? ''
+	)} replaces your custom layout. The layout stays in version history, so you can restore it."
+	confirmLabel="Switch template"
+	danger
+	onconfirm={async () => {
+		if (pendingTemplate) await changeTemplate(pendingTemplate);
+		pendingTemplate = null;
+	}}
+	oncancel={() => (pendingTemplate = null)}
+/>
+
+<ConfirmDialog
+	bind:open={resetOpen}
+	title="Reset layout?"
+	message="This CV goes back to the {templates.name(
+		doc?.template_id ?? ''
+	)} layout. Your Typst changes stay in version history."
+	confirmLabel="Reset to template"
+	danger
+	onconfirm={async () => {
+		// Save what was typed last, so the version kept for the restore holds it.
+		await flush();
+		if (doc) doc.layout = null;
+	}}
+/>

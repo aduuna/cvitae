@@ -22,9 +22,11 @@
 		label: string;
 		/** Renders the panel content for the active tab id. */
 		panel: Snippet<[string]>;
+		/** Fill the parent's height, the panel taking what the tab list leaves. */
+		fill?: boolean;
 	}
 
-	let { tabs, value = $bindable(), label, panel }: Props = $props();
+	let { tabs, value = $bindable(), label, panel, fill = false }: Props = $props();
 
 	const baseId = $props.id();
 	let buttons: HTMLButtonElement[] = $state([]);
@@ -40,7 +42,7 @@
 	}
 </script>
 
-<div class="flex flex-col">
+<div class={['flex flex-col', fill && 'h-full min-h-0']}>
 	<div role="tablist" aria-label={label} class="flex gap-4 border-b border-line">
 		{#each tabs as tab, index (tab.id)}
 			{@const selected = tab.id === value}
@@ -71,7 +73,7 @@
 		role="tabpanel"
 		aria-labelledby="{baseId}-tab-{value}"
 		tabindex="0"
-		class="pt-4"
+		class={['pt-4', fill && 'min-h-0 flex-1']}
 	>
 		{@render panel(value)}
 	</div>

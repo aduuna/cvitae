@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { errorMessage } from '#lib/api/client.ts';
-	import { loadTemplateSource } from '#lib/custom-templates.ts';
-	import TypstEditor from '#lib/components/editor/TypstEditor.svelte';
+	import CodeEditor from '#lib/components/editor/CodeEditor.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Dialog from '#lib/components/ui/Dialog.svelte';
 	import Skeleton from '#lib/components/ui/Skeleton.svelte';
+	import { templates } from '#lib/templates.svelte.ts';
 
 	interface Props {
 		open: boolean;
@@ -22,9 +22,9 @@
 		let current = true;
 		source = null;
 		failure = null;
-		loadTemplateSource(template.id).then(
+		templates.source(template.id).then(
 			(loaded) => {
-				if (current) source = loaded.main_typ;
+				if (current) source = loaded;
 			},
 			(error: unknown) => {
 				if (current) failure = errorMessage(error);
@@ -47,7 +47,7 @@
 		{:else if source === null}
 			<Skeleton variant="block" height="lg" />
 		{:else if template}
-			<TypstEditor value={source} label="Source of {template.name}" />
+			<CodeEditor value={source} language="typst" label="Source of {template.name}" readonly />
 		{/if}
 	</div>
 	{#snippet footer()}

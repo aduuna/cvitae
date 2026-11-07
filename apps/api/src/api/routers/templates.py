@@ -28,7 +28,7 @@ from api.services import user_templates as custom
 from api.services.ai_models import choose_claude_model
 from api.services.templates import preview_template
 from api.services.uploads import MAX_UPLOAD_BYTES
-from cvcore.rendering import Paper, SvgPages, TemplateMeta
+from cvcore.rendering import Paper, SvgPages, TemplateMeta, TemplateSource
 
 if TYPE_CHECKING:
     from api.db.models import UserTemplate
@@ -83,13 +83,6 @@ class CustomTemplateUpdate(BaseModel):
     description: str | None = Field(None, max_length=200)
     status: Literal["ready"] | None = None
     """"ready" confirms a draft, which needs room under the plan's limit."""
-
-
-class CustomTemplateSource(BaseModel):
-    id: str
-    name: str
-    main_typ: str
-    """The Typst source, to read: it cannot be edited."""
 
 
 @router.get("")
@@ -180,15 +173,6 @@ async def delete_custom_template(
     await custom.delete_custom(templates, documents, users, catalog, user, template_id)
 
 
-@router.get("/custom/{template_id}/source")
-async def get_custom_template_source(
-    template_id: str, templates: UserTemplates
-) -> CustomTemplateSource:
-    """The Typst source of one of the user's templates, to read."""
-    row = await custom.get_custom(templates, template_id)
-    return CustomTemplateSource(id=row.slug, name=row.name, main_typ=row.main_typ)
-
-
 @router.get("/{template_id}/preview")
 async def get_template_preview(
     template_id: str,
@@ -202,3 +186,10 @@ async def get_template_preview(
     return await preview_template(
         profiles, catalog, template_id, sample_path=settings.sample_profile_path, paper=paper
     )
+
+
+@router.get("/{template_id}/source")
+async def get_template_source(template_id: str, catalog: Catalog) -> TemplateSource:
+    """The main.typ of a built-in template or one of the user's own, where a CV's custom layout
+    starts. Another user's template is a 404."""
+    return await catalog.source(template_id)

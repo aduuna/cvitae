@@ -6,7 +6,6 @@ import uuid
 from dataclasses import dataclass
 
 from api.db.models import Job
-from api.errors import Conflict
 from api.repositories.documents import DocumentRepository
 from api.repositories.jobs import JobRepository
 from api.repositories.profiles import ProfileRepository
@@ -53,8 +52,6 @@ async def document_ats(
     document_id: uuid.UUID,
 ) -> DocumentAts:
     document = await get_document(documents, document_id)
-    if document.mode == "ejected":
-        raise Conflict("The ATS score reads the form, and this CV is edited as Typst.")
     job = await jobs.get(document.job_id) if document.job_id is not None else None
     if job is None or job.analysis is None:
         return DocumentAts(job=job, report=None)

@@ -116,20 +116,16 @@ async def test_session_lists_what_forms_can_be_filled_from(
     assert [(j["id"], j["url"]) for j in session["jobs"]] == [(job["id"], JOB["url"])]
 
 
-async def test_session_leaves_out_ejected_cvs(
-    client: AsyncClient,
-    extension: AsyncClient,
-    sample_content: dict[str, Any],
-    db_session: AsyncSession,
+async def test_session_lists_cvs_with_a_custom_layout(
+    client: AsyncClient, extension: AsyncClient, sample_content: dict[str, Any]
 ) -> None:
     document_id = await make_document(client, await make_profile(client, sample_content))
-    await db_session.execute(
-        update(Document).where(Document.id == uuid.UUID(document_id)).values(mode="ejected")
-    )
+    await client.patch(f"/api/v1/documents/{document_id}", json={"layout": "#let x = 1"})
 
     session = (await extension.get("/api/v1/extension/session")).json()
 
-    assert session["documents"] == []
+    # Its content is still structured, so the extension fills from it like from any CV.
+    assert [d["id"] for d in session["documents"]] == [document_id]
 
 
 async def test_extension_routes_need_the_token(

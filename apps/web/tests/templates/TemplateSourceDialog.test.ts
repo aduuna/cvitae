@@ -1,18 +1,21 @@
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import TemplateSourceDialog from '#lib/components/templates/TemplateSourceDialog.svelte';
+import { templates } from '#lib/templates.svelte.ts';
 import { fakeApi, json } from '../extension/fake-api.ts';
 
 const SLATE = { id: 'u-aaaaaaaaa2', name: 'Slate' };
+const SOURCE = 'GET /api/v1/templates/u-aaaaaaaaa2/source';
 
 describe('the view source dialog', () => {
+	// The catalog keeps sources for the session, so each test starts without them.
+	beforeEach(() => templates.reset());
 	afterEach(() => vi.unstubAllGlobals());
 
 	it('loads the source of the template and shows it read only', async () => {
 		const { calls } = fakeApi({
-			'GET /api/v1/templates/custom/u-aaaaaaaaa2/source': () =>
-				json({ ...SLATE, main_typ: '#import "/_lib/cv.typ": *\n// Slate' })
+			[SOURCE]: () => json({ id: SLATE.id, source: '#import "/_lib/cv.typ": *\n// Slate' })
 		});
 
 		render(TemplateSourceDialog, { open: true, template: SLATE });
@@ -20,12 +23,12 @@ describe('the view source dialog', () => {
 		const dialog = screen.getByRole('dialog', { name: 'Source of Slate' });
 		expect(dialog).toHaveTextContent('it cannot be edited');
 		await waitFor(() => expect(dialog).toHaveTextContent('// Slate'));
-		expect(calls).toEqual(['GET /api/v1/templates/custom/u-aaaaaaaaa2/source']);
+		expect(calls).toEqual([SOURCE]);
 	});
 
 	it('says when the source could not load', async () => {
 		fakeApi({
-			'GET /api/v1/templates/custom/u-aaaaaaaaa2/source': () =>
+			[SOURCE]: () =>
 				json({ error: { code: 'not_found', message: 'This template does not exist.' } }, 404)
 		});
 
@@ -36,7 +39,7 @@ describe('the view source dialog', () => {
 
 	it('does not ask for anything while closed, and closes from the footer', async () => {
 		const { calls } = fakeApi({
-			'GET /api/v1/templates/custom/u-aaaaaaaaa2/source': () => json({ ...SLATE, main_typ: 'x' })
+			[SOURCE]: () => json({ id: SLATE.id, source: 'x' })
 		});
 
 		render(TemplateSourceDialog, { open: false, template: SLATE });

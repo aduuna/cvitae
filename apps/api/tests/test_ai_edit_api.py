@@ -5,11 +5,11 @@ from collections.abc import Callable
 from typing import Any
 
 from httpx import AsyncClient, Response
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.ai.prompts import edit_cv as edit_prompt
-from api.db.models import AiRun, Document
+from api.db.models import AiRun
 from api.ports.llm.base import LLMRequest, ProviderName, provider_failure
 from api.ports.llm.fake import FakeLLMProvider
 from cvcore.models import Bullet, CvContent
@@ -93,6 +93,72 @@ async def test_an_edit_returns_the_changed_cv_without_saving_it(
     assert request.task == "edit"
     assert request.user_text.endswith("<request>\nShorten the summary\n</request>")
     assert "The request may change any part of the CV." in request.user_text
+
+
+async def test_a_cv_with_a_custom_layout_can_be_edited(
+    client: AsyncClient, sample_content: dict[str, Any], mimo: FakeLLMProvider
+) -> None:
+    doc = await new_cv(client, sample_content)
+    await client.patch(f"/api/v1/documents/{doc['id']}", json={"layout": "#let x = 1"})
+
+    def shorten(cv: CvContent) -> None:
+        cv.summary = "Data engineer with **9 years** of experience."
+
+    mimo.responders["edit"] = editing(shorten)
+
+    response = await ai_edit(client, doc["id"], "Shorten the summary")
+
+    # Its content is structured like any CV's; the saved layout is left as it was.
+    assert response.status_code == 200, response.text
+    assert response.json()["content"]["summary"] == "Data engineer with **9 years** of experience."
+    saved = (await client.get(f"/api/v1/documents/{doc['id']}")).json()
+    assert saved["layout"] == "#let x = 1"
+
+
+async def test_the_version_before_an_edit_keeps_the_layout_it_was_made_with(
+    client: AsyncClient, sample_content: dict[str, Any], mimo: FakeLLMProvider
+) -> None:
+    doc = await new_cv(client, sample_content)
+    base = f"/api/v1/documents/{doc['id']}"
+    await client.patch(base, json={"layout": "#let first = 1"})
+    await client.post(f"{base}/versions")
+    # Only the layout changed since the latest version: that still has to be kept.
+    await client.patch(base, json={"layout": "#let second = 2"})
+
+    def shorten(cv: CvContent) -> None:
+        cv.summary = "Data engineer with **9 years** of experience."
+
+    mimo.responders["edit"] = editing(shorten)
+    edited = await ai_edit(client, doc["id"], "Shorten the summary")
+    versions = (await client.get(f"{base}/versions")).json()
+
+    assert edited.json()["changed"] is True
+    assert [v["reason"] for v in versions] == ["autosave", "manual"]
+
+    # The editor applies the edit, and the layout is reset; the version undoes both.
+    await client.patch(base, json={"content": edited.json()["content"], "layout": None})
+    undone = (await client.post(f"{base}/versions/2/restore")).json()
+
+    assert undone["layout"] == "#let second = 2"
+    assert undone["content"] == doc["content"]
+
+
+async def test_no_second_version_when_the_latest_already_holds_the_cv(
+    client: AsyncClient, sample_content: dict[str, Any], mimo: FakeLLMProvider
+) -> None:
+    doc = await new_cv(client, sample_content)
+    base = f"/api/v1/documents/{doc['id']}"
+    await client.patch(base, json={"layout": "#let mine = 1"})
+    await client.post(f"{base}/versions")
+
+    def shorten(cv: CvContent) -> None:
+        cv.summary = "Data engineer with **9 years** of experience."
+
+    mimo.responders["edit"] = editing(shorten)
+    await ai_edit(client, doc["id"], "Shorten the summary")
+
+    versions = (await client.get(f"{base}/versions")).json()
+    assert [v["reason"] for v in versions] == ["manual"]
 
 
 async def test_the_fact_guard_checks_edits_against_the_cv(
@@ -245,19 +311,12 @@ async def test_requests_that_cannot_run_call_no_model(
     db_session: AsyncSession,
 ) -> None:
     doc = await new_cv(client, sample_content)
-    ejected = await new_cv(client, sample_content)
-    await db_session.execute(
-        update(Document).where(Document.id == uuid.UUID(ejected["id"])).values(mode="ejected")
-    )
-    # Committed, so the refused requests' rollbacks keep it.
-    await db_session.commit()
 
     blank = await ai_edit(client, doc["id"], "   ")
     long_history = await ai_edit(
         client, doc["id"], "Shorter", history=[{"role": "user", "text": "Hi"}] * 13
     )
     gone = await ai_edit(client, doc["id"], "Shorter", scope="sec-gone")
-    typst = await ai_edit(client, ejected["id"], "Shorter")
     someone_elses = await ai_edit(other_client, doc["id"], "Shorter")
     pro_model = await ai_edit(client, doc["id"], "Shorter", ai_model="claude-sonnet")
 
@@ -266,7 +325,6 @@ async def test_requests_that_cannot_run_call_no_model(
     assert gone.json()["error"]["message"] == (
         "That section is no longer in this CV. Choose another part to change."
     )
-    assert typst.status_code == 409
     assert someone_elses.status_code == 404
     assert pro_model.json()["error"]["code"] == "plan_required"
     assert mimo.requests == []

@@ -1,7 +1,7 @@
 import { StringStream } from '@codemirror/language';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
-import TypstEditor from '#lib/components/editor/TypstEditor.svelte';
+import CodeEditor from '#lib/components/editor/CodeEditor.svelte';
 import { typstParser } from '#lib/components/editor/typst-language.ts';
 
 /** The tokens of source text, line by line, as [text, token] pairs without the blanks. */
@@ -54,11 +54,13 @@ describe('the Typst tokenizer', () => {
 	});
 });
 
-describe('TypstEditor', () => {
+describe('a read-only CodeEditor on Typst', () => {
 	it('shows the source as text at once, then in a read-only editor', async () => {
-		const { container } = render(TypstEditor, {
+		const { container } = render(CodeEditor, {
 			value: '#import "/_lib/cv.typ": *\n// Slate',
-			label: 'Source of Slate'
+			language: 'typst',
+			label: 'Source of Slate',
+			readonly: true
 		});
 
 		expect(screen.getByRole('region', { name: 'Source of Slate' })).toHaveTextContent(

@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Response, status
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
@@ -38,7 +38,8 @@ class DocumentSummary(BaseModel):
     id: uuid.UUID
     name: str
     template_id: str
-    mode: Literal["structured", "ejected"]
+    custom_layout: bool
+    """The CV has its own main.typ (Typst mode)."""
     page_count: int | None
     profile_id: uuid.UUID | None
     job_id: uuid.UUID | None
@@ -48,6 +49,8 @@ class DocumentSummary(BaseModel):
 
 class Document(DocumentSummary):
     content: CvContent
+    layout: str | None
+    """The CV's own main.typ; null means the template's."""
 
 
 class DocumentCreate(BaseModel):
@@ -58,12 +61,18 @@ class DocumentCreate(BaseModel):
     """Defaults to the user's default template, else classic."""
 
 
+MAX_LAYOUT_CHARS = 100_000
+
+
 class DocumentUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=200)
     template_id: str | None = None
+    """Switching template removes a custom layout, unless `layout` is also given."""
     content: CvContent | None = None
     job_id: uuid.UUID | None = None
     """A saved job to check this CV against. It also names the exported PDF."""
+    layout: str | None = Field(None, max_length=MAX_LAYOUT_CHARS)
+    """A custom main.typ; null removes the custom layout, and leaving it out keeps it."""
 
 
 class DocumentAts(BaseModel):
@@ -140,16 +149,18 @@ async def get_document(document_id: uuid.UUID, documents: Documents) -> Document
     return Document.model_validate(await service.get_document(documents, document_id))
 
 
-@router.patch("/{document_id}", responses={409: {"model": ErrorEnvelope}})
+@router.patch("/{document_id}")
 async def update_document(
     document_id: uuid.UUID,
     body: DocumentUpdate,
     documents: Documents,
+    versions_repo: Versions,
     catalog: Catalog,
     jobs: Jobs,
 ) -> Document:
     row = await service.update_document(
         documents,
+        versions_repo,
         catalog,
         jobs,
         document_id,
@@ -157,11 +168,13 @@ async def update_document(
         template_id=body.template_id,
         content=body.content,
         job_id=body.job_id,
+        layout=body.layout,
+        reset_layout="layout" in body.model_fields_set and body.layout is None,
     )
     return Document.model_validate(row)
 
 
-@router.get("/{document_id}/ats", responses={409: {"model": ErrorEnvelope}})
+@router.get("/{document_id}/ats")
 async def document_ats(
     document_id: uuid.UUID,
     documents: Documents,
@@ -169,7 +182,7 @@ async def document_ats(
     profiles: Profiles,
     catalog: Catalog,
 ) -> DocumentAts:
-    """How the saved CV reads to an ATS search for its job. No AI run. 409 for ejected CVs."""
+    """How the saved CV reads to an ATS search for its job. No AI run."""
     result = await ats.document_ats(documents, jobs, profiles, catalog, document_id)
     return DocumentAts(
         job=JobSummary.model_validate(result.job) if result.job is not None else None,
@@ -198,6 +211,12 @@ async def preview_document(
 ) -> SvgPages:
     """SVG pages of the saved CV, or 422 with Typst diagnostics in `details`."""
     return await rendering.preview(documents, catalog, document_id)
+
+
+@router.get("/{document_id}/data.json")
+async def get_render_data(document_id: uuid.UUID, documents: Documents) -> dict[str, Any]:
+    """The data.json the CV's template or custom layout receives."""
+    return await rendering.render_data(documents, document_id)
 
 
 @router.get(
@@ -248,10 +267,7 @@ async def restore_version(
     return Document.model_validate(row)
 
 
-@router.post(
-    "/{document_id}/ai-edit",
-    responses={**AI_ERROR_RESPONSES, 409: {"model": ErrorEnvelope}},
-)
+@router.post("/{document_id}/ai-edit", responses=AI_ERROR_RESPONSES)
 async def ai_edit(
     document_id: uuid.UUID,
     body: AiEditRequest,

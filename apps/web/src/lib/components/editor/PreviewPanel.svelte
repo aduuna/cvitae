@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import SegmentedControl from '#lib/components/ui/SegmentedControl.svelte';
 	import Skeleton from '#lib/components/ui/Skeleton.svelte';
 	import { formatPages } from '#lib/format.ts';
@@ -12,9 +13,11 @@
 		/** Called with the target of a linked part of a page when it is clicked (click to edit).
 		 * Without it, pages are plain images. */
 		onpick?: (target: string) => void;
+		/** Shown above the pages, for example why an export stopped. */
+		notice?: Snippet;
 	}
 
-	let { preview, onpick }: Props = $props();
+	let { preview, onpick, notice }: Props = $props();
 
 	const zoomOptions: { value: Zoom; label: string }[] = [
 		{ value: 'fit', label: 'Fit' },
@@ -101,6 +104,10 @@
 		<div role="alert" class="shrink-0 border-b border-danger bg-surface px-4 py-3">
 			<p class="text-base text-danger">{preview.error}</p>
 		</div>
+	{/if}
+
+	{#if notice}
+		<div class="max-h-1/2 shrink-0 overflow-y-auto px-6 pt-6">{@render notice()}</div>
 	{/if}
 
 	<div class="min-h-0 flex-1 overflow-auto p-6" bind:clientWidth={canvasWidth}>

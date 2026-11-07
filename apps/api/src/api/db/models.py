@@ -76,10 +76,7 @@ class Job(UserOwned):
 
 class Document(UserOwned):
     __tablename__ = "documents"
-    __table_args__ = (
-        Index("ix_documents_user_id_updated_at", "user_id", text("updated_at DESC")),
-        CheckConstraint("mode IN ('structured', 'ejected')", name="mode"),
-    )
+    __table_args__ = (Index("ix_documents_user_id_updated_at", "user_id", text("updated_at DESC")),)
 
     # A CV is a snapshot: deleting its profile keeps the CV.
     profile_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -89,10 +86,15 @@ class Document(UserOwned):
     job_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
     name: Mapped[str] = mapped_column(String(200))
     template_id: Mapped[str] = mapped_column(String(64))
-    mode: Mapped[str] = mapped_column(String(16), default="structured", server_default="structured")
+    """The template, or the one a custom layout started from."""
     content: Mapped[dict[str, Any]] = mapped_column(JSONB)
-    source_files: Mapped[dict[str, str] | None] = mapped_column(JSONB)
+    layout: Mapped[str | None] = mapped_column(Text)
+    """The CV's own main.typ (Typst mode); None means the template's."""
     page_count: Mapped[int | None] = mapped_column()
+
+    @property
+    def custom_layout(self) -> bool:
+        return self.layout is not None
 
 
 class DocumentVersion(Entity):
@@ -106,7 +108,7 @@ class DocumentVersion(Entity):
     number: Mapped[int] = mapped_column()
     reason: Mapped[str] = mapped_column(String(16))
     content: Mapped[dict[str, Any]] = mapped_column(JSONB)
-    source_files: Mapped[dict[str, str] | None] = mapped_column(JSONB)
+    layout: Mapped[str | None] = mapped_column(Text)
 
 
 class Upload(UserOwned):

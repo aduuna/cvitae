@@ -254,6 +254,7 @@
 					>
 						{#snippet meta()}
 							<Badge variant="outline">{templates.name(doc.template_id)}</Badge>
+							{#if doc.custom_layout}<Badge variant="outline">Custom layout</Badge>{/if}
 							{#if doc.page_count}<span>{formatPages(doc.page_count)}</span>{/if}
 							<span>Edited {formatRelative(doc.updated_at)}</span>
 						{/snippet}

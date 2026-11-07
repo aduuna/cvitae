@@ -24,7 +24,6 @@ export type TemplateMeta = Schemas['TemplateMeta'];
 export type SvgPages = Schemas['SvgPages'];
 export type CustomTemplate = Schemas['CustomTemplate'];
 export type CustomTemplateDraft = Schemas['CustomTemplateDraft'];
-export type CustomTemplateSource = Schemas['CustomTemplateSource'];
 
 export type ProviderName = Schemas['ProviderName'];
 export type AiModel = Schemas['AiModel'];

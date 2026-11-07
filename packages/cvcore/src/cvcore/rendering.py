@@ -10,8 +10,8 @@ RenderErrorCode = Literal["compile_error", "timeout", "limit_exceeded", "forbidd
 
 
 class RenderRequest(BaseModel):
-    """Either `template_id` with `files` holding only data.json (structured CVs), or a full `files`
-    map with main.typ (ejected CVs). The renderer always adds `_lib/`."""
+    """Either `template_id` with `files` holding only data.json, or a full `files` map with main.typ
+    (CVs with a custom layout). The renderer always adds `_lib/`."""
 
     files: dict[str, str]
     template_id: str | None = None
@@ -60,3 +60,10 @@ class TemplateMeta(BaseModel):
     custom: bool = False
     """False for the templates in the repository; true for one the user made from their own CV
     (docs/PRODUCT.md, 6, Custom templates)."""
+
+
+class TemplateSource(BaseModel):
+    """A template's main.typ, where a CV's custom layout starts."""
+
+    id: str
+    source: str

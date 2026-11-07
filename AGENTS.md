@@ -3,7 +3,8 @@
 Chameleon vitae is a web app that turns a person's career history into polished, job-specific CVs.
 Users import an existing CV or enter their experience, paste a job description, and get a tailored CV
 rendered with Typst. They can keep many CVs, switch between 5 templates (or add their own from a CV they like),
-edit in a form or in raw Typst, and export PDF. AI runs on MiMo, Claude or Gemini models, chosen by the user.
+edit in a form, in Markdown or in Typst (the layout), and export PDF. AI runs on MiMo, Claude or Gemini
+models, chosen by the user.
 
 Read these before writing code. They are the source of truth; if code and docs disagree, ask.
 
@@ -22,7 +23,7 @@ one meets its "done when" list and all checks pass.
 
 - Frontend: SvelteKit (Svelte 5 runes, SPA mode via adapter-static), Tailwind CSS v4, `@lucide/svelte`,
   Geist and Geist Mono via `@fontsource-variable/geist` and `@fontsource-variable/geist-mono`,
-  CodeMirror 6 for the Typst editor, Firebase Auth (client SDK).
+  CodeMirror 6 for the Markdown and Typst editors, Firebase Auth (client SDK).
 - Browser extension: Manifest V3 for Chrome and Firefox, a Svelte 5 side panel built with Vite that
   reuses `apps/web`'s tokens, components and generated API types (`@web`), plain TypeScript content
   scripts. See `docs/PRODUCT.md`, 8.

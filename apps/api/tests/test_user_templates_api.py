@@ -505,14 +505,15 @@ async def test_a_repair_that_fails_ends_the_generation(
     assert (run.status, run.error_code) == ("failed", "rate_limited")
 
 
-async def test_a_better_refinement_is_kept(client: AsyncClient, claude: FakeLLMProvider) -> None:
+async def test_a_better_refinement_is_kept(
+    client: AsyncClient, claude: FakeLLMProvider, db_session: AsyncSession
+) -> None:
     refined = FAKE_TEMPLATE + "\n// Margins tightened to match the original.\n"
     claude.responders["template"] = script(drafted(), revised(refined))
 
-    body = (await generate(client)).json()
+    await generate(client)
 
-    source = (await client.get(f"{CUSTOM}/{body['id']}/source")).json()["main_typ"]
-    assert source == refined
+    assert [row.main_typ for row in await stored(db_session)] == [refined]
 
 
 @pytest.mark.parametrize(
@@ -789,15 +790,6 @@ async def test_confirming_needs_room_under_the_limit(
     assert (await client.patch(f"{CUSTOM}/{slug}", json={"name": "B"})).status_code == 200
 
 
-async def test_the_source_can_be_read(client: AsyncClient) -> None:
-    draft = (await generate(client)).json()
-
-    response = await client.get(f"{CUSTOM}/{draft['id']}/source")
-
-    assert response.status_code == 200
-    assert response.json() == {"id": draft["id"], "name": "Teal rule", "main_typ": FAKE_TEMPLATE}
-
-
 async def test_the_preview_renders_the_template_source(
     client: AsyncClient, renderer: FakeRendererClient, sample_content: dict[str, Any]
 ) -> None:
@@ -1002,6 +994,69 @@ async def test_deleting_moves_its_cvs_to_a_custom_default(
     assert moved["template_id"] == second["id"]
 
 
+# Custom layouts (Typst mode) next to custom templates
+
+
+async def test_a_custom_template_is_where_a_layout_starts(
+    client: AsyncClient, other_client: AsyncClient, make_pro: MakePro
+) -> None:
+    await make_pro()
+    template = await ready(client)
+    draft = (await generate(client)).json()
+
+    mine = await client.get(f"/api/v1/templates/{template['id']}/source")
+    built_in = await client.get("/api/v1/templates/classic/source")
+    unconfirmed = await client.get(f"/api/v1/templates/{draft['id']}/source")
+    theirs = await other_client.get(f"/api/v1/templates/{template['id']}/source")
+
+    assert mine.json() == {"id": template["id"], "source": FAKE_TEMPLATE}
+    assert built_in.json()["id"] == "classic"
+    # A draft cannot be used, so it cannot be a start; another user's template is not found.
+    assert (unconfirmed.status_code, theirs.status_code) == (404, 404)
+
+
+async def test_a_layout_on_a_custom_template_replaces_its_source(
+    client: AsyncClient, renderer: FakeRendererClient, sample_content: dict[str, Any]
+) -> None:
+    template = await ready(client)
+    document = (
+        await profile_and_document(
+            client, without_placeholders(sample_content), template_id=template["id"]
+        )
+    ).json()
+    base = f"/api/v1/documents/{document['id']}"
+    layout = FAKE_TEMPLATE + "\n// edited\n"
+    await client.patch(base, json={"layout": layout})
+    renderer.calls.clear()
+    renderer.sources.clear()
+
+    preview = await client.post(f"{base}/preview")
+    pdf = await client.get(f"{base}/export.pdf")
+
+    assert (preview.status_code, pdf.status_code) == (200, 200)
+    assert renderer.sources == [layout, layout]
+    assert [tid for _, tid, _ in renderer.calls] == [template["id"]] * 2
+
+
+async def test_a_layout_outlives_the_template_it_started_from(
+    client: AsyncClient, renderer: FakeRendererClient, sample_content: dict[str, Any]
+) -> None:
+    template = await ready(client)
+    document = (
+        await profile_and_document(client, sample_content, template_id=template["id"])
+    ).json()
+    base = f"/api/v1/documents/{document['id']}"
+    await client.patch(base, json={"layout": "#let mine = 1"})
+
+    await client.delete(f"{CUSTOM}/{template['id']}")
+
+    moved = (await client.get(base)).json()
+    assert (moved["template_id"], moved["layout"]) == ("classic", "#let mine = 1")
+    renderer.sources.clear()
+    assert (await client.post(f"{base}/preview")).status_code == 200
+    assert renderer.sources == ["#let mine = 1"]
+
+
 # Another user's templates
 
 
@@ -1021,7 +1076,7 @@ async def test_another_users_template_is_not_found_anywhere(
 
     responses = {
         "preview": await other_client.get(f"/api/v1/templates/{slug}/preview"),
-        "source": await other_client.get(f"{CUSTOM}/{slug}/source"),
+        "source": await other_client.get(f"/api/v1/templates/{slug}/source"),
         "patch": await other_client.patch(f"{CUSTOM}/{slug}", json={"name": "Mine now"}),
         "confirm": await other_client.patch(f"{CUSTOM}/{slug}", json={"status": "ready"}),
         "delete": await other_client.delete(f"{CUSTOM}/{slug}"),
@@ -1051,7 +1106,7 @@ async def test_another_users_template_is_not_found_anywhere(
         "compact",
     ]
     # Nothing of theirs changed.
-    assert (await client.get(f"{CUSTOM}/{slug}/source")).status_code == 200
+    assert (await client.get(f"/api/v1/templates/{slug}/source")).status_code == 200
     assert (await client.get("/api/v1/templates")).json()[-1]["name"] == "Teal rule"
     assert (await other_client.get("/api/v1/me")).json()["default_template_id"] is None
 

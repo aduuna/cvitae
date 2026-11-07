@@ -97,12 +97,11 @@ async def list_sources(
     profiles: ProfileRepository, documents: DocumentRepository, jobs: JobRepository
 ) -> Sources:
     """What a form can be filled from: profiles and CVs, newest first, and the saved jobs so the
-    extension can tell which CV was made for the page it is on. Ejected CVs are left out: their
-    Typst source, not their content, is what the user edits."""
+    extension can tell which CV was made for the page it is on. A CV with a custom layout is
+    listed like any other: its content is still structured, and only the PDF uses the layout."""
     cvs = [
         CvSource(row, len(find_placeholders(CvContent.model_validate(row.content))))
         for row in await documents.list_recent()
-        if row.mode == "structured"
     ]
     return Sources(await profiles.list_recent(), cvs, await jobs.list_recent())
 

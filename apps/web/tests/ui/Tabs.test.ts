@@ -63,4 +63,16 @@ describe('Tabs', () => {
 		expect(changes).toHaveAttribute('tabindex', '-1');
 		expect(gaps).toHaveAttribute('tabindex', '-1');
 	});
+
+	it('can fill its parent, the panel taking the height left', () => {
+		render(TabsHarness, { fill: true });
+		const panel = screen.getByRole('tabpanel');
+		expect(panel).toHaveClass('min-h-0', 'flex-1');
+		expect(panel.parentElement).toHaveClass('h-full', 'min-h-0');
+	});
+
+	it('sizes to its content by default', () => {
+		setup();
+		expect(screen.getByRole('tabpanel')).not.toHaveClass('flex-1');
+	});
 });
