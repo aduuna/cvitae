@@ -12,10 +12,15 @@
 		cancelLabel?: string;
 		/** Destructive action: the confirm button uses the danger variant. */
 		danger?: boolean;
-		/** When set, the user must type this exact text before confirming (account deletion). */
+		/** When set, the user must type this text before confirming (account deletion). */
 		confirmText?: string;
-		/** May return a promise; the button shows a spinner until it settles. */
-		onconfirm: () => void | Promise<void>;
+		/** Match what is typed without regard to case, as an email address is matched. */
+		ignoreCase?: boolean;
+		/**
+		 * Gets what the user typed (trimmed; empty without `confirmText`). May return a promise; the
+		 * button shows a spinner until it settles.
+		 */
+		onconfirm: (typed: string) => void | Promise<void>;
 		oncancel?: () => void;
 	}
 
@@ -27,6 +32,7 @@
 		cancelLabel = 'Cancel',
 		danger = false,
 		confirmText,
+		ignoreCase = false,
 		onconfirm,
 		oncancel
 	}: Props = $props();
@@ -34,7 +40,12 @@
 	let typed = $state('');
 	let busy = $state(false);
 
-	const confirmed = $derived(confirmText === undefined || typed.trim() === confirmText);
+	const confirmed = $derived(
+		confirmText === undefined ||
+			(ignoreCase
+				? typed.trim().toLowerCase() === confirmText.toLowerCase()
+				: typed.trim() === confirmText)
+	);
 
 	$effect(() => {
 		if (open) typed = '';
@@ -49,7 +60,7 @@
 		if (!confirmed) return;
 		busy = true;
 		try {
-			await onconfirm();
+			await onconfirm(typed.trim());
 			open = false;
 		} finally {
 			busy = false;

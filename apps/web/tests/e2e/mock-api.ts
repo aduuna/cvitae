@@ -33,6 +33,8 @@ export interface MockApi {
 	exports: number;
 	/** Whether the account was deleted: the api answered a `DELETE /me` with the right email. */
 	accountDeleted: boolean;
+	/** The emails sent to confirm deleting the account, as the user typed them. */
+	deleteConfirmations: string[];
 	jobs: Job[];
 	/** Provider of every AI call, in order. */
 	aiCalls: { task: 'import' | 'tailor' | 'template'; model: AiModel }[];
@@ -356,6 +358,7 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 		uploads: [],
 		exports: 0,
 		accountDeleted: false,
+		deleteConfirmations: [],
 		jobs: [],
 		aiCalls: [],
 		customTemplates: [],
@@ -446,6 +449,7 @@ export async function installMockApi(target: Page): Promise<MockApi> {
 		}
 
 		if (resource === 'me' && method === 'DELETE') {
+			state.deleteConfirmations.push(String(body.email ?? ''));
 			const status = state.subscription?.status;
 			if (status === 'active' || status === 'attention') {
 				return reply(route, 409, {

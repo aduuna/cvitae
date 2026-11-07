@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { deleteAccount, exportAccount } from '#lib/account.ts';
-	import { errorMessage } from '#lib/api/client.ts';
+	import { ApiError, errorMessage } from '#lib/api/client.ts';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
 	import ConfirmDialog from '#lib/components/ui/ConfirmDialog.svelte';
 	import { toast } from '#lib/components/ui/toasts.svelte.ts';
+	import { CONTACT_EMAIL } from '#lib/site.ts';
 
 	interface Props {
 		/** The account's email address: what the user types to confirm deleting it. */
@@ -30,11 +31,20 @@
 		}
 	}
 
-	async function remove() {
+	/** The api's reason, and for a subscription Paystack has not confirmed yet, where to turn. */
+	function whyNotDeleted(error: unknown): string {
+		const message = errorMessage(error);
+		return error instanceof ApiError && error.details.reason === 'subscription_pending'
+			? `${message} If it still does not work, write to ${CONTACT_EMAIL}.`
+			: message;
+	}
+
+	/** `typed` is what the user typed to confirm; the api checks it against the account's email. */
+	async function remove(typed: string) {
 		try {
-			await deleteAccount(email);
+			await deleteAccount(typed);
 		} catch (error) {
-			toast.error(errorMessage(error));
+			toast.error(whyNotDeleted(error));
 			return;
 		}
 		toast.info('Your account and everything in it was deleted.');
@@ -71,5 +81,6 @@
 	confirmLabel="Delete account"
 	danger
 	confirmText={email}
+	ignoreCase
 	onconfirm={remove}
 />

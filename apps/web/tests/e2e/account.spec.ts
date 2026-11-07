@@ -81,6 +81,18 @@ test.describe('account export and deletion', () => {
 		await expect(page.getByRole('link', { name: 'Sign in' }).first()).toBeVisible();
 	});
 
+	test('takes the email in any case and sends it as typed', async ({ page, api }) => {
+		await page.goto('/app/settings');
+		const dialog = await openDeleteDialog(page);
+
+		await dialog.getByLabel(`Type ${EMAIL} to confirm`).fill(`  ${EMAIL.toUpperCase()} `);
+		await dialog.getByRole('button', { name: 'Delete account' }).click();
+
+		await expect(page).toHaveURL('/');
+		expect(api.deleteConfirmations).toEqual([EMAIL.toUpperCase()]);
+		expect(api.accountDeleted).toBe(true);
+	});
+
 	test('cancelling the dialog keeps the account', async ({ page, api }) => {
 		await page.goto('/app/settings');
 		const dialog = await openDeleteDialog(page);

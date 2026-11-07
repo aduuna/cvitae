@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '#lib/api/client.ts';
 import DataCard from '#lib/components/settings/DataCard.svelte';
 import { toast } from '#lib/components/ui/toasts.svelte.ts';
+import { CONTACT_EMAIL } from '#lib/site.ts';
 
 const mocks = vi.hoisted(() => ({
 	exportAccount: vi.fn(async () => {}),
@@ -94,6 +95,59 @@ describe('DataCard', () => {
 		expect(mocks.deleteAccount).toHaveBeenCalledExactlyOnceWith(EMAIL);
 		expect(messages('info')).toEqual(['Your account and everything in it was deleted.']);
 		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+
+	it('matches the email without regard to case or spaces, and sends what was typed', async () => {
+		const user = userEvent.setup();
+		const ondeleted = vi.fn();
+		render(DataCard, { email: 'Ada@Example.com', ondeleted });
+
+		await user.click(screen.getByRole('button', { name: 'Delete account' }));
+		const confirm = screen
+			.getByRole('dialog')
+			.querySelector('footer button:last-child') as HTMLButtonElement;
+		await user.type(screen.getByLabelText('Type Ada@Example.com to confirm'), ' ada@example.com ');
+		expect(confirm).toBeEnabled();
+		await user.click(confirm);
+
+		await vi.waitFor(() => expect(ondeleted).toHaveBeenCalledOnce());
+		// The api compares this with the account's address, so it has to be what was typed.
+		expect(mocks.deleteAccount).toHaveBeenCalledExactlyOnceWith('ada@example.com');
+	});
+
+	it('does not delete for a different address', async () => {
+		const user = userEvent.setup();
+		render(DataCard, { email: EMAIL, ondeleted: vi.fn() });
+
+		await user.click(screen.getByRole('button', { name: 'Delete account' }));
+		await user.type(screen.getByLabelText(`Type ${EMAIL} to confirm`), 'bob@example.com');
+
+		const confirm = screen
+			.getByRole('dialog')
+			.querySelector('footer button:last-child') as HTMLButtonElement;
+		expect(confirm).toBeDisabled();
+		expect(mocks.deleteAccount).not.toHaveBeenCalled();
+	});
+
+	it('says where to turn when Paystack has not confirmed the subscription yet', async () => {
+		const user = userEvent.setup();
+		mocks.deleteAccount.mockRejectedValueOnce(
+			new ApiError(
+				409,
+				'conflict',
+				'Paystack is still setting up your Pro subscription, so it cannot be cancelled yet. Try again in a few minutes.',
+				{ reason: 'subscription_pending' }
+			)
+		);
+		render(DataCard, { email: EMAIL, ondeleted: vi.fn() });
+
+		await user.click(screen.getByRole('button', { name: 'Delete account' }));
+		await user.type(screen.getByLabelText(`Type ${EMAIL} to confirm`), EMAIL);
+		await user.keyboard('{Enter}');
+
+		await vi.waitFor(() => expect(messages('error')).toHaveLength(1));
+		expect(messages('error')[0]).toContain('Try again in a few minutes.');
+		expect(messages('error')[0]).toContain(`write to ${CONTACT_EMAIL}`);
 	});
 
 	it('cancelling deletes nothing', async () => {
